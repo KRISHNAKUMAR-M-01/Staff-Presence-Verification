@@ -1,0 +1,16 @@
+{
+    "name": "staff-presence-verification-root",
+    "version": "1.0.0",
+    "description": "Root entry point for the Staff Presence Verification System",
+    "scripts": {
+        "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+        "server": "cd backend && npm run dev",
+        "client": "cd frontend && npm run dev",
+        "dev": "concurrently \"npm run server\" \"npm run client\"",
+        "seed": "cd backend && npm run seed",
+        "start": "cd backend && npm start"
+    },
+    "devDependencies": {
+        "concurrently": "^8.2.2"
+    }
+}
