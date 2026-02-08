@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import api from '../../services/api';
-import CustomSelect from '../../components/CustomSelect';
+import api from '../services/api';
+import CustomSelect from '../components/CustomSelect';
 
 const TimetableManagement = () => {
     const [timetable, setTimetable] = useState([]);

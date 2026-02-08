@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Clipboard, AlertCircle, Plane } from 'lucide-react';
-import api from '../../services/api';
+import api from '../services/api';
 
 const AdminOverview = () => {
     const user = JSON.parse(localStorage.getItem('user') || '{}');

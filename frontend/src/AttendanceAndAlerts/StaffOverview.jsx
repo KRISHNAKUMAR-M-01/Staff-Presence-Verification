@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, CheckCircle } from 'lucide-react';
-import api from '../../services/api';
+import api from '../services/api';
 
 const StaffOverview = () => {
     const user = JSON.parse(localStorage.getItem('user') || '{}');

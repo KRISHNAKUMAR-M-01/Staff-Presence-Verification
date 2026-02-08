@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Plane, AlertCircle } from 'lucide-react';
-import api from '../../services/api';
-import CustomSelect from '../../components/CustomSelect';
-import CustomDatePicker from '../../components/CustomDatePicker';
+import api from '../services/api';
+import CustomSelect from '../components/CustomSelect';
+import CustomDatePicker from '../components/CustomDatePicker';
 
 const MyLeaves = () => {
     const [leaves, setLeaves] = useState([]);
