@@ -15,6 +15,13 @@ const Login = () => {
     const handleLogin = async (e) => {
         e.preventDefault();
         setError('');
+
+        // Validation: email should not start with a number
+        if (/^\d/.test(email)) {
+            setError('Email address should not start with a number');
+            return;
+        }
+
         setLoading(true);
 
         try {
@@ -54,6 +61,8 @@ const Login = () => {
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
                                 placeholder="Enter your email"
+                                title="Email should not start with a number"
+                                pattern="^[^0-9].*"
                             />
                         </div>
 

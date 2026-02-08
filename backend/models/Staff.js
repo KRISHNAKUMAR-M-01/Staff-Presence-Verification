@@ -4,7 +4,13 @@ const staffSchema = new mongoose.Schema({
     name: {
         type: String,
         required: true,
-        trim: true
+        trim: true,
+        validate: {
+            validator: function (v) {
+                return /^[A-Za-z\s]+$/.test(v);
+            },
+            message: 'Name should only contain letters and spaces'
+        }
     },
     beacon_uuid: {
         type: String,
@@ -15,7 +21,14 @@ const staffSchema = new mongoose.Schema({
     },
     department: {
         type: String,
-        trim: true
+        required: true,
+        trim: true,
+        validate: {
+            validator: function (v) {
+                return /^[A-Za-z\s]+$/.test(v);
+            },
+            message: 'Department should only contain letters and spaces'
+        }
     }
 }, {
     timestamps: true

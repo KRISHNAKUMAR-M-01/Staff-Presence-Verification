@@ -37,8 +37,13 @@ app.post('/api/auth/login', async (req, res) => {
     try {
         let { email, password } = req.body;
 
-        // Normalize email
-        if (email) email = email.trim().toLowerCase();
+        // Normalize email and validate
+        if (email) {
+            email = email.trim().toLowerCase();
+            if (/^\d/.test(email)) {
+                return res.status(400).json({ error: 'Email address should not start with a number' });
+            }
+        }
 
         // Find user
         console.log(`🔍 Login attempt for: ${email}`);
@@ -101,6 +106,17 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
 app.post('/api/admin/register-user', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { email, password, role, staff_id, name } = req.body;
+
+        // Validation: email should not start with a number
+        if (email && /^\d/.test(email.trim())) {
+            return res.status(400).json({ error: 'Email address should not start with a number' });
+        }
+
+        // Validation: Password complexity
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/;
+        if (!passwordRegex.test(password)) {
+            return res.status(400).json({ error: 'Password must be at least 8 characters long and include uppercase, lowercase, a number, and a special character.' });
+        }
 
         // Check if user already exists
         const existingUser = await User.findOne({ email });
@@ -521,8 +537,8 @@ app.get('/api/staff/my-leaves', authenticateToken, requireStaff, async (req, res
     }
 });
 
-// Get staff notifications
-app.get('/api/staff/notifications', authenticateToken, requireStaff, async (req, res) => {
+// Get user notifications (Both Staff and Admin)
+app.get('/api/staff/notifications', authenticateToken, async (req, res) => {
     try {
         const notifications = await Notification.find({ recipient_id: req.user._id })
             .sort({ createdAt: -1 })
@@ -533,8 +549,8 @@ app.get('/api/staff/notifications', authenticateToken, requireStaff, async (req,
     }
 });
 
-// Mark notification as read
-app.put('/api/staff/notifications/:id/read', authenticateToken, requireStaff, async (req, res) => {
+// Mark notification as read (Both Staff and Admin)
+app.put('/api/staff/notifications/:id/read', authenticateToken, async (req, res) => {
     try {
         const notification = await Notification.findByIdAndUpdate(
             req.params.id,
@@ -547,8 +563,8 @@ app.put('/api/staff/notifications/:id/read', authenticateToken, requireStaff, as
     }
 });
 
-// Get unread notification count
-app.get('/api/staff/notifications/unread-count', authenticateToken, requireStaff, async (req, res) => {
+// Get unread notification count (Both Staff and Admin)
+app.get('/api/staff/notifications/unread-count', authenticateToken, async (req, res) => {
     try {
         const count = await Notification.countDocuments({
             recipient_id: req.user._id,

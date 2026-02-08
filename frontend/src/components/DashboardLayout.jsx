@@ -24,8 +24,8 @@ const DashboardLayout = ({ children, title, navItems, userName, themeClass, bran
             {/* Sidebar */}
             <nav className={`sidebar ${isSidebarOpen ? 'mobile-open' : ''}`}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px', marginBottom: '32px' }}>
-                    <h2 style={{ fontSize: '18px', fontWeight: '800', color: brandColor }}>STAFF SYSTEM</h2>
-                    <button className="menu-toggle" onClick={() => setIsSidebarOpen(false)} style={{ display: 'none' }}>
+                    <h2 className="sidebar-logo" style={{ fontSize: '18px', fontWeight: '800', color: brandColor }}>STAFF SYSTEM</h2>
+                    <button className="menu-toggle" onClick={() => setIsSidebarOpen(false)}>
                         <X size={20} />
                     </button>
                 </div>
@@ -33,6 +33,7 @@ const DashboardLayout = ({ children, title, navItems, userName, themeClass, bran
                     <NavLink
                         key={index}
                         to={item.path}
+                        end={item.end !== undefined ? item.end : item.path === '/admin' || item.path === '/staff'}
                         className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
                         onClick={() => setIsSidebarOpen(false)}
                     >
@@ -53,10 +54,18 @@ const DashboardLayout = ({ children, title, navItems, userName, themeClass, bran
                     </div>
                     <div className="header-right">
                         {headerActions}
-                        <span className="user-name" style={{ display: window.innerWidth > 768 ? 'block' : 'none' }}>{userName}</span>
+                        <div className="user-profile">
+                            <div className="user-avatar">
+                                {userName ? userName.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
+                            </div>
+                            <div className="user-info">
+                                <span className="user-name">{userName}</span>
+                                <span className="user-role">{themeClass.includes('admin') ? 'Administrator' : 'Staff Member'}</span>
+                            </div>
+                        </div>
                         <button onClick={handleLogout} className="logout-btn">
                             <LogOut size={16} />
-                            <span className="logout-text" style={{ marginLeft: '8px' }}>Logout</span>
+                            <span className="logout-text">Logout</span>
                         </button>
                     </div>
                 </div>
