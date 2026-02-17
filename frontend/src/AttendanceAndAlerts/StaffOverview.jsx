@@ -39,34 +39,31 @@ const StaffOverview = () => {
     }, []);
 
     const statItems = [
-        { label: 'Classes Today', value: stats.classesToday, icon: <Calendar size={22} />, color: '#4f46e5' },
-        { label: 'My Attendance', value: `${stats.attendanceRate}%`, icon: <CheckCircle size={22} />, color: '#10b981' }
+        { label: 'Classes Today', value: stats.classesToday, icon: <Calendar size={22} />, color: '#097969', accent: '#e6fcf9' },
+        { label: 'My Attendance', value: `${stats.attendanceRate}%`, icon: <CheckCircle size={22} />, color: '#097969', accent: '#e6fcf9' }
     ];
 
     return (
         <div className="section">
             <div className="section-header" style={{ marginBottom: '32px' }}>
-                <h2 className="section-title">Staff Portal</h2>
+                <h2 className="section-title" style={{ fontSize: '24px', fontWeight: '800', letterSpacing: '-0.02em' }}>Staff Portal</h2>
                 <p style={{ color: 'var(--text-muted)', fontSize: '14px', fontWeight: '500' }}>Welcome back, {user.name}. Here's your shift summary.</p>
             </div>
 
             <div className="stats-grid">
                 {statItems.map((item, id) => (
-                    <div className="stat-card" key={id}>
+                    <div className="stat-card" key={id} style={{ borderLeft: `4px solid ${item.color}` }}>
                         <div className="stat-card-top">
-                            <div className="stat-icon-wrapper" style={{ color: item.color, backgroundColor: `${item.color}15` }}>
+                            <div className="stat-icon-wrapper" style={{ color: item.color, backgroundColor: item.accent }}>
                                 {item.icon}
                             </div>
-                            <div className="stat-badge" style={{ color: item.color, backgroundColor: `${item.color}10` }}>
-                                Today
+                            <div className="stat-badge" style={{ color: item.color, backgroundColor: item.accent }}>
+                                Status: Active
                             </div>
                         </div>
-                        <div style={{ marginTop: '12px' }}>
-                            <div className="stat-value">{item.value}</div>
-                            <div className="stat-label">{item.label}</div>
-                        </div>
-                        <div className="stat-footer">
-                            <span className="stat-trend" style={{ color: item.color }}>• Active</span>
+                        <div style={{ marginTop: '16px' }}>
+                            <div className="stat-value" style={{ fontSize: '32px' }}>{item.value}</div>
+                            <div className="stat-label" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '11px', opacity: 0.8 }}>{item.label}</div>
                         </div>
                     </div>
                 ))}

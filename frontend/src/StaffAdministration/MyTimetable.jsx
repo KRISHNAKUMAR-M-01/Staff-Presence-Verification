@@ -20,7 +20,7 @@ const MyTimetable = () => {
             <div className="table-container">
                 <table>
                     <thead>
-                        <tr><th>Day</th><th>Room</th><th>Time</th></tr>
+                        <tr><th>Day</th><th>Room</th><th>Time</th><th>Subject</th></tr>
                     </thead>
                     <tbody>
                         {days.map(day => {
@@ -28,13 +28,14 @@ const MyTimetable = () => {
                             if (slots.length === 0) return null;
                             return slots.map((s, i) => (
                                 <tr key={`${day}-${i}`}>
-                                    {i === 0 && <td rowSpan={slots.length} style={{ fontWeight: '700', color: '#4f46e5' }}>{day}</td>}
+                                    {i === 0 && <td rowSpan={slots.length} style={{ fontWeight: '700', color: '#097969' }}>{day}</td>}
                                     <td>{s.classroom_id?.room_name}</td>
                                     <td>{s.start_time} - {s.end_time}</td>
+                                    <td>{s.subject || '-'}</td>
                                 </tr>
                             ));
                         })}
-                        {timetable.length === 0 && <tr><td colSpan="3" style={{ textAlign: 'center', padding: '24px' }}>No schedule assigned</td></tr>}
+                        {timetable.length === 0 && <tr><td colSpan="4" style={{ textAlign: 'center', padding: '24px' }}>No schedule assigned</td></tr>}
                     </tbody>
                 </table>
             </div>

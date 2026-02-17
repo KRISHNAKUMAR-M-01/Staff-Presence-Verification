@@ -82,7 +82,7 @@ const AdminDashboard = () => {
                         position: 'absolute',
                         top: '-4px',
                         right: '-4px',
-                        background: '#4f46e5',
+                        background: '#097969',
                         color: 'white',
                         fontSize: '10px',
                         fontWeight: '700',
@@ -156,7 +156,7 @@ const AdminDashboard = () => {
             userName={user.name}
             navItems={navItems}
             themeClass="admin-theme"
-            brandColor="#4f46e5"
+            brandColor="#097969"
             headerActions={headerActions}
         >
             <Routes>

@@ -16,10 +16,15 @@ const attendanceSchema = new mongoose.Schema({
         required: true,
         default: Date.now
     },
+    last_seen_time: {
+        type: Date,
+        default: Date.now
+    },
     status: {
         type: String,
         required: true,
-        enum: ['Present', 'Late', 'Absent']
+        enum: ['Present', 'Late', 'Absent', 'Tracking'],
+        default: 'Tracking'
     },
     date: {
         type: Date,

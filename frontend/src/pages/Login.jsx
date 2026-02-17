@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import { Eye, EyeOff } from 'lucide-react';
 import '../styles/Login.css';
 
 const Login = () => {
     const { login } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
@@ -48,33 +50,42 @@ const Login = () => {
             <div className="login-container">
                 <div className="login-card">
                     <div className="login-header">
-                        <h1>Staff Presence System</h1>
-                        <p>Enterprise Authentication Portal</p>
+                        <h1 style={{ background: 'none', webkitTextFillColor: 'unset', color: 'white' }}>Staff Presence System</h1>
+                        <p style={{ color: '#64748b' }}>Enterprise Authentication Portal</p>
                     </div>
 
                     <form className="login-form" onSubmit={handleLogin}>
-                        <div className="form-group">
-                            <label>Email Address</label>
+                        <div className="form-group floating-group">
                             <input
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
-                                placeholder="Enter your email"
+                                placeholder=" "
                                 title="Email should not start with a number"
                                 pattern="^[^0-9].*"
                             />
+                            <label>Email Address</label>
                         </div>
 
-                        <div className="form-group">
-                            <label>Password</label>
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                required
-                                placeholder="Enter your password"
-                            />
+                        <div className="form-group floating-group">
+                            <div className="input-wrapper">
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    required
+                                    placeholder=" "
+                                />
+                                <label>Password</label>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="password-toggle"
+                                >
+                                    {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+                                </button>
+                            </div>
                         </div>
 
                         {error && <div className="error-message">{error}</div>}
@@ -92,7 +103,7 @@ const Login = () => {
                                 <strong>Admin:</strong> admin@school.com / admin123
                             </div>
                             <div>
-                                <strong>Staff:</strong> alice@school.com / staff123
+                                <strong>Staff:</strong> kriskanna17@gmail.com / Krish01@
                             </div>
                         </div>
                     </div>

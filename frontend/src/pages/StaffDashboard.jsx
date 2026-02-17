@@ -139,7 +139,7 @@ const StaffDashboard = () => {
             userName={user.name}
             navItems={navItems}
             themeClass="staff-theme"
-            brandColor="#10b981"
+            brandColor="#097969"
             headerActions={headerActions}
         >
             <Routes>

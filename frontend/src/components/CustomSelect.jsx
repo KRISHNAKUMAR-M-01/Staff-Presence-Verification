@@ -21,7 +21,7 @@ const CustomSelect = ({ label, options, value, onChange, placeholder, required }
     return (
         <div className="form-group" ref={containerRef}>
             {label && <label className={`form-label ${required ? 'required-label-asterisk' : ''}`}>{label}</label>}
-            <div className="custom-select-container">
+            <div className={`custom-select-container ${isOpen ? 'active-dropdown' : ''}`}>
                 <div
                     className={`custom-select-trigger ${isOpen ? 'open' : ''}`}
                     onClick={() => setIsOpen(!isOpen)}

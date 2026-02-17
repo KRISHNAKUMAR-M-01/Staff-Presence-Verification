@@ -22,36 +22,32 @@ const AdminOverview = () => {
     }, []);
 
     const statItems = [
-        { label: 'Present Today', value: stats.presentToday, icon: <Clipboard size={22} />, color: '#10b981' },
-        { label: 'Late Today', value: stats.lateToday, icon: <AlertCircle size={22} />, color: '#f59e0b' },
-        { label: 'Pending Leaves', value: stats.pendingLeaves, icon: <Plane size={22} />, color: '#3b82f6' }
+        { label: 'Present Today', value: stats.presentToday, icon: <Clipboard size={22} />, color: '#097969', accent: '#e6fcf9' },
+        { label: 'Late Today', value: stats.lateToday, icon: <AlertCircle size={22} />, color: '#d97706', accent: '#fffbeb' },
+        { label: 'Pending Leaves', value: stats.pendingLeaves, icon: <Plane size={22} />, color: '#097969', accent: '#e6fcf9' }
     ];
 
     return (
         <div className="section">
             <div className="section-header" style={{ marginBottom: '32px' }}>
-                <h2 className="section-title">Dashboard Overview</h2>
+                <h2 className="section-title" style={{ fontSize: '24px', fontWeight: '800', letterSpacing: '-0.02em' }}>Dashboard Overview</h2>
                 <p style={{ color: 'var(--text-muted)', fontSize: '14px', fontWeight: '500' }}>Welcome back, {user.name}. Here's what's happening today.</p>
             </div>
 
             <div className="stats-grid">
                 {statItems.map((item, id) => (
-                    <div className="stat-card" key={id}>
+                    <div className="stat-card" key={id} style={{ borderLeft: `4px solid ${item.color}` }}>
                         <div className="stat-card-top">
-                            <div className="stat-icon-wrapper" style={{ color: item.color, backgroundColor: `${item.color}15` }}>
+                            <div className="stat-icon-wrapper" style={{ color: item.color, backgroundColor: item.accent }}>
                                 {item.icon}
                             </div>
-                            <div className="stat-badge" style={{ color: item.color, backgroundColor: `${item.color}10` }}>
-                                Live
+                            <div className="stat-badge" style={{ color: item.color, backgroundColor: item.accent }}>
+                                Live Update
                             </div>
                         </div>
-                        <div style={{ marginTop: '12px' }}>
-                            <div className="stat-value">{item.value}</div>
-                            <div className="stat-label">{item.label}</div>
-                        </div>
-                        <div className="stat-footer">
-                            <span className="stat-trend" style={{ color: '#10b981' }}>↑ 4%</span>
-                            <span style={{ fontSize: '11px', color: '#94a3b8', marginLeft: '8px' }}>from yesterday</span>
+                        <div style={{ marginTop: '16px' }}>
+                            <div className="stat-value" style={{ fontSize: '32px' }}>{item.value}</div>
+                            <div className="stat-label" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '11px', opacity: 0.8 }}>{item.label}</div>
                         </div>
                     </div>
                 ))}

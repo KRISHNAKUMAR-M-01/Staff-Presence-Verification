@@ -117,7 +117,7 @@ const CustomDatePicker = ({ label, value, onChange, required, minDate }) => {
     return (
         <div className="form-group" ref={containerRef}>
             {label && <label className={`form-label ${required ? 'required-label-asterisk' : ''}`}>{label}</label>}
-            <div className="custom-date-picker">
+            <div className={`custom-date-picker ${isOpen ? 'active-dropdown' : ''}`}>
                 <div
                     className={`date-picker-trigger ${isOpen ? 'open' : ''}`}
                     onClick={() => setIsOpen(!isOpen)}

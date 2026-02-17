@@ -16,10 +16,19 @@
 #include <BLEAdvertisedDevice.h>
 
 // --- CONFIGURATION ---
-const char* ssid = "YOUR_WIFI_SSID";
-const char* password = "YOUR_WIFI_PASSWORD";
-const char* serverUrl = "http://YOUR_BACKEND_IP:5000/api/ble-data";
-const char* classroomId = "ROOM_101"; // Unique ID for this ESP32 location
+// TODO: Replace these with your actual values before uploading!
+// 1. WiFi credentials (your home/office WiFi that the ESP32 will connect to)
+const char* ssid = "Gandhi Ground floor 5G";          // e.g., "MyHomeWiFi"
+const char* password = "54641729";  // e.g., "mypassword123"
+
+// 2. Backend server URL
+// - If running backend on the same computer, use your computer's local IP (e.g., "http://192.168.1.100:5000/api/ble-data")
+// - Find your IP: Open CMD and type 'ipconfig', look for IPv4 Address
+const char* serverUrl = "http://192.168.1.7:5000/api/ble-data";
+
+// 3. Classroom/Location ID for this specific ESP32
+// - This identifies WHERE this scanner is located (e.g., "CS_LAB_1", "ROOM_101", etc.)
+const char* classroomId = "ROOM_101";
 
 int scanTime = 5; // Scan duration in seconds
 BLEScan* pBLEScan;
@@ -93,9 +102,13 @@ void setup() {
 
 void loop() {
     Serial.println("Starting BLE Scan...");
-    BLEScanResults foundDevices = pBLEScan->start(scanTime, false);
+    
+    // NOTE: In newer ESP32 board versions (3.0+), start() returns a pointer
+    BLEScanResults *foundDevices = pBLEScan->start(scanTime, false);
+    
     Serial.print("Scan complete. Devices found: ");
-    Serial.println(foundDevices.getCount());
+    Serial.println(foundDevices->getCount()); // Use arrow operator -> for pointer
+    
     pBLEScan->clearResults();   // delete results fromBLEScan buffer to release memory
     delay(10000); // Wait 10 seconds before next scan
 }

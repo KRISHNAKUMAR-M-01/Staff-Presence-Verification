@@ -23,24 +23,26 @@ const DashboardLayout = ({ children, title, navItems, userName, themeClass, bran
 
             {/* Sidebar */}
             <nav className={`sidebar ${isSidebarOpen ? 'mobile-open' : ''}`}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px', marginBottom: '32px' }}>
-                    <h2 className="sidebar-logo" style={{ fontSize: '18px', fontWeight: '800', color: brandColor }}>STAFF SYSTEM</h2>
-                    <button className="menu-toggle" onClick={() => setIsSidebarOpen(false)}>
+                <div className="sidebar-logo-container">
+                    <h2 className="sidebar-logo" style={{ fontSize: '18px', fontWeight: '800', color: brandColor, margin: 0 }}>STAFF SYSTEM</h2>
+                    <button className="menu-toggle" onClick={() => setIsSidebarOpen(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'none' }}>
                         <X size={20} />
                     </button>
                 </div>
-                {navItems.map((item, index) => (
-                    <NavLink
-                        key={index}
-                        to={item.path}
-                        end={item.end !== undefined ? item.end : item.path === '/admin' || item.path === '/staff'}
-                        className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-                        onClick={() => setIsSidebarOpen(false)}
-                    >
-                        {item.icon}
-                        <span>{item.label}</span>
-                    </NavLink>
-                ))}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {navItems.map((item, index) => (
+                        <NavLink
+                            key={index}
+                            to={item.path}
+                            end={item.end !== undefined ? item.end : item.path === '/admin' || item.path === '/staff'}
+                            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+                            onClick={() => setIsSidebarOpen(false)}
+                        >
+                            {item.icon}
+                            <span>{item.label}</span>
+                        </NavLink>
+                    ))}
+                </div>
             </nav>
 
             {/* Header */}

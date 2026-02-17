@@ -29,6 +29,20 @@ const staffSchema = new mongoose.Schema({
             },
             message: 'Department should only contain letters and spaces'
         }
+    },
+    is_hod: {
+        type: Boolean,
+        default: false
+    },
+    phone_number: {
+        type: String,
+        trim: true,
+        validate: {
+            validator: function (v) {
+                return !v || /^\+?[\d\s-]{10,}$/.test(v);
+            },
+            message: 'Invalid phone number format'
+        }
     }
 }, {
     timestamps: true
