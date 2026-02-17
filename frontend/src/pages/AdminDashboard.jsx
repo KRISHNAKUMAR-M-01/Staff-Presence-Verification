@@ -9,7 +9,8 @@ import {
     Clipboard,
     Plane,
     AlertCircle,
-    UserCog
+    UserCog,
+    Bell
 } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import api from '../services/api';
@@ -28,6 +29,7 @@ import SystemAlerts from '../AttendanceAndAlerts/SystemAlerts';
 const AdminDashboard = () => {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const [unreadCount, setUnreadCount] = useState(0);
+    const [pendingLeaves, setPendingLeaves] = useState(0);
     const [notifs, setNotifs] = useState([]);
     const [showNotifs, setShowNotifs] = useState(false);
 
@@ -35,6 +37,14 @@ const AdminDashboard = () => {
         try {
             const res = await api.get('/staff/notifications/unread-count');
             setUnreadCount(res.data.count);
+        } catch (err) { console.error(err); }
+    };
+
+    const loadPendingLeaves = async () => {
+        try {
+            const res = await api.get('/admin/leaves');
+            const pending = res.data.filter(l => l.status === 'pending').length;
+            setPendingLeaves(pending);
         } catch (err) { console.error(err); }
     };
 
@@ -59,7 +69,11 @@ const AdminDashboard = () => {
 
     useEffect(() => {
         loadUnreadCount();
-        const interval = setInterval(loadUnreadCount, 30000);
+        loadPendingLeaves();
+        const interval = setInterval(() => {
+            loadUnreadCount();
+            loadPendingLeaves();
+        }, 30000);
         return () => clearInterval(interval);
     }, []);
 
@@ -78,7 +92,7 @@ const AdminDashboard = () => {
                     position: 'relative'
                 }}
             >
-                <AlertCircle size={20} color="#64748b" />
+                <Bell size={20} color="#64748b" />
                 {unreadCount > 0 && (
                     <span style={{
                         position: 'absolute',
@@ -149,7 +163,7 @@ const AdminDashboard = () => {
         { label: 'Classrooms', path: '/admin/classrooms', icon: <Home size={20} /> },
         { label: 'Timetable', path: '/admin/timetable', icon: <Calendar size={20} /> },
         { label: 'Attendance', path: '/admin/attendance', icon: <Clipboard size={20} /> },
-        { label: 'Leave Requests', path: '/admin/leaves', icon: <Plane size={20} /> },
+        { label: 'Leave Requests', path: '/admin/leaves', icon: <Plane size={20} />, badge: pendingLeaves },
         { label: 'Alerts', path: '/admin/alerts', icon: <AlertCircle size={20} /> },
     ];
 

@@ -16,6 +16,7 @@ const ExecutiveDashboard = () => {
     const [sendingRequest, setSendingRequest] = useState(false);
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [showNotifs, setShowNotifs] = useState(false);
 
     useEffect(() => {
         fetchStaffStatus();
@@ -56,6 +57,23 @@ const ExecutiveDashboard = () => {
             setUnreadCount(response.data.count);
         } catch (error) {
             console.error('Error fetching unread count:', error);
+        }
+    };
+
+    const toggleNotifs = async () => {
+        if (!showNotifs) {
+            await fetchNotifications();
+        }
+        setShowNotifs(!showNotifs);
+    };
+
+    const markAsRead = async (id) => {
+        try {
+            await api.put(`/staff/notifications/${id}/read`);
+            fetchUnreadCount();
+            fetchNotifications();
+        } catch (error) {
+            console.error('Error marking notification as read:', error);
         }
     };
 
@@ -162,27 +180,73 @@ const ExecutiveDashboard = () => {
                     </span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                    <div style={{ position: 'relative', cursor: 'pointer' }}>
-                        <Bell size={20} color="#64748b" />
-                        {unreadCount > 0 && (
-                            <span style={{
+                    <div style={{ position: 'relative' }}>
+                        <div
+                            onClick={toggleNotifs}
+                            style={{ position: 'relative', cursor: 'pointer', padding: '4px' }}
+                        >
+                            <Bell size={20} color="#64748b" />
+                            {unreadCount > 0 && (
+                                <span style={{
+                                    position: 'absolute',
+                                    top: '-4px',
+                                    right: '-4px',
+                                    background: '#097969',
+                                    color: 'white',
+                                    fontSize: '10px',
+                                    fontWeight: '700',
+                                    minWidth: '18px',
+                                    height: '18px',
+                                    borderRadius: '50%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    border: '2px solid white'
+                                }}>
+                                    {unreadCount}
+                                </span>
+                            )}
+                        </div>
+
+                        {showNotifs && (
+                            <div style={{
                                 position: 'absolute',
-                                top: '-6px',
-                                right: '-6px',
-                                background: '#097969',
-                                color: 'white',
-                                fontSize: '10px',
-                                fontWeight: '700',
-                                minWidth: '18px',
-                                height: '18px',
-                                borderRadius: '50%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                border: '2px solid white'
+                                top: '40px',
+                                right: '0',
+                                width: '320px',
+                                background: 'white',
+                                borderRadius: '12px',
+                                boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
+                                border: '1px solid #e2e8f0',
+                                zIndex: 1000,
+                                overflow: 'hidden'
                             }}>
-                                {unreadCount}
-                            </span>
+                                <div style={{ padding: '16px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ fontWeight: '700', fontSize: '14px' }}>Notifications</span>
+                                    <button onClick={() => setShowNotifs(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '18px', color: '#94a3b8' }}>×</button>
+                                </div>
+                                <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                                    {notifications.length > 0 ? notifications.map(n => (
+                                        <div
+                                            key={n._id}
+                                            onClick={() => markAsRead(n._id)}
+                                            style={{
+                                                padding: '12px 16px',
+                                                borderBottom: '1px solid #f1f5f9',
+                                                backgroundColor: n.is_read ? 'transparent' : '#f0fdf4',
+                                                cursor: 'pointer',
+                                                transition: 'background 0.2s'
+                                            }}
+                                            onMouseOver={(e) => e.currentTarget.style.backgroundColor = n.is_read ? '#f8fafc' : '#ecfdf5'}
+                                            onMouseOut={(e) => e.currentTarget.style.backgroundColor = n.is_read ? 'transparent' : '#f0fdf4'}
+                                        >
+                                            <div style={{ fontSize: '13px', fontWeight: '600', color: '#0f172a', marginBottom: '2px' }}>{n.title}</div>
+                                            <div style={{ fontSize: '12px', color: '#64748b', lineHeight: '1.4' }}>{n.message}</div>
+                                            <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '6px' }}>{new Date(n.createdAt).toLocaleString()}</div>
+                                        </div>
+                                    )) : <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>No new notifications</div>}
+                                </div>
+                            </div>
                         )}
                     </div>
                     <span style={{ fontSize: '14px', color: '#475569', fontWeight: '500' }}>{user?.name}</span>

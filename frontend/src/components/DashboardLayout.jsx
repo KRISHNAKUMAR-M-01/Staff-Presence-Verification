@@ -37,9 +37,29 @@ const DashboardLayout = ({ children, title, navItems, userName, themeClass, bran
                             end={item.end !== undefined ? item.end : item.path === '/admin' || item.path === '/staff'}
                             className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
                             onClick={() => setIsSidebarOpen(false)}
+                            style={{ position: 'relative' }}
                         >
                             {item.icon}
                             <span>{item.label}</span>
+                            {item.badge > 0 && (
+                                <span style={{
+                                    position: 'absolute',
+                                    right: '12px',
+                                    background: '#ef4444',
+                                    color: 'white',
+                                    fontSize: '10px',
+                                    fontWeight: '700',
+                                    minWidth: '18px',
+                                    height: '18px',
+                                    borderRadius: '50%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    border: '2px solid white'
+                                }}>
+                                    {item.badge}
+                                </span>
+                            )}
                         </NavLink>
                     ))}
                 </div>
