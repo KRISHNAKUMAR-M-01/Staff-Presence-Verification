@@ -22,28 +22,8 @@ const { generateToken, authenticateToken, requireAdmin, requireStaff } = require
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// SMS Messaging Helper (Mock implementation)
-const sendSMS = async (to, message) => {
-    if (!to) {
-        console.log(`[SMS] Skip: No phone number provided.`);
-        return;
-    }
-    console.log(`\n==========================================`);
-    console.log(`📱 [SMS ALERT]`);
-    console.log(`To: ${to}`);
-    console.log(`Message: ${message}`);
-    console.log(`==========================================\n`);
-
-    // To integrate with a real service like Twilio:
-    /*
-    const client = require('twilio')(process.env.TWILIO_SID, process.env.TWILIO_AUTH_TOKEN);
-    await client.messages.create({
-        body: message,
-        from: process.env.TWILIO_PHONE,
-        to: to
-    });
-    */
-};
+// Import Services
+const { sendEmail } = require('./utils/emailService');
 
 // Connect to MongoDB
 connectDB();
@@ -122,9 +102,18 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
     }
 });
 
+// Import Routes
+const specialRoutes = require('./routes/specialRoutes');
+
+// ============================================
+// EXECUTIVE ENDPOINTS (Protected)
+// ============================================
+app.use('/api/executive', specialRoutes);
+
 // ============================================
 // ADMIN ENDPOINTS (Protected)
 // ============================================
+
 
 // Register new user (Admin only)
 app.post('/api/admin/register-user', authenticateToken, requireAdmin, async (req, res) => {
@@ -638,8 +627,8 @@ app.put('/api/admin/leaves/:id', authenticateToken, requireAdmin, async (req, re
                                 type: 'substitution_alert'
                             });
 
-                            // Send SMS Alert
-                            await sendSMS(s.phone_number, `Substitution Opportunity: ${cls.classroom_id.room_name} needs coverage on ${dateString} at ${cls.start_time}. Support your colleague ${leave.staff_id.name}!`);
+                            // Send Email Alert
+                            await sendEmail(sUser.email, 'Substitution Opportunity', substitutionMsg);
                         }
                     }
                 }
@@ -876,8 +865,11 @@ app.post('/api/ble-data', async (req, res) => {
                     });
                     await alert.save();
 
-                    // 1. Send SMS to Staff
-                    await sendSMS(staff.phone_number, `Attendance Alert: You have been marked LATE for your class in ${classroom.room_name}.`);
+                    // 1. Send Email to Staff
+                    const staffEmail = staffUser?.email;
+                    if (staffEmail) {
+                        await sendEmail(staffEmail, 'Attendance Alert: Late', `You have been marked LATE for your class in ${classroom.room_name}.`);
+                    }
 
                     // In-app notification for Staff
                     const staffUser = await User.findOne({ staff_id: staff._id });
@@ -893,12 +885,11 @@ app.post('/api/ble-data', async (req, res) => {
                     // 2. Notify HOD(s)
                     const hods = await Staff.find({ department: staff.department, is_hod: true });
                     for (const hod of hods) {
-                        // Send SMS to HOD
-                        await sendSMS(hod.phone_number, `HOD Alert: ${staff.name} has been marked LATE for class in ${classroom.room_name}.`);
-
                         // In-app notification for HOD
                         const hodUser = await User.findOne({ staff_id: hod._id });
                         if (hodUser) {
+                            // Send Email to HOD
+                            await sendEmail(hodUser.email, 'Department Lateness Alert', `HOD Alert: ${staff.name} has been marked LATE for class in ${classroom.room_name}.`);
                             await Notification.create({
                                 recipient_id: hodUser._id,
                                 title: 'Dept. Lateness Alert',
@@ -1018,21 +1009,21 @@ cron.schedule('* * * * *', async () => {
                         type: 'upcoming_class'
                     });
 
-                    // 1. Send SMS to Staff
-                    await sendSMS(
-                        cls.staff_id.phone_number,
+                    // 1. Send Email to Staff
+                    await sendEmail(
+                        user.email,
+                        'Upcoming Class Reminder',
                         `Reminder: You have a class in ${cls.classroom_id.room_name} starting in 5 minutes.`
                     );
 
                     // 2. Notify HOD(s) 
                     const hods = await Staff.find({ department: cls.staff_id.department, is_hod: true });
                     for (const hod of hods) {
-                        // Send SMS to HOD
-                        await sendSMS(hod.phone_number, `HOD Info: ${cls.staff_id.name} has a class starting in 5 minutes in ${cls.classroom_id.room_name}.`);
-
                         // Dashboard notification for HOD
                         const hodUser = await User.findOne({ staff_id: hod._id });
                         if (hodUser) {
+                            // Send Email to HOD
+                            await sendEmail(hodUser.email, 'Upcoming Class Warning (Dept)', `HOD Alert: ${cls.staff_id.name} has a class starting in 5 minutes in ${cls.classroom_id.room_name}.`);
                             await Notification.create({
                                 recipient_id: hodUser._id,
                                 title: 'Upcoming Class (Dept)',
@@ -1100,12 +1091,11 @@ cron.schedule('* * * * *', async () => {
                 // Find IDs of HODs in that department
                 const hods = await Staff.find({ department: cls.staff_id.department, is_hod: true });
                 for (const hod of hods) {
-                    // Send SMS to HOD
-                    await sendSMS(hod.phone_number, `HOD Alert: Staff ${cls.staff_id.name} is absent for class in ${cls.classroom_id.room_name}.`);
-
                     // Find User account for this HOD
                     const hodUser = await User.findOne({ staff_id: hod._id });
                     if (hodUser) {
+                        // Send Email to HOD
+                        await sendEmail(hodUser.email, 'Department Absence Warning', `HOD Alert: Staff ${cls.staff_id.name} is absent for class in ${cls.classroom_id.room_name}.`);
                         await Notification.create({
                             recipient_id: hodUser._id,
                             title: 'Dept. Absence Warning',
@@ -1125,8 +1115,8 @@ cron.schedule('* * * * *', async () => {
                         type: 'absence_warning'
                     });
 
-                    // Send SMS to Staff
-                    await sendSMS(cls.staff_id.phone_number, `Absence Alert: You were not detected in ${cls.classroom_id.room_name} for your ${cls.start_time} class.`);
+                    // Send Email to Staff
+                    await sendEmail(user.email, 'Absence Warning', `Absence Alert: You were not detected in ${cls.classroom_id.room_name} for your ${cls.start_time} class.`);
                 }
             }
         }

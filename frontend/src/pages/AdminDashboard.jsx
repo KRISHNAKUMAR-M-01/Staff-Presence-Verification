@@ -8,7 +8,8 @@ import {
     Calendar,
     Clipboard,
     Plane,
-    AlertCircle
+    AlertCircle,
+    UserCog
 } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import api from '../services/api';
@@ -16,6 +17,7 @@ import api from '../services/api';
 // Module Imports
 import AdminOverview from '../AttendanceAndAlerts/AdminOverview';
 import StaffManagement from '../StaffAdministration/StaffManagement';
+import UserManagement from '../StaffAdministration/UserManagement';
 import TimetableManagement from '../StaffAdministration/TimetableManagement';
 import LeaveManagement from '../StaffAdministration/LeaveManagement';
 import ClassroomManagement from '../BLEDetection/ClassroomManagement';
@@ -143,6 +145,7 @@ const AdminDashboard = () => {
         { label: 'Dashboard', path: '/admin', icon: <BarChart2 size={20} /> },
         { label: 'Staff Locations', path: '/admin/locations', icon: <MapPin size={20} /> },
         { label: 'Manage Staff', path: '/admin/staff', icon: <Users size={20} /> },
+        { label: 'Admin/Executive Users', path: '/admin/users', icon: <UserCog size={20} /> },
         { label: 'Classrooms', path: '/admin/classrooms', icon: <Home size={20} /> },
         { label: 'Timetable', path: '/admin/timetable', icon: <Calendar size={20} /> },
         { label: 'Attendance', path: '/admin/attendance', icon: <Clipboard size={20} /> },
@@ -162,6 +165,7 @@ const AdminDashboard = () => {
             <Routes>
                 <Route index element={<AdminOverview />} />
                 <Route path="staff" element={<StaffManagement />} />
+                <Route path="users" element={<UserManagement />} />
                 <Route path="locations" element={<StaffLocations />} />
                 <Route path="classrooms" element={<ClassroomManagement />} />
                 <Route path="timetable" element={<TimetableManagement />} />

@@ -53,9 +53,17 @@ const requireStaff = (req, res, next) => {
     next();
 };
 
+const requireExecutive = (req, res, next) => {
+    if (!['principal', 'secretary', 'director'].includes(req.user.role)) {
+        return res.status(403).json({ error: 'Executive access required' });
+    }
+    next();
+};
+
 module.exports = {
     generateToken,
     authenticateToken,
     requireAdmin,
-    requireStaff
+    requireStaff,
+    requireExecutive
 };
