@@ -674,6 +674,11 @@ app.get('/api/staff/my-timetable', authenticateToken, requireStaff, async (req, 
 app.post('/api/staff/leave', authenticateToken, requireStaff, async (req, res) => {
     try {
         const { start_date, end_date, reason, leave_type } = req.body;
+
+        if (!req.user.staff_id) {
+            return res.status(400).json({ error: 'Your user account is not linked to a staff record. Please contact an administrator.' });
+        }
+
         const leave = new Leave({
             staff_id: req.user.staff_id,
             start_date,
@@ -686,12 +691,13 @@ app.post('/api/staff/leave', authenticateToken, requireStaff, async (req, res) =
         // Notify all admins
         const admins = await User.find({ role: 'admin' });
         const staff = await Staff.findById(req.user.staff_id);
+        const staffName = staff ? staff.name : req.user.name;
 
         for (const admin of admins) {
             await Notification.create({
                 recipient_id: admin._id,
                 title: 'New Leave Request',
-                message: `${staff.name} has submitted a leave request for ${new Date(start_date).toLocaleDateString()}`,
+                message: `${staffName} has submitted a leave request starting ${new Date(start_date).toDateString()}`,
                 type: 'leave_request'
             });
         }

@@ -17,7 +17,20 @@ const notificationSchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['alert', 'leave_update', 'timetable_change', 'general', 'late_arrival', 'meeting_request'],
+        enum: [
+            'alert',
+            'leave_update',
+            'leave_request',
+            'timetable_change',
+            'general',
+            'late_arrival',
+            'late_alert',
+            'meeting_request',
+            'substitution_alert',
+            'upcoming_class',
+            'upcoming_class_dept',
+            'absence_warning'
+        ],
         required: true
     },
     is_read: {
