@@ -3,6 +3,7 @@ const Timetable = require('../models/Timetable');
 const Notification = require('../models/Notification');
 const Attendance = require('../models/Attendance');
 const User = require('../models/User');
+const { sendEmail } = require('../utils/emailService');
 
 // Helper to get current day name
 const getDayName = () => {
@@ -110,7 +111,6 @@ exports.sendMeetingRequest = async (req, res) => {
                     });
 
                     // Send Email to Free Staff
-                    const { sendEmail } = require('../utils/emailService');
                     await sendEmail(
                         freeStaffUser.email,
                         'Class Substitution Request',
@@ -139,7 +139,6 @@ exports.sendMeetingRequest = async (req, res) => {
             });
 
             // Send Email to Target Staff
-            const { sendEmail } = require('../utils/emailService');
             await sendEmail(targetUser.email, 'Urgent Meeting Request', message);
         }
 
