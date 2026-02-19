@@ -300,6 +300,23 @@ app.post('/api/admin/timetable', authenticateToken, requireAdmin, async (req, re
     }
 });
 
+app.put('/api/admin/timetable/:id', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { staff_id, classroom_id, day_of_week, start_time, end_time, subject } = req.body;
+        const timetable = await Timetable.findByIdAndUpdate(
+            req.params.id,
+            { staff_id, classroom_id, day_of_week, start_time, end_time, subject },
+            { new: true }
+        );
+        if (!timetable) {
+            return res.status(404).json({ error: 'Timetable entry not found' });
+        }
+        res.json(timetable);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Bulk Insert Timetable (Admin only)
 app.post('/api/admin/timetable/bulk', authenticateToken, requireAdmin, async (req, res) => {
     try {
@@ -377,22 +394,38 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
             .populate('staff_id', 'name department')
             .populate('classroom_id', 'room_name');
 
-        // Combine data
-        const staffLocations = currentSchedule.map(schedule => {
-            const attendanceRecord = attendance.find(
-                a => a.staff_id._id.toString() === schedule.staff_id._id.toString() &&
-                    a.classroom_id._id.toString() === schedule.classroom_id._id.toString()
+        // Get all staff members
+        const allStaff = await Staff.find().sort({ name: 1 });
+
+        // Combined data for ALL staff
+        const staffLocations = allStaff.map(s => {
+            // Find current timetable entry for this specific staff
+            const schedule = currentSchedule.find(
+                t => t.staff_id._id.toString() === s._id.toString()
             );
 
+            // Find ALL attendance records for this staff today and pick the most recent one overall
+            const staffAttendanceRecords = attendance.filter(
+                a => a.staff_id._id.toString() === s._id.toString()
+            ).sort((a, b) => {
+                const timeA = a.last_seen_time || a.check_in_time;
+                const timeB = b.last_seen_time || b.check_in_time;
+                return new Date(timeB) - new Date(timeA);
+            });
+
+            const latestAttendance = staffAttendanceRecords[0];
+
             return {
-                staff_id: schedule.staff_id._id,
-                staff_name: schedule.staff_id.name,
-                department: schedule.staff_id.department,
-                expected_location: schedule.classroom_id.room_name,
-                actual_location: attendanceRecord ? schedule.classroom_id.room_name : 'Not checked in',
-                status: attendanceRecord ? attendanceRecord.status : 'Absent',
-                check_in_time: attendanceRecord ? attendanceRecord.check_in_time : null,
-                is_correct_location: !!attendanceRecord
+                staff_id: s._id,
+                staff_name: s.name,
+                department: s.department,
+                expected_location: schedule ? schedule.classroom_id.room_name : 'No Class Assigned',
+                actual_location: latestAttendance ? latestAttendance.classroom_id.room_name : 'Not detected',
+                status: latestAttendance ? latestAttendance.status : (schedule ? 'Absent' : 'Idle'),
+                check_in_time: latestAttendance ? (latestAttendance.last_seen_time || latestAttendance.check_in_time) : null,
+                is_correct_location: schedule && latestAttendance ?
+                    (schedule.classroom_id._id.toString() === latestAttendance.classroom_id._id.toString()) :
+                    (!schedule && latestAttendance ? false : true)
             };
         });
 
@@ -765,7 +798,7 @@ app.get('/api/staff/notifications/unread-count', authenticateToken, async (req, 
 app.post('/api/ble-data', async (req, res) => {
     try {
         const { esp32_id, beacon_uuid, rssi } = req.body;
-        // console.log(`Received BLE scan: ESP32=${esp32_id}, UUID=${beacon_uuid}, RSSI=${rssi}`);
+        console.log(`Received BLE scan: ESP32=${esp32_id}, UUID=${beacon_uuid}, RSSI=${rssi}`);
 
         const rssiThreshold = parseInt(process.env.RSSI_THRESHOLD || -75);
 
@@ -803,22 +836,9 @@ app.post('/api/ble-data', async (req, res) => {
         });
 
         if (!slot) {
-            // Check if there is an existing ACTIVE tracking session for today
-            // If they are checking out or updating an ongoing session that just ended
-            const existingTracking = await Attendance.findOne({
-                staff_id: staff._id,
-                classroom_id: classroom._id,
-                status: 'Tracking',
-                date: new Date(todayStr)
-            });
-
-            if (!existingTracking) {
-                return res.json({
-                    status: 'ignored',
-                    message: 'No scheduled class for this staff in this room at this time'
-                });
-            }
-            // If existing tracking session found, we allow loop to continue to update it
+            console.log(`[BLE Info] Unscheduled presence detected for ${staff.name} in ${classroom.room_name}`);
+            // We allow tracking even without a slot so the staff's "Current Location" 
+            // is updated on the executive dashboard.
         }
 
         // Check for existing attendance record

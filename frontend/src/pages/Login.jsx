@@ -100,10 +100,13 @@ const Login = () => {
                         <p>Demo Credentials</p>
                         <div className="demo-credentials">
                             <div>
-                                <strong>Admin:</strong> admin@school.com / admin123
+                                <strong>Admin:</strong> admin@school.com / Admin@123
                             </div>
                             <div>
-                                <strong>Staff:</strong> kriskanna17@gmail.com / Krish01@
+                                <strong>Principal:</strong> principal@gmail.com / Principal@123
+                            </div>
+                            <div>
+                                <strong>Staff:</strong> kriskanna17@gmail.com / Staff@123
                             </div>
                         </div>
                     </div>

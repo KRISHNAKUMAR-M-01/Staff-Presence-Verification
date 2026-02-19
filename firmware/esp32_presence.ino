@@ -10,7 +10,7 @@
 #include <BLEAdvertisedDevice.h>
 
 // --- CONFIGURATION ---
-const char* ssid = "Gandhi Ground floor 5G";
+const char* ssid = "Gandhi Ground floor";
 const char* password = "54641729";
 const char* serverUrl = "http://192.168.1.7:5000/api/ble-data";
 const char* classroomId = "ROOM_101";
@@ -32,11 +32,9 @@ void sendDataToBackend(String uuid, int rssi) {
         int httpResponseCode = http.POST(jsonPayload);
         
         if (httpResponseCode > 0) {
-            Serial.print("HTTP Response code: ");
-            Serial.println(httpResponseCode);
+            Serial.printf("HTTP %d: Sent UUID %s\n", httpResponseCode, uuid.c_str());
         } else {
-            Serial.print("Error code: ");
-            Serial.println(httpResponseCode);
+            Serial.printf("HTTP Error %d\n", httpResponseCode);
         }
         http.end();
     } else {
@@ -46,15 +44,24 @@ void sendDataToBackend(String uuid, int rssi) {
 
 // --- BLE Callback Class ---
 class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
-    // This signature uses basic object passing for better compatibility across core versions
     void onResult(BLEAdvertisedDevice advertisedDevice) {
-        String address = advertisedDevice.getAddress().toString().c_str();
+        uint8_t* payload = advertisedDevice.getPayload();
+        size_t payloadLength = advertisedDevice.getPayloadLength();
         int rssi = advertisedDevice.getRSSI();
-        
-        Serial.printf("Found Device: %s, RSSI: %d \n", address.c_str(), rssi);
-        
-        // Pass to the sender function
-        sendDataToBackend(address, rssi);
+
+        // Search for iBeacon pattern: 0x4C 0x00 0x02 0x15
+        for (int i = 0; i < (int)payloadLength - 20; i++) {
+            if (payload[i] == 0x4C && payload[i+1] == 0x00 && payload[i+2] == 0x02 && payload[i+3] == 0x15) {
+                char uuidBuf[33];
+                for (int j = 0; j < 16; j++) {
+                    sprintf(&uuidBuf[j * 2], "%02X", payload[i + 4 + j]);
+                }
+                String uuid = String(uuidBuf);
+                Serial.printf("  [iBeacon] UUID: %s | RSSI: %d\n", uuid.c_str(), rssi);
+                sendDataToBackend(uuid, rssi);
+                return; 
+            }
+        }
     }
 };
 
@@ -73,7 +80,7 @@ void setup() {
     // Initialize BLE
     BLEDevice::init("");
     pBLEScan = BLEDevice::getScan();
-    pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks());
+    pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks(), false);
     pBLEScan->setActiveScan(true); 
     pBLEScan->setInterval(100);
     pBLEScan->setWindow(99);
@@ -82,10 +89,13 @@ void setup() {
 void loop() {
     Serial.println("Starting BLE Scan...");
     
-    // Start scan and clear results from memory
-    pBLEScan->start(scanTime, false);
-    pBLEScan->clearResults();   
+    // Start scan - returns a pointer in the current core version
+    BLEScanResults* foundDevices = pBLEScan->start(scanTime, false);
     
-    Serial.println("Scan complete.");
-    delay(10000); 
+    if (foundDevices) {
+        Serial.printf("Scan complete. Devices found: %d\n", foundDevices->getCount());
+        pBLEScan->clearResults();   // Important to prevent memory leak
+    }
+    
+    delay(5000); 
 }

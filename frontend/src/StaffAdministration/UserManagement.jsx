@@ -175,12 +175,8 @@ const UserManagement = () => {
                     </div>
 
                     {/* User Details */}
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                        gap: '20px',
-                        marginBottom: '24px'
-                    }}>
+                    <div className="responsive-grid" style={{ marginBottom: '24px' }}>
+
                         <div className="form-group">
                             <label className="form-label" style={{ fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '8px', display: 'block' }}>
                                 Full Name <span style={{ color: '#dc2626' }}>*</span>

@@ -273,9 +273,6 @@ const TimetableGridInput = ({ rooms, staffList, timetable, onSaveSuccess }) => {
     return (
         <div className="timetable-grid-container" style={{ padding: '0px 0' }}>
             <style>{`
-                input[type="time"]::-webkit-calendar-picker-indicator {
-                    display: none;
-                }
                 .header-time-input:hover {
                     background: rgba(0,0,0,0.05) !important;
                 }
@@ -385,30 +382,34 @@ const TimetableGridInput = ({ rooms, staffList, timetable, onSaveSuccess }) => {
                                         }}
                                     />
 
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', background: 'rgba(255,255,255,0.6)', padding: '6px', borderRadius: '6px', border: '1px solid rgba(0,0,0,0.05)' }}>
-                                        <input
-                                            type="time"
-                                            className="header-time-input"
-                                            value={p.start}
-                                            onChange={(e) => handlePeriodChange(i, 'start', e.target.value)}
-                                            style={{
-                                                width: '100%', padding: '2px 4px', border: 'none', background: 'transparent',
-                                                fontSize: '12px', fontWeight: '500', color: '#475569', textAlign: 'center',
-                                                cursor: 'pointer', outline: 'none'
-                                            }}
-                                        />
-                                        <div style={{ width: '20px', height: '1px', background: '#cbd5e1', margin: '2px 0' }}></div>
-                                        <input
-                                            type="time"
-                                            className="header-time-input"
-                                            value={p.end}
-                                            onChange={(e) => handlePeriodChange(i, 'end', e.target.value)}
-                                            style={{
-                                                width: '100%', padding: '2px 4px', border: 'none', background: 'transparent',
-                                                fontSize: '12px', fontWeight: '500', color: '#475569', textAlign: 'center',
-                                                cursor: 'pointer', outline: 'none'
-                                            }}
-                                        />
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.9)', padding: '10px 6px', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%', justifyContent: 'center' }}>
+                                            <input
+                                                type="time"
+                                                className="header-time-input"
+                                                value={p.start}
+                                                onChange={(e) => handlePeriodChange(i, 'start', e.target.value)}
+                                                style={{
+                                                    width: '105px', padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: '4px', background: 'white',
+                                                    fontSize: '12px', fontWeight: '700', color: '#0f172a', textAlign: 'center',
+                                                    cursor: 'pointer', outline: 'none'
+                                                }}
+                                            />
+                                        </div>
+                                        <div style={{ width: '80%', height: '1px', background: '#e2e8f0' }}></div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%', justifyContent: 'center' }}>
+                                            <input
+                                                type="time"
+                                                className="header-time-input"
+                                                value={p.end}
+                                                onChange={(e) => handlePeriodChange(i, 'end', e.target.value)}
+                                                style={{
+                                                    width: '105px', padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: '4px', background: 'white',
+                                                    fontSize: '12px', fontWeight: '700', color: '#0f172a', textAlign: 'center',
+                                                    cursor: 'pointer', outline: 'none'
+                                                }}
+                                            />
+                                        </div>
                                     </div>
                                 </th>
                             ))}

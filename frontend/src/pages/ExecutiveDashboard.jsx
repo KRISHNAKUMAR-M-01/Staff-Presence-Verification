@@ -156,6 +156,8 @@ const ExecutiveDashboard = () => {
                 padding: '16px 32px',
                 display: 'flex',
                 justifyContent: 'space-between',
+                gap: '16px',
+                flexWrap: 'wrap',
                 alignItems: 'center',
                 position: 'sticky',
                 top: 0,
@@ -179,7 +181,7 @@ const ExecutiveDashboard = () => {
                         {getRoleName(user?.role)}
                     </span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
                     <div style={{ position: 'relative' }}>
                         <div
                             onClick={toggleNotifs}
@@ -213,7 +215,7 @@ const ExecutiveDashboard = () => {
                                 position: 'absolute',
                                 top: '40px',
                                 right: '0',
-                                width: '320px',
+                                width: 'min(320px, calc(100vw - 32px))',
                                 background: 'white',
                                 borderRadius: '12px',
                                 boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
@@ -237,8 +239,6 @@ const ExecutiveDashboard = () => {
                                                 cursor: 'pointer',
                                                 transition: 'background 0.2s'
                                             }}
-                                            onMouseOver={(e) => e.currentTarget.style.backgroundColor = n.is_read ? '#f8fafc' : '#ecfdf5'}
-                                            onMouseOut={(e) => e.currentTarget.style.backgroundColor = n.is_read ? 'transparent' : '#f0fdf4'}
                                         >
                                             <div style={{ fontSize: '13px', fontWeight: '600', color: '#0f172a', marginBottom: '2px' }}>{n.title}</div>
                                             <div style={{ fontSize: '12px', color: '#64748b', lineHeight: '1.4' }}>{n.message}</div>
@@ -263,18 +263,7 @@ const ExecutiveDashboard = () => {
                             color: '#dc2626',
                             fontSize: '14px',
                             fontWeight: '600',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s'
-                        }}
-                        onMouseOver={(e) => {
-                            e.currentTarget.style.background = '#dc2626';
-                            e.currentTarget.style.color = 'white';
-                            e.currentTarget.style.borderColor = '#dc2626';
-                        }}
-                        onMouseOut={(e) => {
-                            e.currentTarget.style.background = '#fee2e2';
-                            e.currentTarget.style.color = '#dc2626';
-                            e.currentTarget.style.borderColor = '#fecaca';
+                            cursor: 'pointer'
                         }}
                     >
                         <LogOut size={16} />
@@ -284,7 +273,7 @@ const ExecutiveDashboard = () => {
             </nav>
 
             {/* Main Content */}
-            <div style={{ padding: '32px', maxWidth: '1400px', margin: '0 auto' }}>
+            <div style={{ padding: 'min(32px, 5vw)', maxWidth: '1400px', margin: '0 auto' }}>
                 {/* Page Header */}
                 <div style={{ marginBottom: '32px' }}>
                     <h1 style={{ margin: '0 0 8px 0', fontSize: '28px', fontWeight: '700', color: '#0f172a' }}>
@@ -310,16 +299,7 @@ const ExecutiveDashboard = () => {
                                 border: '1px solid #e2e8f0',
                                 borderRadius: '8px',
                                 fontSize: '14px',
-                                outline: 'none',
-                                transition: 'all 0.2s'
-                            }}
-                            onFocus={(e) => {
-                                e.target.style.borderColor = '#097969';
-                                e.target.style.boxShadow = '0 0 0 3px rgba(9, 121, 105, 0.1)';
-                            }}
-                            onBlur={(e) => {
-                                e.target.style.borderColor = '#e2e8f0';
-                                e.target.style.boxShadow = 'none';
+                                outline: 'none'
                             }}
                         />
                     </div>
@@ -557,8 +537,6 @@ const ExecutiveDashboard = () => {
                                         transition: 'all 0.2s',
                                         width: '100%'
                                     }}
-                                    onMouseOver={(e) => e.currentTarget.style.background = '#065f54'}
-                                    onMouseOut={(e) => e.currentTarget.style.background = '#097969'}
                                 >
                                     <Phone size={14} />
                                     Request Meeting
@@ -662,8 +640,7 @@ const ExecutiveDashboard = () => {
                                     color: '#475569',
                                     fontSize: '14px',
                                     fontWeight: '600',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s'
+                                    cursor: 'pointer'
                                 }}
                             >
                                 Cancel
@@ -680,7 +657,6 @@ const ExecutiveDashboard = () => {
                                     fontSize: '14px',
                                     fontWeight: '600',
                                     cursor: 'pointer',
-                                    transition: 'all 0.2s',
                                     opacity: sendingRequest ? 0.6 : 1
                                 }}
                             >

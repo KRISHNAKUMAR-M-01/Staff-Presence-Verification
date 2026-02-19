@@ -166,11 +166,13 @@ exports.getAllStaffStatus = async (req, res) => {
         startOfDay.setHours(0, 0, 0, 0);
 
         const statusPromises = staffMembers.map(async (staff) => {
-            // Get today's attendance
+            // Get today's attendance - joined with classroom info
             const attendance = await Attendance.findOne({
                 staff_id: staff._id,
                 date: { $gte: startOfDay }
-            }).sort({ createdAt: -1 });
+            })
+                .populate('classroom_id', 'room_name')
+                .sort({ last_seen_time: -1 });
 
             // Get current active class if any
             const activeClass = await Timetable.findOne({
@@ -178,13 +180,13 @@ exports.getAllStaffStatus = async (req, res) => {
                 day_of_week: currentDay,
                 start_time: { $lte: currentTime },
                 end_time: { $gte: currentTime }
-            }).populate('classroom_id');
+            }).populate('classroom_id', 'room_name');
 
             return {
                 ...staff,
-                currentStatus: attendance ? attendance.status : 'Absent', // Default to Absent if no record
-                lastSeen: attendance ? attendance.last_seen_time : null,
-                currentLocation: activeClass ? activeClass.classroom_id.room_name : (attendance ? 'Campus' : 'Unknown'), // Simplistic location logic
+                currentStatus: attendance ? attendance.status : 'Absent',
+                lastSeen: attendance ? (attendance.last_seen_time || attendance.check_in_time) : null,
+                currentLocation: attendance ? attendance.classroom_id.room_name : 'Not on Campus',
                 activeClass: activeClass ? {
                     subject: activeClass.subject,
                     room: activeClass.classroom_id.room_name,

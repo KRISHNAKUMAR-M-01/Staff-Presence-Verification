@@ -80,7 +80,7 @@ const StaffManagement = () => {
             <div className="form-card">
                 <h3 className="card-title">Register New Staff</h3>
                 <form onSubmit={handleSubmit}>
-                    <div className="responsive-grid" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: '20px' }}>
+                    <div className="responsive-grid" style={{ marginBottom: '20px' }}>
                         <div className="form-group">
                             <label className="form-label required-label-asterisk">Full Name</label>
                             <input
