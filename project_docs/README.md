@@ -35,7 +35,8 @@ This folder contains a comprehensive breakdown of all source files in the system
 
 ### Systems & Simulation
 - [scanner.py](./simulation/scanner_py.md): BLE scanner simulation script.
-- [esp32_presence.ino](./firmware/esp32_presence_ino.md): ESP32 firmware source.
+- [esp32_presence.ino](./firmware/esp32_presence_ino.md): ESP32 receiver/scanner firmware source.
+- [esp32_transmitter.ino](./firmware/esp32_transmitter_ino.md): ESP32 transmitter/tag firmware source.
 
 ## System Architecture Overview
 The system follows a typical MERN (with MySQL-like logic in MongoDB) architecture, integrated with external BLE scanning hardware (ESP32).
