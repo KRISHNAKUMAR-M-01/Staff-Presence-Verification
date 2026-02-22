@@ -7,6 +7,7 @@ This Arduino sketch configures an ESP32 to act as a **Transmitter (Tag)**. It br
 - **BLE Initialization**: Sets up the ESP32 BLE hardware in "Advertising" mode.
 - **`setBeacon`**: Constructs a standard iBeacon payload.
   - **UUID**: A unique 16-byte identifier. **This must match the UUID stored in the database for the staff member.**
+  - **String Compatibility**: Uses Arduino `String` class to ensure compatibility with newer ESP32 source cores (3.x.x+), resolving `std::string` type mismatches.
   - **Manufacturer ID**: Set to `0x4C00` (Apple) to comply with the iBeacon standard.
   - **Major/Minor**: Set to 1/1 (standard default values).
 - **Advertisement Data**: Packages the iBeacon data into a BLE advertisement packet.

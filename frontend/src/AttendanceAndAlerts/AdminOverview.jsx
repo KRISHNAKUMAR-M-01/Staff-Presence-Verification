@@ -53,55 +53,141 @@ const AdminOverview = () => {
                 ))}
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h3 className="card-title" style={{ margin: 0 }}>Recent Activity</h3>
-                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>Last {recentAttendance.length} check-ins</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', marginTop: '40px' }}>
+                <div>
+                    <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '700', color: '#0f172a' }}>Recent Activity</h3>
+                    <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b' }}>Live log of staff check-ins and movements</p>
+                </div>
+                <div style={{ padding: '6px 12px', background: '#f1f5f9', borderRadius: '20px', fontSize: '12px', color: '#475569', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#097969', animation: 'pulse 2s infinite' }}></div>
+                    Last {recentAttendance.length} updates
+                </div>
             </div>
 
             <div className="responsive-grid" style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                gap: '16px'
+                gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                gap: '20px'
             }}>
                 {recentAttendance.map((item, i) => (
-                    <div key={i} className="form-card" style={{
-                        margin: 0,
-                        padding: '16px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '10px',
-                        border: '1px solid #e2e8f0',
-                        position: 'relative'
+                    <div key={i} className="activity-card" style={{
+                        background: '#ffffff',
+                        borderRadius: '16px',
+                        padding: '20px',
+                        border: '1px solid #f1f5f9',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        cursor: 'default',
+                        position: 'relative',
+                        overflow: 'hidden'
                     }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <User size={16} color="#64748b" />
+                        {/* Status Accent Bar */}
+                        <div style={{
+                            position: 'absolute',
+                            left: 0,
+                            top: 0,
+                            bottom: 0,
+                            width: '4px',
+                            background: item.status.toLowerCase() === 'tracking' ? '#097969' : '#d97706',
+                            opacity: 0.8
+                        }}></div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                <div style={{
+                                    width: '44px',
+                                    height: '44px',
+                                    borderRadius: '12px',
+                                    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    border: '1px solid #e2e8f0'
+                                }}>
+                                    <User size={20} color="#64748b" />
                                 </div>
-                                <span style={{ fontWeight: '700', fontSize: '14px', color: '#0f172a' }}>{item.staff_name}</span>
+                                <div>
+                                    <div style={{ fontWeight: '700', fontSize: '15px', color: '#0f172a', letterSpacing: '-0.01em' }}>{item.staff_name}</div>
+                                    <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Staff Member</div>
+                                </div>
                             </div>
-                            <span className={`status-badge status-${item.status.toLowerCase()}`} style={{ fontSize: '10px', padding: '2px 6px' }}>
+                            <div style={{
+                                padding: '4px 10px',
+                                borderRadius: '8px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                background: item.status.toLowerCase() === 'tracking' ? '#ecfdf5' : '#fffbeb',
+                                color: item.status.toLowerCase() === 'tracking' ? '#065f46' : '#92400e',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                            }}>
+                                {item.status.toLowerCase() === 'tracking' && <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'currentColor' }}></div>}
                                 {item.status}
-                            </span>
+                            </div>
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <MapPin size={12} color="#94a3b8" />
-                            <span style={{ fontSize: '12px', color: '#475569' }}>{item.room_name}</span>
-                        </div>
+                        <div style={{
+                            background: '#f8fafc',
+                            borderRadius: '12px',
+                            padding: '12px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '8px'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                                    <MapPin size={12} color="#097969" />
+                                </div>
+                                <span style={{ fontSize: '13px', fontWeight: '600', color: '#334155' }}>{item.room_name}</span>
+                            </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', paddingTop: '8px', borderTop: '1px solid #f8fafc' }}>
-                            <Clock size={12} color="#94a3b8" />
-                            <span style={{ fontSize: '11px', color: '#94a3b8' }}>
-                                {new Date(item.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                                    <Clock size={12} color="#64748b" />
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>
+                                        {new Date(item.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                    <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '500' }}>
+                                        {new Date(item.check_in_time).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                                    </span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 ))}
+
+                <style dangerouslySetInnerHTML={{
+                    __html: `
+                    .activity-card:hover {
+                        transform: translateY(-4px);
+                        box-shadow: 0 12px 20px -8px rgba(0, 0, 0, 0.1);
+                        border-color: #e2e8f0;
+                    }
+                    @keyframes pulse {
+                        0% { transform: scale(0.95); opacity: 1; }
+                        50% { transform: scale(1.1); opacity: 0.7; }
+                        100% { transform: scale(0.95); opacity: 1; }
+                    }
+                `}} />
+
                 {recentAttendance.length === 0 && (
-                    <p style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '30px', color: '#94a3b8', fontSize: '14px' }}>
-                        No recent activity recorded today.
-                    </p>
+                    <div style={{
+                        gridColumn: '1 / -1',
+                        textAlign: 'center',
+                        padding: '60px 20px',
+                        background: '#f8fafc',
+                        borderRadius: '24px',
+                        border: '2px dashed #e2e8f0'
+                    }}>
+                        <div style={{ width: '48px', height: '48px', background: '#ffffff', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
+                            <Clock size={24} color="#94a3b8" />
+                        </div>
+                        <h4 style={{ margin: '0 0 8px 0', color: '#1e293b' }}>No Recent Activity</h4>
+                        <p style={{ margin: 0, color: '#64748b', fontSize: '14px' }}>Once staff members are detected, their movements will appear here.</p>
+                    </div>
                 )}
             </div>
         </div>
