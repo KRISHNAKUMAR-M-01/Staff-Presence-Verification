@@ -474,6 +474,7 @@ app.get('/api/admin/attendance', authenticateToken, requireAdmin, async (req, re
             staff_name: a.staff_id.name,
             room_name: a.classroom_id?.room_name || 'N/A',
             check_in_time: a.check_in_time,
+            last_seen_time: a.last_seen_time,
             status: a.status,
             date: a.date
         }));

@@ -69,108 +69,159 @@ const AdminOverview = () => {
                 gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
                 gap: '20px'
             }}>
-                {recentAttendance.map((item, i) => (
-                    <div key={i} className="activity-card" style={{
-                        background: '#ffffff',
-                        borderRadius: '16px',
-                        padding: '20px',
-                        border: '1px solid #f1f5f9',
-                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                        cursor: 'default',
-                        position: 'relative',
-                        overflow: 'hidden'
-                    }}>
-                        {/* Status Accent Bar */}
-                        <div style={{
-                            position: 'absolute',
-                            left: 0,
-                            top: 0,
-                            bottom: 0,
-                            width: '4px',
-                            background: item.status.toLowerCase() === 'tracking' ? '#097969' : '#d97706',
-                            opacity: 0.8
-                        }}></div>
+                {recentAttendance.map((item, i) => {
+                    const lastSeen = new Date(item.last_seen_time || item.check_in_time);
+                    const isStale = (new Date() - lastSeen) > 5 * 60 * 1000;
+                    const displayStatus = (item.status === 'Tracking' && isStale) ? 'Session Ended' : item.status;
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-                            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    // Logic for duration text
+                    let durationText = '';
+                    const diffMs = lastSeen - new Date(item.check_in_time);
+                    const diffMins = Math.floor(diffMs / (1000 * 60));
+                    if (diffMins > 0) {
+                        const h = Math.floor(diffMins / 60);
+                        const m = diffMins % 60;
+                        durationText = h > 0 ? `${h}h ${m}m` : `${m}m total`;
+                    }
+
+                    const isOnline = displayStatus === 'Tracking';
+
+                    return (
+                        <div key={i} className="activity-card" style={{
+                            background: isOnline ? 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)' : '#ffffff',
+                            borderRadius: '24px',
+                            padding: '24px',
+                            border: '1px solid',
+                            borderColor: isOnline ? '#bbf7d0' : '#f1f5f9',
+                            boxShadow: isOnline
+                                ? '0 20px 25px -5px rgba(22, 163, 74, 0.05), 0 8px 10px -6px rgba(22, 163, 74, 0.05)'
+                                : '0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -4px rgba(0, 0, 0, 0.02)',
+                            transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
+                            position: 'relative',
+                            overflow: 'hidden'
+                        }}>
+                            {/* Status Glow for Tracking */}
+                            {isOnline && (
                                 <div style={{
-                                    width: '44px',
-                                    height: '44px',
+                                    position: 'absolute',
+                                    top: '-20px',
+                                    right: '-20px',
+                                    width: '100px',
+                                    height: '100px',
+                                    background: 'radial-gradient(circle, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0) 70%)',
+                                    pointerEvents: 'none'
+                                }}></div>
+                            )}
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+                                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                                    <div style={{
+                                        width: '52px',
+                                        height: '52px',
+                                        borderRadius: '16px',
+                                        background: isOnline ? '#dcfce7' : '#f8fafc',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        border: '1px solid',
+                                        borderColor: isOnline ? '#86efac' : '#e2e8f0',
+                                        boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)'
+                                    }}>
+                                        <User size={24} color={isOnline ? '#166534' : '#64748b'} strokeWidth={2.5} />
+                                    </div>
+                                    <div>
+                                        <div style={{ fontWeight: '800', fontSize: '17px', color: '#0f172a', letterSpacing: '-0.02em' }}>{item.staff_name}</div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: '#94a3b8' }}></div>
+                                            <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>Computer Science</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style={{
+                                    padding: '6px 12px',
                                     borderRadius: '12px',
-                                    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                                    fontSize: '11px',
+                                    fontWeight: '800',
+                                    background: isOnline ? '#16a34a' : '#f1f5f9',
+                                    color: isOnline ? '#ffffff' : '#64748b',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    justifyContent: 'center',
-                                    border: '1px solid #e2e8f0'
+                                    gap: '6px',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.02em',
+                                    boxShadow: isOnline ? '0 4px 12px rgba(22, 163, 74, 0.2)' : 'none'
                                 }}>
-                                    <User size={20} color="#64748b" />
-                                </div>
-                                <div>
-                                    <div style={{ fontWeight: '700', fontSize: '15px', color: '#0f172a', letterSpacing: '-0.01em' }}>{item.staff_name}</div>
-                                    <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Staff Member</div>
+                                    {isOnline && <div className="dot-pulse"></div>}
+                                    {displayStatus}
                                 </div>
                             </div>
+
                             <div style={{
-                                padding: '4px 10px',
-                                borderRadius: '8px',
-                                fontSize: '11px',
-                                fontWeight: '700',
-                                background: item.status.toLowerCase() === 'tracking' ? '#ecfdf5' : '#fffbeb',
-                                color: item.status.toLowerCase() === 'tracking' ? '#065f46' : '#92400e',
+                                background: isOnline ? 'rgba(255, 255, 255, 0.6)' : '#f8fafc',
+                                backdropFilter: 'blur(8px)',
+                                borderRadius: '20px',
+                                padding: '16px',
                                 display: 'flex',
-                                alignItems: 'center',
-                                gap: '4px'
+                                flexDirection: 'column',
+                                gap: '12px',
+                                border: '1px solid',
+                                borderColor: isOnline ? 'rgba(34, 197, 94, 0.1)' : 'rgba(0,0,0,0.02)'
                             }}>
-                                {item.status.toLowerCase() === 'tracking' && <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'currentColor' }}></div>}
-                                {item.status}
-                            </div>
-                        </div>
-
-                        <div style={{
-                            background: '#f8fafc',
-                            borderRadius: '12px',
-                            padding: '12px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '8px'
-                        }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                                    <MapPin size={12} color="#097969" />
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: isOnline ? '#ffffff' : '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.04)' }}>
+                                            <MapPin size={14} color="#16a34a" />
+                                        </div>
+                                        <span style={{ fontSize: '14px', fontWeight: '700', color: '#334155' }}>{item.room_name}</span>
+                                    </div>
+                                    {durationText && (
+                                        <span style={{ fontSize: '11px', color: isOnline ? '#166534' : '#64748b', fontWeight: '700', background: isOnline ? '#dcfce7' : '#e2e8f0', padding: '2px 8px', borderRadius: '6px' }}>
+                                            {durationText}
+                                        </span>
+                                    )}
                                 </div>
-                                <span style={{ fontSize: '13px', fontWeight: '600', color: '#334155' }}>{item.room_name}</span>
-                            </div>
 
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <div style={{ width: '24px', height: '24px', borderRadius: '6px', background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                                    <Clock size={12} color="#64748b" />
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                    <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>
-                                        {new Date(item.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                    <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '500' }}>
-                                        {new Date(item.check_in_time).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
+                                <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <Clock size={14} color="#94a3b8" />
+                                        <span style={{ fontSize: '13px', color: '#1e293b', fontWeight: '700' }}>
+                                            {new Date(item.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+                                    <div style={{ width: '1px', height: '10px', background: '#e2e8f0' }}></div>
+                                    <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: '600' }}>
+                                        {new Date(item.check_in_time).toLocaleDateString([], { month: 'short', day: 'numeric' })}
                                     </span>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                ))}
+                    )
+                })}
 
                 <style dangerouslySetInnerHTML={{
                     __html: `
                     .activity-card:hover {
-                        transform: translateY(-4px);
-                        box-shadow: 0 12px 20px -8px rgba(0, 0, 0, 0.1);
-                        border-color: #e2e8f0;
+                        transform: translateY(-8px) scale(1.02);
+                        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.08);
+                        border-color: #cbd5e1;
+                    }
+                    .dot-pulse {
+                        width: 6px;
+                        height: 6px;
+                        border-radius: 50%;
+                        background-color: #ffffff;
+                        animation: pulse-white 1.5s infinite;
+                    }
+                    @keyframes pulse-white {
+                        0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
+                        70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); }
+                        100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
                     }
                     @keyframes pulse {
                         0% { transform: scale(0.95); opacity: 1; }
                         50% { transform: scale(1.1); opacity: 0.7; }
                         100% { transform: scale(0.95); opacity: 1; }
-                    }
                 `}} />
 
                 {recentAttendance.length === 0 && (

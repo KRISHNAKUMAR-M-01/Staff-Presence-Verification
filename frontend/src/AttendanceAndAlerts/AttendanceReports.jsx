@@ -137,28 +137,55 @@ const AttendanceReports = () => {
                             <th>Staff Name</th>
                             <th>Classroom</th>
                             <th>Date</th>
-                            <th>Check-in Time</th>
+                            <th>Check-in</th>
+                            <th>Check-out</th>
+                            <th>Duration</th>
                             <th>Status</th>
                         </tr>
                     </thead>
                     <tbody>
                         {attendance.length > 0 ? (
-                            attendance.map((a, i) => (
-                                <tr key={i}>
-                                    <td style={{ fontWeight: '600' }}>{a.staff_name}</td>
-                                    <td>{a.room_name}</td>
-                                    <td>{new Date(a.date).toLocaleDateString()}</td>
-                                    <td>{new Date(a.check_in_time).toLocaleTimeString()}</td>
-                                    <td>
-                                        <span className={`status-badge status-${a.status.toLowerCase()}`}>
-                                            {a.status}
-                                        </span>
-                                    </td>
-                                </tr>
-                            ))
+                            attendance.map((a, i) => {
+                                // Calculate duration
+                                let durationText = '---';
+                                if (a.check_in_time && a.last_seen_time) {
+                                    const diffMs = new Date(a.last_seen_time) - new Date(a.check_in_time);
+                                    const diffMins = Math.floor(diffMs / (1000 * 60));
+                                    const hrs = Math.floor(diffMins / 60);
+                                    const mins = diffMins % 60;
+
+                                    if (hrs > 0) {
+                                        durationText = `${hrs}h ${mins}m`;
+                                    } else {
+                                        durationText = `${mins}m`;
+                                    }
+                                }
+
+                                return (
+                                    <tr key={i}>
+                                        <td style={{ fontWeight: '600' }}>{a.staff_name}</td>
+                                        <td>{a.room_name}</td>
+                                        <td>{new Date(a.date).toLocaleDateString()}</td>
+                                        <td>{new Date(a.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                                        <td>
+                                            {a.last_seen_time ? (
+                                                <span style={{ color: a.status === 'Tracking' ? 'var(--primary)' : 'inherit' }}>
+                                                    {new Date(a.last_seen_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            ) : '---'}
+                                        </td>
+                                        <td style={{ fontWeight: '500', color: '#475569' }}>{durationText}</td>
+                                        <td>
+                                            <span className={`status-badge status-${a.status.toLowerCase()}`}>
+                                                {a.status}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                );
+                            })
                         ) : (
                             <tr>
-                                <td colSpan="5" style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
+                                <td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
                                     No records found matching your filters.
                                 </td>
                             </tr>
