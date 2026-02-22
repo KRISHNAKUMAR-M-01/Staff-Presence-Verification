@@ -3,6 +3,8 @@ import api from '../services/api';
 import { Search, Filter, X, Clock } from 'lucide-react';
 import CustomSelect from '../components/CustomSelect';
 import CustomDatePicker from '../components/CustomDatePicker';
+import PromptModal from '../components/PromptModal';
+import StatusModal from '../components/StatusModal';
 
 const LeaveManagement = () => {
     const [leaves, setLeaves] = useState([]);
@@ -13,6 +15,8 @@ const LeaveManagement = () => {
         endDate: ''
     });
     const [loading, setLoading] = useState(false);
+    const [modalConfig, setModalConfig] = useState({ isOpen: false, type: 'success', title: '', message: '' });
+    const [promptConfig, setPromptConfig] = useState({ isOpen: false, id: null, status: '' });
 
     const loadLeaves = useCallback(async () => {
         setLoading(true);
@@ -53,15 +57,41 @@ const LeaveManagement = () => {
     };
 
     const handleAction = async (id, status) => {
-        const notes = window.prompt(`Add notes for ${status}:`);
+        setPromptConfig({ isOpen: true, id, status });
+    };
+
+    const confirmAction = async (notes) => {
+        const { id, status } = promptConfig;
         try {
             await api.put(`/admin/leaves/${id}`, { status, admin_notes: notes });
+            setPromptConfig({ isOpen: false, id: null, status: '' });
             loadLeaves();
-        } catch (err) { alert('Failed to update leave'); }
+            setModalConfig({
+                isOpen: true,
+                type: 'success',
+                title: status === 'approved' ? 'Leave Approved' : 'Leave Rejected',
+                message: `The leave application status has been updated to ${status}.`
+            });
+        } catch (err) {
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Action Failed',
+                message: 'Could not update the leave status. Please try again.'
+            });
+        }
     };
 
     return (
         <div className="section">
+            <StatusModal {...modalConfig} onConfirm={() => setModalConfig({ ...modalConfig, isOpen: false })} />
+            <PromptModal
+                isOpen={promptConfig.isOpen}
+                title={promptConfig.status === 'approved' ? 'Approve Leave' : 'Reject Leave'}
+                message={`Please provide any administration remarks for this ${promptConfig.status} decision.`}
+                onConfirm={confirmAction}
+                onCancel={() => setPromptConfig({ isOpen: false, id: null, status: '' })}
+            />
             <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <div>
                     <h2 className="section-title">Leave Management</h2>

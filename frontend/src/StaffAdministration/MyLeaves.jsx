@@ -3,11 +3,13 @@ import { Plane, AlertCircle } from 'lucide-react';
 import api from '../services/api';
 import CustomSelect from '../components/CustomSelect';
 import CustomDatePicker from '../components/CustomDatePicker';
+import StatusModal from '../components/StatusModal';
 
 const MyLeaves = () => {
     const [leaves, setLeaves] = useState([]);
     const [isSingleDay, setIsSingleDay] = useState(true);
     const [formData, setFormData] = useState({ start_date: '', end_date: '', leave_type: 'Personal Leave', reason: '' });
+    const [modalConfig, setModalConfig] = useState({ isOpen: false, type: 'success', title: '', message: '' });
 
     const fetchLeaves = async () => {
         const res = await api.get('/staff/my-leaves');
@@ -24,14 +26,30 @@ const MyLeaves = () => {
                 data.end_date = data.start_date;
             }
             await api.post('/staff/leave', data);
-            alert('Leave request submitted successfully!');
+            setModalConfig({
+                isOpen: true,
+                type: 'success',
+                title: 'Application Sent!',
+                message: 'Your leave request has been submitted successfully. You can track the status in the history log below.'
+            });
             setFormData({ start_date: '', end_date: '', leave_type: 'Personal Leave', reason: '' });
             fetchLeaves();
-        } catch (err) { alert('Failed to submit leave request'); }
+        } catch (err) {
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Submission Failed',
+                message: 'We encountered an error while processing your request. Please check your connection and try again.'
+            });
+        }
     };
 
     return (
         <div className="section">
+            <StatusModal
+                {...modalConfig}
+                onConfirm={() => setModalConfig({ ...modalConfig, isOpen: false })}
+            />
             <h2 className="section-title">Leave Management</h2>
 
             <div className="form-card">

@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { Eye, EyeOff, Search } from 'lucide-react';
+import StatusModal from '../components/StatusModal';
+import ConfirmModal from '../components/ConfirmModal';
 
 const StaffManagement = () => {
     const [staff, setStaff] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [formData, setFormData] = useState({ name: '', beacon_uuid: '', department: '', email: '', password: '', is_hod: false, phone_number: '' });
     const [showPassword, setShowPassword] = useState(false);
+    const [modalConfig, setModalConfig] = useState({ isOpen: false, type: 'success', title: '', message: '' });
+    const [confirmConfig, setConfirmConfig] = useState({ isOpen: false, id: null });
 
     const loadStaff = async () => {
         const res = await api.get('/admin/staff');
@@ -18,16 +22,24 @@ const StaffManagement = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        // Validation: email should not start with a number
         if (/^\d/.test(formData.email)) {
-            alert('Email address should not start with a number');
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Invalid Email',
+                message: 'Email address should not start with a number. Please correct the email and try again.'
+            });
             return;
         }
 
-        // Validation: Password complexity
         const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/;
         if (!passwordRegex.test(formData.password)) {
-            alert('Password must be at least 8 characters long and include uppercase, lowercase, a number, and a special character.');
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Weak Password',
+                message: 'Password must be at least 8 characters long and include uppercase, lowercase, a number, and a special character.'
+            });
             return;
         }
 
@@ -47,22 +59,55 @@ const StaffManagement = () => {
                     staff_id: res.data.id,
                     name: formData.name
                 });
-                alert('Staff registered successfully!');
+                setModalConfig({
+                    isOpen: true,
+                    type: 'success',
+                    title: 'Staff Registered!',
+                    message: `Account for ${formData.name} has been created successfully.`
+                });
                 setFormData({ name: '', beacon_uuid: '', department: '', email: '', password: '', is_hod: false, phone_number: '' });
                 loadStaff();
             }
-        } catch (err) { alert('Registration failed'); }
+        } catch (err) {
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Registration Failed',
+                message: err.response?.data?.error || 'A system error occurred. Please check the logs.'
+            });
+        }
     };
 
     const handleDelete = async (id) => {
-        if (window.confirm('Delete this staff member?')) {
+        setConfirmConfig({ isOpen: true, id });
+    };
+
+    const confirmDelete = async () => {
+        const id = confirmConfig.id;
+        try {
             await api.delete(`/admin/staff/${id}`);
             loadStaff();
+            setConfirmConfig({ isOpen: false, id: null });
+        } catch (err) {
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Delete Failed',
+                message: 'Could not delete staff member. They might be referenced in other records.'
+            });
         }
     };
 
     return (
         <div className="section">
+            <StatusModal {...modalConfig} onConfirm={() => setModalConfig({ ...modalConfig, isOpen: false })} />
+            <ConfirmModal
+                isOpen={confirmConfig.isOpen}
+                title="Confirm Delete"
+                message="Are you sure you want to remove this staff member? This action cannot be undone."
+                onConfirm={confirmDelete}
+                onCancel={() => setConfirmConfig({ isOpen: false, id: null })}
+            />
             <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <h2 className="section-title" style={{ margin: 0 }}>Manage Staff</h2>
                 <div className="search-wrapper" style={{ maxWidth: '300px' }}>

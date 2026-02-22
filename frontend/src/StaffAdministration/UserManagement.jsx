@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import api from '../services/api';
 import { Eye, EyeOff, Shield, Info } from 'lucide-react';
+import StatusModal from '../components/StatusModal';
 
 const UserManagement = () => {
     const [formData, setFormData] = useState({
@@ -11,18 +12,29 @@ const UserManagement = () => {
     });
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [modalConfig, setModalConfig] = useState({ isOpen: false, type: 'success', title: '', message: '' });
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
         if (/^\d/.test(formData.email)) {
-            alert('Email address should not start with a number');
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Invalid Email',
+                message: 'Email address should not start with a number. Please correct it to continue.'
+            });
             return;
         }
 
         const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/;
         if (!passwordRegex.test(formData.password)) {
-            alert('Password must be at least 8 characters long and include uppercase, lowercase, a number, and a special character.');
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Weak Password',
+                message: 'Password must be at least 8 characters long and include uppercase, lowercase, a number, and a special character (@$!%*?&#).'
+            });
             return;
         }
 
@@ -34,10 +46,20 @@ const UserManagement = () => {
                 role: formData.role,
                 name: formData.name
             });
-            alert(`${formData.role.charAt(0).toUpperCase() + formData.role.slice(1)} user created successfully`);
+            setModalConfig({
+                isOpen: true,
+                type: 'success',
+                title: 'Account Created',
+                message: `The ${formData.role} account for ${formData.name} has been successfully provisioned.`
+            });
             setFormData({ name: '', email: '', password: '', role: 'admin' });
         } catch (err) {
-            alert('Registration failed: ' + (err.response?.data?.error || err.message));
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Creation Failed',
+                message: err.response?.data?.error || 'A system error occurred while creating the account.'
+            });
         } finally {
             setLoading(false);
         }
@@ -72,6 +94,7 @@ const UserManagement = () => {
 
     return (
         <div className="section">
+            <StatusModal {...modalConfig} onConfirm={() => setModalConfig({ ...modalConfig, isOpen: false })} />
             <div className="section-header" style={{ marginBottom: '24px' }}>
                 <div>
                     <h2 className="section-title" style={{ marginBottom: '8px' }}>Administrative & Executive Access</h2>

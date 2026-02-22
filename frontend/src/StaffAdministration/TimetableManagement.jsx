@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import TimetableGridInput from './TimetableGridInput';
 import CustomSelect from '../components/CustomSelect';
+import StatusModal from '../components/StatusModal';
+import ConfirmModal from '../components/ConfirmModal';
 import { Search, Edit2, Trash2, Check, X } from 'lucide-react';
 
 const TimetableManagement = () => {
@@ -13,6 +15,8 @@ const TimetableManagement = () => {
     const [filters, setFilters] = useState({ staffName: '', day: 'All' });
     const [editingId, setEditingId] = useState(null);
     const [editFormData, setEditFormData] = useState({});
+    const [modalConfig, setModalConfig] = useState({ isOpen: false, type: 'success', title: '', message: '' });
+    const [confirmConfig, setConfirmConfig] = useState({ isOpen: false, id: null });
 
     const fetchData = async () => {
         try {
@@ -37,17 +41,39 @@ const TimetableManagement = () => {
             await api.post('/admin/timetable', formData);
             setFormData({ staff_id: '', classroom_id: '', day_of_week: 'Monday', start_time: '08:00', end_time: '09:00', subject: '' });
             fetchData();
-        } catch (err) { alert('Failed to add timetable entry'); }
+            setModalConfig({
+                isOpen: true,
+                type: 'success',
+                title: 'Slot Added!',
+                message: 'The new timetable entry has been successfully recorded and is now live.'
+            });
+        } catch (err) {
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Addition Failed',
+                message: 'There was an institution scheduling conflict or a system error. Please try again.'
+            });
+        }
     };
 
     const handleDelete = async (id) => {
-        if (window.confirm('Delete this entry?')) {
-            try {
-                await api.delete(`/admin/timetable/${id}`);
-                fetchData();
-            } catch (err) {
-                alert('Failed to delete entry');
-            }
+        setConfirmConfig({ isOpen: true, id });
+    };
+
+    const confirmDelete = async () => {
+        const id = confirmConfig.id;
+        try {
+            await api.delete(`/admin/timetable/${id}`);
+            fetchData();
+            setConfirmConfig({ isOpen: false, id: null });
+        } catch (err) {
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Delete Failed',
+                message: 'Could not remove this entry. Please refresh and try again.'
+            });
         }
     };
 
@@ -68,13 +94,32 @@ const TimetableManagement = () => {
             await api.put(`/admin/timetable/${id}`, editFormData);
             setEditingId(null);
             fetchData();
+            setModalConfig({
+                isOpen: true,
+                type: 'success',
+                title: 'Update Successful',
+                message: 'The timetable entry has been modified successfully.'
+            });
         } catch (err) {
-            alert('Failed to update timetable entry');
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Update Failed',
+                message: 'We could not save your changes. Please check if the staff is free at this time.'
+            });
         }
     };
 
     return (
         <div className="section">
+            <StatusModal {...modalConfig} onConfirm={() => setModalConfig({ ...modalConfig, isOpen: false })} />
+            <ConfirmModal
+                isOpen={confirmConfig.isOpen}
+                title="Confirm Removal"
+                message="Are you sure you want to delete this schedule slot? This will affect attendance tracking for this period."
+                onConfirm={confirmDelete}
+                onCancel={() => setConfirmConfig({ isOpen: false, id: null })}
+            />
             <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <h2 className="section-title" style={{ margin: 0 }}>Schedule Management</h2>
 
