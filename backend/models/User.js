@@ -33,6 +33,10 @@ const userSchema = new mongoose.Schema({
     isActive: {
         type: Boolean,
         default: true
+    },
+    pushSubscription: {
+        type: Object,
+        default: null
     }
 }, {
     timestamps: true

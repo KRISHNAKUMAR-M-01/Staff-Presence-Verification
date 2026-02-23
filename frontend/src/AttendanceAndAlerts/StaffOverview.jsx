@@ -127,7 +127,7 @@ const StaffOverview = () => {
                                 transition: 'all 0.2s ease'
                             }}>
                                 <div>
-                                    <div style={{ fontWeight: '700', color: '#1e293b', fontSize: '15px' }}>{cls.classroom_id.room_name}</div>
+                                    <div style={{ fontWeight: '700', color: '#1e293b', fontSize: '15px' }}>{cls.room_name}</div>
                                     <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>{cls.subject || 'Academic Session'}</div>
                                 </div>
                                 <div style={{ textAlign: 'right' }}>

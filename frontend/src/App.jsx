@@ -5,6 +5,8 @@ import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 import StaffDashboard from './pages/StaffDashboard';
 import ExecutiveDashboard from './pages/ExecutiveDashboard';
+import { registerServiceWorker, subscribeToPush, saveSubscription } from './services/notificationService';
+
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
@@ -34,7 +36,29 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 };
 
 const AppContent = () => {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, token } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      const initPush = async () => {
+        const registration = await registerServiceWorker();
+        if (registration) {
+          // Check for existing subscription
+          let subscription = await registration.pushManager.getSubscription();
+
+          if (!subscription) {
+            // Subscribe if not already subscribed
+            subscription = await subscribeToPush(registration);
+          }
+
+          if (subscription) {
+            await saveSubscription(subscription, token);
+          }
+        }
+      };
+      initPush();
+    }
+  }, [isAuthenticated, token]);
 
   const getDefaultRoute = () => {
     if (!isAuthenticated) return '/login';

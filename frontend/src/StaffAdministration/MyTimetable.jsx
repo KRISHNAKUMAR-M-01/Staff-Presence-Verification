@@ -29,9 +29,9 @@ const MyTimetable = () => {
                             return slots.map((s, i) => (
                                 <tr key={`${day}-${i}`}>
                                     {i === 0 && <td rowSpan={slots.length} style={{ fontWeight: '700', color: '#097969' }}>{day}</td>}
-                                    <td>{s.classroom_id?.room_name}</td>
+                                    <td>{s.room_name}</td>
                                     <td>{s.start_time} - {s.end_time}</td>
-                                    <td>{s.subject || '-'}</td>
+                                    <td>{s.subject}</td>
                                 </tr>
                             ));
                         })}

@@ -108,12 +108,12 @@ const Login = () => {
                             <div>
                                 <strong>Staff:</strong> kriskanna17@gmail.com / Staff@123
                             </div>
-                        </div>
-                    </div>
+                        </div> 
+                     </div>
                 </div>
             </div>
         </div>
     );
-};
+}; 
 
 export default Login;

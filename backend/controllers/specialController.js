@@ -98,7 +98,7 @@ exports.sendMeetingRequest = async (req, res) => {
                 // Find User associated with Free Staff to send notification
                 const freeStaffUser = await User.findOne({ staff_id: freeStaff._id });
                 if (freeStaffUser) {
-                    await Notification.create({
+                    const subNotifData = {
                         recipient_id: freeStaffUser._id,
                         title: 'Class Substitution Request',
                         message: `Please cover ${activeClass.subject || 'class'} in ${activeClass.classroom_id.room_name} for ${targetStaff.name}. Requested by ${requesterRole} (${requesterName}).`,
@@ -108,7 +108,19 @@ exports.sendMeetingRequest = async (req, res) => {
                             originalStaffId: staffId,
                             requesterRole
                         }
-                    });
+                    };
+                    await Notification.create(subNotifData);
+
+                    // Push Notification to Free Staff
+                    if (freeStaffUser.pushSubscription) {
+                        const { sendPushNotification } = require('../utils/pushService');
+                        await sendPushNotification(freeStaffUser.pushSubscription, {
+                            title: subNotifData.title,
+                            body: subNotifData.message,
+                            icon: '/logo192.png',
+                            data: { url: '/staff/notifications' }
+                        });
+                    }
 
                     // Send Email to Free Staff
                     await sendEmail(
@@ -130,13 +142,25 @@ exports.sendMeetingRequest = async (req, res) => {
                 message += ` Note: No free staff available to cover your current class in ${activeClass.classroom_id.room_name}.`;
             }
 
-            await Notification.create({
+            const targetNotifData = {
                 recipient_id: targetUser._id,
                 title: 'Urgent Meeting Request',
                 message: message,
                 type: 'meeting_request',
                 related_data: { requesterRole }
-            });
+            };
+            await Notification.create(targetNotifData);
+
+            // Push Notification to Target Staff
+            if (targetUser.pushSubscription) {
+                const { sendPushNotification } = require('../utils/pushService');
+                await sendPushNotification(targetUser.pushSubscription, {
+                    title: targetNotifData.title,
+                    body: targetNotifData.message,
+                    icon: '/logo192.png',
+                    data: { url: '/staff/notifications' }
+                });
+            }
 
             // Send Email to Target Staff
             await sendEmail(targetUser.email, 'Urgent Meeting Request', message);

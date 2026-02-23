@@ -32,9 +32,30 @@ app.use(cors());
 app.use(morgan('dev'));
 app.use(bodyParser.json());
 
+const { sendPushNotification } = require('./utils/pushService');
+
 // ============================================
 // AUTHENTICATION ENDPOINTS (Public)
 // ============================================
+
+// Save Push Subscription
+app.post('/api/auth/subscribe', authenticateToken, async (req, res) => {
+    try {
+        const subscription = req.body;
+        const user = await User.findById(req.user._id);
+
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        user.pushSubscription = subscription;
+        await user.save();
+
+        res.status(200).json({ message: 'Push subscription saved' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // Login
 app.post('/api/auth/login', async (req, res) => {
@@ -279,23 +300,47 @@ app.get('/api/admin/timetable', authenticateToken, requireAdmin, async (req, res
 
 app.post('/api/admin/timetable', authenticateToken, requireAdmin, async (req, res) => {
     try {
-        const { staff_id, classroom_id, day_of_week, start_time, end_time } = req.body;
-        const timetable = new Timetable({ staff_id, classroom_id, day_of_week, start_time, end_time });
+        const { staff_id, classroom_id, day_of_week, start_time, end_time, subject } = req.body;
+
+        // Basic validation
+        if (!staff_id || !classroom_id || !day_of_week || !start_time || !end_time) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        const timetable = new Timetable({
+            staff_id,
+            classroom_id,
+            day_of_week,
+            start_time,
+            end_time,
+            subject
+        });
         await timetable.save();
 
         // Notify staff about timetable change
         const user = await User.findOne({ staff_id });
         if (user) {
-            await Notification.create({
+            const notifData = {
                 recipient_id: user._id,
                 title: 'Timetable Updated',
                 message: `New class scheduled on ${day_of_week} from ${start_time} to ${end_time}`,
                 type: 'timetable_change'
-            });
+            };
+            await Notification.create(notifData);
+
+            if (user.pushSubscription) {
+                await sendPushNotification(user.pushSubscription, {
+                    title: notifData.title,
+                    body: notifData.message,
+                    icon: '/logo192.png',
+                    data: { url: '/staff/my-timetable' }
+                });
+            }
         }
 
         res.json({ id: timetable._id });
     } catch (err) {
+        console.error('❌ Error adding timetable:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -622,12 +667,22 @@ app.put('/api/admin/leaves/:id', authenticateToken, requireAdmin, async (req, re
         // Notify staff
         const user = await User.findOne({ staff_id: leave.staff_id._id });
         if (user) {
-            await Notification.create({
+            const notifData = {
                 recipient_id: user._id,
                 title: 'Leave Request ' + status.charAt(0).toUpperCase() + status.slice(1),
                 message: `Your leave request from ${leave.start_date.toDateString()} has been ${status}`,
                 type: 'leave_update'
-            });
+            };
+            await Notification.create(notifData);
+
+            if (user.pushSubscription) {
+                await sendPushNotification(user.pushSubscription, {
+                    title: notifData.title,
+                    body: notifData.message,
+                    icon: '/logo192.png',
+                    data: { url: '/staff/my-leaves' }
+                });
+            }
         }
 
         // Handle substitution alerts if approved
@@ -676,12 +731,22 @@ app.put('/api/admin/leaves/:id', authenticateToken, requireAdmin, async (req, re
                         if (sUser) {
                             const substitutionMsg = `Staff ${leave.staff_id.name} is on leave. Class in ${cls.classroom_id.room_name} on ${dateString} (${cls.start_time} - ${cls.end_time}) needs coverage. Are you available?`;
 
-                            await Notification.create({
+                            const subNotifData = {
                                 recipient_id: sUser._id,
                                 title: 'Substitution Opportunity',
                                 message: substitutionMsg,
                                 type: 'substitution_alert'
-                            });
+                            };
+                            await Notification.create(subNotifData);
+
+                            if (sUser.pushSubscription) {
+                                await sendPushNotification(sUser.pushSubscription, {
+                                    title: subNotifData.title,
+                                    body: subNotifData.message,
+                                    icon: '/logo192.png',
+                                    data: { url: '/staff/notifications' }
+                                });
+                            }
 
                             // Send Email Alert
                             await sendEmail(sUser.email, 'Substitution Opportunity', substitutionMsg);
@@ -720,7 +785,17 @@ app.get('/api/staff/my-timetable', authenticateToken, requireStaff, async (req, 
     try {
         const timetable = await Timetable.find({ staff_id: req.user.staff_id })
             .populate('classroom_id', 'room_name');
-        res.json(timetable);
+
+        const formatted = timetable.map(t => ({
+            id: t._id,
+            room_name: t.classroom_id ? t.classroom_id.room_name : 'Unknown Room',
+            day_of_week: t.day_of_week,
+            start_time: t.start_time,
+            end_time: t.end_time,
+            subject: t.subject || '-'
+        }));
+
+        res.json(formatted);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -745,17 +820,27 @@ app.post('/api/staff/leave', authenticateToken, requireStaff, async (req, res) =
         await leave.save();
 
         // Notify all admins
-        const admins = await User.find({ role: 'admin' });
+        const admins = await User.find({ role: { $in: ['admin', 'principal', 'secretary', 'director'] } });
         const staff = await Staff.findById(req.user.staff_id);
         const staffName = staff ? staff.name : req.user.name;
 
         for (const admin of admins) {
-            await Notification.create({
+            const leaveNotifData = {
                 recipient_id: admin._id,
                 title: 'New Leave Request',
                 message: `${staffName} has submitted a leave request starting ${new Date(start_date).toDateString()}`,
                 type: 'leave_request'
-            });
+            };
+            await Notification.create(leaveNotifData);
+
+            if (admin.pushSubscription) {
+                await sendPushNotification(admin.pushSubscription, {
+                    title: leaveNotifData.title,
+                    body: leaveNotifData.message,
+                    icon: '/logo192.png',
+                    data: { url: '/admin/leaves' }
+                });
+            }
         }
 
         res.json({ message: 'Leave request submitted successfully', leave });
@@ -930,27 +1015,67 @@ app.post('/api/ble-data', async (req, res) => {
 
                     // 2. In-app notification for Staff
                     if (staffUser) {
-                        await Notification.create({
+                        const notificationData = {
                             recipient_id: staffUser._id,
                             title: 'Attendance Alert',
                             message: `You have been marked LATE for your class in ${classroom.room_name}.`,
                             type: 'late_alert'
-                        });
+                        };
+                        await Notification.create(notificationData);
+
+                        if (staffUser.pushSubscription) {
+                            await sendPushNotification(staffUser.pushSubscription, {
+                                title: notificationData.title,
+                                body: notificationData.message,
+                                icon: '/logo192.png', // Default icon path
+                                data: { url: '/staff/notifications' }
+                            });
+                        }
                     }
 
                     // 2. Notify HOD(s)
                     const hods = await Staff.find({ department: staff.department, is_hod: true });
                     for (const hod of hods) {
-                        // In-app notification for HOD
                         const hodUser = await User.findOne({ staff_id: hod._id });
                         if (hodUser) {
-                            // Send Email to HOD
                             await sendEmail(hodUser.email, 'Department Lateness Alert', `HOD Alert: ${staff.name} has been marked LATE for class in ${classroom.room_name}.`);
-                            await Notification.create({
+
+                            const hodNotifData = {
                                 recipient_id: hodUser._id,
                                 title: 'Dept. Lateness Alert',
                                 message: alertMessage,
                                 type: 'late_alert'
+                            };
+                            await Notification.create(hodNotifData);
+
+                            if (hodUser.pushSubscription) {
+                                await sendPushNotification(hodUser.pushSubscription, {
+                                    title: hodNotifData.title,
+                                    body: hodNotifData.message,
+                                    icon: '/logo192.png',
+                                    data: { url: '/admin/alerts' }
+                                });
+                            }
+                        }
+                    }
+
+                    // 3. Notify Admins (Executives)
+                    const admins = await User.find({ role: { $in: ['admin', 'principal', 'secretary', 'director'] } });
+                    for (const admin of admins) {
+                        const adminNotifData = {
+                            recipient_id: admin._id,
+                            title: 'Staff Lateness Alert',
+                            message: `${staff.name} is marked LATE for class in ${classroom.room_name}.`,
+                            type: 'late_alert'
+                        };
+                        await Notification.create(adminNotifData);
+
+                        if (admin.pushSubscription) {
+                            await sendPushNotification(admin.pushSubscription, {
+                                title: adminNotifData.title,
+                                body: adminNotifData.message,
+                                icon: '/logo192.png',
+                                data: { url: '/admin/alerts' }
                             });
                         }
                     }
@@ -1058,12 +1183,23 @@ cron.schedule('* * * * *', async () => {
                 });
 
                 if (!exists) {
-                    await Notification.create({
+                    const notifData = {
                         recipient_id: user._id,
                         title: 'Upcoming Class',
                         message: `You have a class in ${cls.classroom_id.room_name} starting in 5 minutes at ${cls.start_time}.`,
                         type: 'upcoming_class'
-                    });
+                    };
+                    await Notification.create(notifData);
+
+                    // Push Notification to Staff
+                    if (user.pushSubscription) {
+                        await sendPushNotification(user.pushSubscription, {
+                            title: notifData.title,
+                            body: notifData.message,
+                            icon: '/logo192.png',
+                            data: { url: '/staff/my-timetable' }
+                        });
+                    }
 
                     // 1. Send Email to Staff
                     await sendEmail(
@@ -1075,16 +1211,46 @@ cron.schedule('* * * * *', async () => {
                     // 2. Notify HOD(s) 
                     const hods = await Staff.find({ department: cls.staff_id.department, is_hod: true });
                     for (const hod of hods) {
-                        // Dashboard notification for HOD
                         const hodUser = await User.findOne({ staff_id: hod._id });
                         if (hodUser) {
-                            // Send Email to HOD
                             await sendEmail(hodUser.email, 'Upcoming Class Warning (Dept)', `HOD Alert: ${cls.staff_id.name} has a class starting in 5 minutes in ${cls.classroom_id.room_name}.`);
-                            await Notification.create({
+
+                            const hodNotifData = {
                                 recipient_id: hodUser._id,
                                 title: 'Upcoming Class (Dept)',
                                 message: `${cls.staff_id.name} has a class in ${cls.classroom_id.room_name} starting in 5 minutes.`,
                                 type: 'upcoming_class_dept'
+                            };
+                            await Notification.create(hodNotifData);
+
+                            if (hodUser.pushSubscription) {
+                                await sendPushNotification(hodUser.pushSubscription, {
+                                    title: hodNotifData.title,
+                                    body: hodNotifData.message,
+                                    icon: '/logo192.png',
+                                    data: { url: '/admin/staff-locations' }
+                                });
+                            }
+                        }
+                    }
+
+                    // 3. Notify Admins (Executives)
+                    const admins = await User.find({ role: { $in: ['admin', 'principal', 'secretary', 'director'] } });
+                    for (const admin of admins) {
+                        const adminNotifData = {
+                            recipient_id: admin._id,
+                            title: 'Upcoming Class Alert',
+                            message: `Staff ${cls.staff_id.name} has a class starting in 5 minutes in ${cls.classroom_id.room_name}.`,
+                            type: 'upcoming_class_admin'
+                        };
+                        await Notification.create(adminNotifData);
+
+                        if (admin.pushSubscription) {
+                            await sendPushNotification(admin.pushSubscription, {
+                                title: adminNotifData.title,
+                                body: adminNotifData.message,
+                                icon: '/logo192.png',
+                                data: { url: '/admin/staff-locations' }
                             });
                         }
                     }
@@ -1133,14 +1299,24 @@ cron.schedule('* * * * *', async () => {
                 });
 
                 // 2. Notify Admins
-                const admins = await User.find({ role: 'admin' });
+                const admins = await User.find({ role: { $in: ['admin', 'principal', 'secretary', 'director'] } });
                 for (const admin of admins) {
-                    await Notification.create({
+                    const adminNotifData = {
                         recipient_id: admin._id,
                         title: 'Staff Absence Warning',
                         message: alertMessage,
                         type: 'absence_warning'
-                    });
+                    };
+                    await Notification.create(adminNotifData);
+
+                    if (admin.pushSubscription) {
+                        await sendPushNotification(admin.pushSubscription, {
+                            title: adminNotifData.title,
+                            body: adminNotifData.message,
+                            icon: '/logo192.png',
+                            data: { url: '/admin/alerts' }
+                        });
+                    }
                 }
 
                 // 3. Notify HOD of the department
@@ -1152,24 +1328,45 @@ cron.schedule('* * * * *', async () => {
                     if (hodUser) {
                         // Send Email to HOD
                         await sendEmail(hodUser.email, 'Department Absence Warning', `HOD Alert: Staff ${cls.staff_id.name} is absent for class in ${cls.classroom_id.room_name}.`);
-                        await Notification.create({
+
+                        const hodNotifData = {
                             recipient_id: hodUser._id,
                             title: 'Dept. Absence Warning',
                             message: alertMessage,
                             type: 'absence_warning'
-                        });
+                        };
+                        await Notification.create(hodNotifData);
+
+                        if (hodUser.pushSubscription) {
+                            await sendPushNotification(hodUser.pushSubscription, {
+                                title: hodNotifData.title,
+                                body: hodNotifData.message,
+                                icon: '/logo192.png',
+                                data: { url: '/admin/alerts' }
+                            });
+                        }
                     }
                 }
 
                 // 4. Notify the Staff member themselves
                 const user = await User.findOne({ staff_id: cls.staff_id._id });
                 if (user) {
-                    await Notification.create({
+                    const staffNotifData = {
                         recipient_id: user._id,
                         title: 'Absence Warning',
                         message: `You have not been detected for your class in ${cls.classroom_id.room_name} at ${cls.start_time}.`,
                         type: 'absence_warning'
-                    });
+                    };
+                    await Notification.create(staffNotifData);
+
+                    if (user.pushSubscription) {
+                        await sendPushNotification(user.pushSubscription, {
+                            title: staffNotifData.title,
+                            body: staffNotifData.message,
+                            icon: '/logo192.png',
+                            data: { url: '/staff/notifications' }
+                        });
+                    }
 
                     // Send Email to Staff
                     await sendEmail(user.email, 'Absence Warning', `Absence Alert: You were not detected in ${cls.classroom_id.room_name} for your ${cls.start_time} class.`);
