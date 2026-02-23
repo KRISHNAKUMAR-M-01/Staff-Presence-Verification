@@ -72,12 +72,17 @@ const AdminOverview = () => {
                 {recentAttendance.map((item, i) => {
                     const lastSeen = new Date(item.last_seen_time || item.check_in_time);
                     const isStale = (new Date() - lastSeen) > 5 * 60 * 1000;
-                    const displayStatus = (item.status === 'Tracking' && isStale) ? 'Session Ended' : item.status;
 
-                    // Logic for duration text
-                    let durationText = '';
+                    // Logic for duration
                     const diffMs = lastSeen - new Date(item.check_in_time);
                     const diffMins = Math.floor(diffMs / (1000 * 60));
+
+                    let displayStatus = item.status;
+                    if (item.status === 'Tracking' && isStale) {
+                        displayStatus = diffMins < 30 ? 'Absent' : 'Present';
+                    }
+
+                    let durationText = '';
                     if (diffMins > 0) {
                         const h = Math.floor(diffMins / 60);
                         const m = diffMins % 60;

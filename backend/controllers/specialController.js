@@ -182,11 +182,27 @@ exports.getAllStaffStatus = async (req, res) => {
                 end_time: { $gte: currentTime }
             }).populate('classroom_id', 'room_name');
 
+            const now = new Date();
+            const signalThreshold = 5 * 60 * 1000; // 5 minutes
+            const isStale = attendance && (now - new Date(attendance.last_seen_time || attendance.check_in_time) > signalThreshold);
+
+            // Determine specific live status
+            let liveStatus = 'Absent';
+            if (attendance && !isStale) {
+                liveStatus = attendance.status; // Present, Late, etc.
+            } else if (attendance && isStale) {
+                liveStatus = 'Left'; // Was here, but signal lost/left
+            }
+
             return {
                 ...staff,
-                currentStatus: attendance ? attendance.status : 'Absent',
+                currentStatus: liveStatus,
                 lastSeen: attendance ? (attendance.last_seen_time || attendance.check_in_time) : null,
-                currentLocation: attendance ? attendance.classroom_id.room_name : 'Not on Campus',
+                currentLocation: (attendance && !isStale) ? attendance.classroom_id.room_name : 'Not detected',
+                expectedLocation: activeClass ? activeClass.classroom_id.room_name : 'No Class Assigned',
+                isCorrectLocation: activeClass && attendance && !isStale ?
+                    (activeClass.classroom_id._id.toString() === attendance.classroom_id._id.toString()) :
+                    (activeClass ? false : true),
                 activeClass: activeClass ? {
                     subject: activeClass.subject,
                     room: activeClass.classroom_id.room_name,

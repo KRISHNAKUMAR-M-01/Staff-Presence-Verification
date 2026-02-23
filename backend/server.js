@@ -414,18 +414,40 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
             });
 
             const latestAttendance = staffAttendanceRecords[0];
+            const now = new Date();
+            const signalThreshold = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+            let isStale = false;
+            if (latestAttendance) {
+                const lastSeen = new Date(latestAttendance.last_seen_time || latestAttendance.check_in_time);
+                if (now - lastSeen > signalThreshold) {
+                    isStale = true;
+                }
+            }
+
+            let liveStatus = 'Idle';
+            if (latestAttendance && !isStale) {
+                // If they have been seen recently, we are actively tracking them
+                liveStatus = (latestAttendance.status === 'Late') ? 'Late' : 'Tracking';
+            } else if (latestAttendance && isStale) {
+                // If data is old, they have left the area
+                liveStatus = 'Left';
+            } else if (schedule) {
+                // Only show Absent if they have a class NOW and haven't checked in
+                liveStatus = 'Absent';
+            }
 
             return {
                 staff_id: s._id,
                 staff_name: s.name,
                 department: s.department,
                 expected_location: schedule ? schedule.classroom_id.room_name : 'No Class Assigned',
-                actual_location: latestAttendance ? latestAttendance.classroom_id.room_name : 'Not detected',
-                status: latestAttendance ? latestAttendance.status : (schedule ? 'Absent' : 'Idle'),
+                actual_location: (latestAttendance && !isStale) ? latestAttendance.classroom_id.room_name : 'Not detected',
+                status: liveStatus,
                 check_in_time: latestAttendance ? (latestAttendance.last_seen_time || latestAttendance.check_in_time) : null,
-                is_correct_location: schedule && latestAttendance ?
+                is_correct_location: schedule && latestAttendance && !isStale ?
                     (schedule.classroom_id._id.toString() === latestAttendance.classroom_id._id.toString()) :
-                    (!schedule && latestAttendance ? false : true)
+                    (schedule ? false : true)
             };
         });
 
@@ -852,6 +874,12 @@ app.post('/api/ble-data', async (req, res) => {
         if (attendance) {
             // Update last_seen_time
             attendance.last_seen_time = now;
+
+            // If they were previously marked Absent (e.g. by cleanup), resume tracking
+            if (attendance.status === 'Absent') {
+                attendance.status = 'Tracking';
+            }
+
             await attendance.save();
 
             // Calculate duration in minutes
@@ -892,14 +920,15 @@ app.post('/api/ble-data', async (req, res) => {
                     });
                     await alert.save();
 
+                    // Notify Staff
+                    const staffUser = await User.findOne({ staff_id: staff._id });
+
                     // 1. Send Email to Staff
-                    const staffEmail = staffUser?.email;
-                    if (staffEmail) {
-                        await sendEmail(staffEmail, 'Attendance Alert: Late', `You have been marked LATE for your class in ${classroom.room_name}.`);
+                    if (staffUser && staffUser.email) {
+                        await sendEmail(staffUser.email, 'Attendance Alert: Late', `You have been marked LATE for your class in ${classroom.room_name}.`);
                     }
 
-                    // In-app notification for Staff
-                    const staffUser = await User.findOne({ staff_id: staff._id });
+                    // 2. In-app notification for Staff
                     if (staffUser) {
                         await Notification.create({
                             recipient_id: staffUser._id,
@@ -1149,6 +1178,81 @@ cron.schedule('* * * * *', async () => {
         }
     } catch (err) {
         console.error('Error in 15-min absence warning cron:', err);
+    }
+});
+
+// Job 3: Cleanup stale "Tracking" sessions
+// Runs every 15 minutes to finalize sessions where the class has ended or day has passed
+cron.schedule('*/15 * * * *', async () => {
+    try {
+        const now = new Date();
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const currentDay = days[now.getDay()];
+        const currentTime = now.toTimeString().substring(0, 5);
+        const todayStr = now.toISOString().split('T')[0];
+
+        // Find all records still in "Tracking" status
+        const stagnantRecords = await Attendance.find({ status: 'Tracking' });
+
+        for (const record of stagnantRecords) {
+            const recordDateStr = record.date.toISOString().split('T')[0];
+            const isToday = recordDateStr === todayStr;
+
+            // 1. If it's a previous day, finalize it immediately
+            if (!isToday) {
+                const durationMs = record.last_seen_time - record.check_in_time;
+                const durationMinutes = durationMs / (1000 * 60);
+
+                // User Rule: If duration < 30 mins, mark as Absent
+                record.status = durationMinutes < 30 ? 'Absent' : 'Present';
+                await record.save();
+                console.log(`[Cleanup] Finalized old record for staff ${record.staff_id} from ${recordDateStr}`);
+                continue;
+            }
+
+            // 2. If it's today, check if their class slot for this room has ended
+            // We find the slot that matches the record's classroom and staff
+            const slot = await Timetable.findOne({
+                staff_id: record.staff_id,
+                classroom_id: record.classroom_id,
+                day_of_week: currentDay
+            }).sort({ end_time: -1 });
+
+            if (slot) {
+                // If now is past slot end_time + 15 mins buffer, finalize
+                const [endH, endM] = slot.end_time.split(':');
+                const slotEndTime = new Date(record.date);
+                slotEndTime.setHours(parseInt(endH), parseInt(endM) + 15, 0);
+
+                if (now > slotEndTime) {
+                    const durationMinutes = (record.last_seen_time - record.check_in_time) / (1000 * 60);
+
+                    if (durationMinutes < 30) {
+                        record.status = 'Absent';
+                    } else {
+                        // Check for lateness as well
+                        const startTimeDate = new Date(`${recordDateStr}T${slot.start_time}:00`);
+                        const arrivalDiffMinutes = (record.check_in_time - startTimeDate) / (1000 * 60);
+                        const lateWindow = parseInt(process.env.TIME_WINDOW_MINUTES || 15);
+
+                        record.status = arrivalDiffMinutes > lateWindow ? 'Late' : 'Present';
+                    }
+                    await record.save();
+                    console.log(`[Cleanup] Finalized today's tracking for ${record.staff_id} as class in ${record.classroom_id} ended (Status: ${record.status})`);
+                }
+            } else {
+                // Unscheduled tracking - finalize if not seen for 1 hour
+                const minutesSinceLastSeen = (now - record.last_seen_time) / (1000 * 60);
+                if (minutesSinceLastSeen > 60) {
+                    const durationMinutes = (record.last_seen_time - record.check_in_time) / (1000 * 60);
+                    record.status = durationMinutes < 30 ? 'Absent' : 'Present';
+                    await record.save();
+                    console.log(`[Cleanup] Finalized unscheduled tracking for ${record.staff_id} due to inactivity`);
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Error in Cleanup Cron:', err);
     }
 });
 

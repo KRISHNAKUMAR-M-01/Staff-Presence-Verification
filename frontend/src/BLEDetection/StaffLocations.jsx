@@ -21,10 +21,11 @@ const StaffLocations = () => {
     }, []);
 
     const getStatusStyles = (loc) => {
-        const isSafe = loc.is_correct_location || loc.status === 'Present' || loc.status === 'Tracking';
-        if (isSafe && loc.status === 'Tracking') return { color: '#0ea5e9', bg: '#f0f9ff', icon: <Clock size={14} /> };
-        if (isSafe) return { color: '#10b981', bg: '#ecfdf5', icon: <CheckCircle size={14} /> };
+        if (loc.status === 'Tracking') return { color: '#0ea5e9', bg: '#f0f9ff', icon: <Clock size={14} /> };
+        if (loc.status === 'Present') return { color: '#10b981', bg: '#ecfdf5', icon: <CheckCircle size={14} /> };
         if (loc.status === 'Late') return { color: '#f59e0b', bg: '#fffbeb', icon: <AlertCircle size={14} /> };
+        if (loc.status === 'Left') return { color: '#64748b', bg: '#f1f5f9', icon: <MapPin size={14} /> };
+        if (loc.status === 'Offline') return { color: '#94a3b8', bg: '#f8fafc', icon: <Clock size={14} /> };
         return { color: '#ef4444', bg: '#fef2f2', icon: <XCircle size={14} /> };
     };
 
@@ -122,7 +123,8 @@ const StaffLocations = () => {
                                 }}>
                                     <MapPin size={14} color={loc.is_correct_location ? '#10b981' : '#ef4444'} />
                                     <span style={{ fontSize: '13px', color: loc.is_correct_location ? '#166534' : '#991b1b', fontWeight: '500' }}>
-                                        {loc.actual_location === 'Not detected' ? 'Not detected' : `Currently in ${loc.actual_location}`}
+                                        {loc.actual_location === 'Not detected' ? 'Not detected' :
+                                            (loc.status === 'Tracking' || loc.status === 'Present' || loc.status === 'Late' ? `Currently in ${loc.actual_location}` : `Last seen in ${loc.actual_location}`)}
                                     </span>
                                 </div>
                             </div>

@@ -10,9 +10,9 @@
 #include <BLEAdvertisedDevice.h>
 
 // --- CONFIGURATION ---
-const char* ssid = "Thorfinn";
-const char* password = "12345677";
-const char* serverUrl = "http://10.31.158.78:5000/api/ble-data";
+const char* ssid = "TEC_MECH 1";
+const char* password = "12345678";
+const char* serverUrl = "http://192.168.1.152:5000/api/ble-data";
 const char* classroomId = "ROOM_101";
 
 int scanTime = 5; 
