@@ -18,6 +18,10 @@ const alertSchema = new mongoose.Schema({
     timestamp: {
         type: Date,
         default: Date.now
+    },
+    is_read: {
+        type: Boolean,
+        default: false
     }
 }, {
     timestamps: true

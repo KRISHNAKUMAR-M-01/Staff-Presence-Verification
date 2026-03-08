@@ -225,7 +225,9 @@ app.delete('/api/admin/staff/:id', authenticateToken, requireAdmin, async (req, 
 // Update staff (Admin only)
 app.put('/api/admin/staff/:id', authenticateToken, requireAdmin, async (req, res) => {
     try {
-        const { name, beacon_uuid, department, is_hod, phone_number } = req.body;
+        const { name, beacon_uuid, department, is_hod, phone_number, password } = req.body;
+
+        // 1. Update Staff metadata
         const staff = await Staff.findByIdAndUpdate(
             req.params.id,
             { name, beacon_uuid, department, is_hod, phone_number },
@@ -234,6 +236,24 @@ app.put('/api/admin/staff/:id', authenticateToken, requireAdmin, async (req, res
         if (!staff) {
             return res.status(404).json({ error: 'Staff not found' });
         }
+
+        // 2. Update User metadata (Sync name if changed)
+        const user = await User.findOne({ staff_id: req.params.id });
+        if (user) {
+            user.name = name;
+
+            // 3. Handle Password Reset if password provided
+            if (password) {
+                const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/;
+                if (!passwordRegex.test(password)) {
+                    return res.status(400).json({ error: 'New password must be at least 8 characters long and include uppercase, lowercase, a number, and a special character.' });
+                }
+                user.password = password;
+            }
+
+            await user.save();
+        }
+
         res.json(staff);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -268,6 +288,23 @@ app.delete('/api/admin/classrooms/:id', authenticateToken, requireAdmin, async (
             return res.status(404).json({ error: 'Classroom not found' });
         }
         res.json({ message: 'Classroom deleted successfully' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/admin/classrooms/:id', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { room_name, esp32_id } = req.body;
+        const classroom = await Classroom.findByIdAndUpdate(
+            req.params.id,
+            { room_name, esp32_id },
+            { new: true }
+        );
+        if (!classroom) {
+            return res.status(404).json({ error: 'Classroom not found' });
+        }
+        res.json(classroom);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -521,7 +558,7 @@ app.get('/api/admin/attendance', authenticateToken, requireAdmin, async (req, re
         }
 
         let attendance = await Attendance.find(query)
-            .populate('staff_id', 'name')
+            .populate('staff_id', 'name department')
             .populate('classroom_id', 'room_name')
             .sort({ check_in_time: -1 });
 
@@ -539,6 +576,7 @@ app.get('/api/admin/attendance', authenticateToken, requireAdmin, async (req, re
             staff_id: a.staff_id._id,
             classroom_id: a.classroom_id?._id,
             staff_name: a.staff_id.name,
+            department: a.staff_id.department,
             room_name: a.classroom_id?.room_name || 'N/A',
             check_in_time: a.check_in_time,
             last_seen_time: a.last_seen_time,
@@ -555,7 +593,7 @@ app.get('/api/admin/attendance', authenticateToken, requireAdmin, async (req, re
 // Alerts (Admin only)
 app.get('/api/admin/alerts', authenticateToken, requireAdmin, async (req, res) => {
     try {
-        const { startDate, endDate, staffName } = req.query;
+        const { startDate, endDate, staffName, is_read } = req.query;
         let query = {};
 
         if (startDate || endDate) {
@@ -564,30 +602,77 @@ app.get('/api/admin/alerts', authenticateToken, requireAdmin, async (req, res) =
             if (endDate) query.timestamp.$lte = new Date(endDate);
         }
 
+        if (is_read !== undefined) {
+            query.is_read = is_read === 'true';
+        }
+
+        console.log(`[Alerts Debug] Fetching alerts with query:`, JSON.stringify(query));
+
         let alerts = await Alert.find(query)
-            .populate('staff_id', 'name')
+            .populate('staff_id', 'name department')
             .populate('classroom_id', 'room_name')
             .sort({ timestamp: -1 });
+
+        console.log(`[Alerts Debug] Found ${alerts.length} alerts in DB`);
 
         if (staffName) {
             const search = staffName.toLowerCase();
             alerts = alerts.filter(al =>
-                al.staff_id.name.toLowerCase().includes(search)
+                al.staff_id && al.staff_id.name.toLowerCase().includes(search)
             );
         }
 
-        const formatted = alerts.map(al => ({
-            id: al._id,
-            staff_id: al.staff_id._id,
-            classroom_id: al.classroom_id._id,
-            staff_name: al.staff_id.name,
-            room_name: al.classroom_id.room_name,
-            message: al.message,
-            timestamp: al.timestamp
-        }));
+        const formatted = alerts.map(al => {
+            if (!al.staff_id) return null;
+            return {
+                id: al._id,
+                staff_id: al.staff_id._id,
+                classroom_id: al.classroom_id ? al.classroom_id._id : null,
+                staff_name: al.staff_id.name,
+                department: al.staff_id.department,
+                room_name: al.classroom_id ? al.classroom_id.room_name : 'N/A',
+                message: al.message,
+                timestamp: al.timestamp,
+                is_read: !!al.is_read
+            };
+        }).filter(a => a !== null);
+
+        console.log(`[Alerts Debug] Returning ${formatted.length} formatted alerts. First unread count check:`, formatted.filter(a => !a.is_read).length);
 
         res.json(formatted);
     } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Mark alerts as read by department (Admin only)
+app.put('/api/admin/alerts/read-by-dept', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { department } = req.body;
+        if (!department) {
+            return res.status(400).json({ error: 'Department is required' });
+        }
+
+        const trimmedDept = department.trim();
+        console.log(`[Alerts Debug] Marking alerts as read for dept: "${trimmedDept}"`);
+
+        // Find all staff in this department
+        const staffInDept = await Staff.find({ department: trimmedDept });
+        const staffIds = staffInDept.map(s => s._id);
+
+        console.log(`[Alerts Debug] Found ${staffIds.length} staff in dept. IDs:`, staffIds);
+
+        // Update all unread alerts for these staff
+        const result = await Alert.updateMany(
+            { staff_id: { $in: staffIds }, is_read: { $ne: true } },
+            { $set: { is_read: true } }
+        );
+
+        console.log(`[Alerts Debug] Update Result:`, result);
+
+        res.json({ message: `Alerts for ${trimmedDept} marked as read`, modifiedCount: result.modifiedCount });
+    } catch (err) {
+        console.error(`[Alerts Debug] Error:`, err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -971,12 +1056,12 @@ app.post('/api/ble-data', async (req, res) => {
             const durationMs = attendance.last_seen_time - attendance.check_in_time;
             const durationMinutes = durationMs / (1000 * 60);
 
-            // If duration >= 30 mins and status is still 'Tracking', mark as Present/Late
-            if (durationMinutes >= 30 && attendance.status === 'Tracking') {
+            // If duration >= 25 mins and status is still 'Tracking', mark as Present/Late
+            if (durationMinutes >= 25 && attendance.status === 'Tracking') {
                 let newStatus = 'Present';
 
                 // Only check for LATE if we have the slot info (i.e. we are still within class time)
-                // If class time is over (slot is null), we just count them as Present if they met 30m duration.
+                // If class time is over (slot is null), we just count them as Present if they met 25m duration.
                 if (slot) {
                     const startTime = slot.start_time;
                     const startTimeDate = new Date(`${todayStr}T${startTime}:00`);
@@ -989,7 +1074,7 @@ app.post('/api/ble-data', async (req, res) => {
                     // Fallback: If no slot (after class), rely on existing status logic or simple Present
                     // If they were already tracking, they were "checked in".
                     // We can refine this by fetching the original timetable slot from the DB using attendance.classroom_id/staff_id if absolutely needed,
-                    // but for now, if they stayed 30 mins, they are Present.
+                    // but for now, if they stayed 25 mins, they are Present.
                 }
 
                 attendance.status = newStatus;
@@ -997,7 +1082,7 @@ app.post('/api/ble-data', async (req, res) => {
 
                 // If late, send alert (only sent once when status changes from Tracking -> Late)
                 if (newStatus === 'Late') {
-                    const alertMessage = `${staff.name} marked Late for class in ${classroom.room_name} (verified after 30m duration)`;
+                    const alertMessage = `${staff.name} marked Late for class in ${classroom.room_name} (verified after 25m duration)`;
                     const alert = new Alert({
                         staff_id: staff._id,
                         classroom_id: classroom._id,
