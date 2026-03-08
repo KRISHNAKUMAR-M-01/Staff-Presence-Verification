@@ -159,7 +159,7 @@ const ExecutiveDashboard = () => {
         }
     };
 
-    const statsStaff = filteredStaff;
+    const statsStaff = selectedDept ? staffStatus.filter(s => s.department === selectedDept) : staffStatus;
     const currentDeptColor = selectedDept ? getDeptColor(selectedDept) : "#097969";
 
     const getRoleName = (role) => {
