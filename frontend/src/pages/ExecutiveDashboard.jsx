@@ -348,11 +348,18 @@ const ExecutiveDashboard = () => {
                 </div>
 
                 {/* Dashboard Metrics */}
-                <div className="stats-grid" style={{ marginBottom: '48px' }}>
+                <div className="stats-grid" style={{
+                    marginBottom: '48px',
+                    display: 'grid',
+                    gridTemplateColumns: selectedDept ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)',
+                    gap: '24px'
+                }}>
                     {[
                         { label: 'Total Staff', value: statsStaff.length, icon: <Users size={22} />, color: '#0f172a', accent: '#f1f5f9' },
-                        { label: 'Verified Present', value: statsStaff.filter(s => s.currentStatus === 'Present' || s.currentStatus === 'Tracking').length, icon: <CheckCircle size={22} />, color: '#097969', accent: '#e6fcf9' },
-                        { label: 'Late Entries', value: statsStaff.filter(s => s.currentStatus === 'Late').length, icon: <AlertCircle size={22} />, color: '#d97706', accent: '#fffbeb' },
+                        ...(selectedDept ? [
+                            { label: 'Verified Present', value: statsStaff.filter(s => s.currentStatus === 'Present' || s.currentStatus === 'Tracking').length, icon: <CheckCircle size={22} />, color: '#097969', accent: '#e6fcf9' },
+                            { label: 'Late Entries', value: statsStaff.filter(s => s.currentStatus === 'Late').length, icon: <AlertCircle size={22} />, color: '#d97706', accent: '#fffbeb' },
+                        ] : []),
                         { label: 'Absent/Left', value: statsStaff.filter(s => s.currentStatus === 'Absent' || s.currentStatus === 'Left').length, icon: <XCircle size={22} />, color: '#dc2626', accent: '#fef2f2' }
                     ].map((card, i) => (
                         <div key={i} className="stat-card" style={{
