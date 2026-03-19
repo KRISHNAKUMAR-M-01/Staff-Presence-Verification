@@ -3,6 +3,7 @@ const Timetable = require('../models/Timetable');
 const Notification = require('../models/Notification');
 const Attendance = require('../models/Attendance');
 const User = require('../models/User');
+const Leave = require('../models/Leave');
 const { sendEmail } = require('../utils/emailService');
 
 // Helper to get current day name
@@ -206,13 +207,28 @@ exports.getAllStaffStatus = async (req, res) => {
                 end_time: { $gte: currentTime }
             }).populate('classroom_id', 'room_name');
 
+            // 1. Check for approved leaves today
+            const startOfToday = new Date();
+            startOfToday.setHours(0, 0, 0, 0);
+            const endOfToday = new Date();
+            endOfToday.setHours(23, 59, 59, 999);
+
+            const approvedLeave = await Leave.findOne({
+                staff_id: staff._id,
+                status: 'approved',
+                start_date: { $lte: endOfToday },
+                end_date: { $gte: startOfToday }
+            });
+
             const now = new Date();
             const signalThreshold = 5 * 60 * 1000; // 5 minutes
             const isStale = attendance && (now - new Date(attendance.last_seen_time || attendance.check_in_time) > signalThreshold);
 
             // Determine specific live status
             let liveStatus = 'Absent';
-            if (attendance && !isStale) {
+            if (approvedLeave) {
+                liveStatus = 'On Leave';
+            } else if (attendance && !isStale) {
                 liveStatus = attendance.status; // Present, Late, etc.
             } else if (attendance && isStale) {
                 liveStatus = 'Left'; // Was here, but signal lost/left

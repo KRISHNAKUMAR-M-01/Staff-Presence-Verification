@@ -1,13 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
-import { Search, X, Clock, ChevronLeft, CheckCircle, XCircle, User, Building2, MapPin, Calendar } from 'lucide-react';
+import { Search, X, Clock, ChevronLeft, CheckCircle, XCircle, User, Building2, MapPin, Calendar, Plane } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import PromptModal from '../components/PromptModal';
 import StatusModal from '../components/StatusModal';
 
 const LeaveManagement = () => {
+    const { user: authUser } = useAuth();
+    const isAdmin = authUser?.role === 'admin';
+    const isExecutive = ['principal', 'secretary', 'director'].includes(authUser?.role);
+
     const [leaves, setLeaves] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [view, setView] = useState('pending'); // 'pending', 'approved', 'rejected'
+    const [view, setView] = useState('pending'); // 'pending', 'approved', 'rejected', 'schedule'
     const [selectedStaff, setSelectedStaff] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [modalConfig, setModalConfig] = useState({ isOpen: false, type: 'success', title: '', message: '' });
@@ -34,7 +39,11 @@ const LeaveManagement = () => {
     const confirmAction = async (notes) => {
         const { id, status } = promptConfig;
         try {
-            await api.put(`/admin/leaves/${id}`, { status, admin_notes: notes });
+            const payload = { status };
+            if (isExecutive) payload.principal_notes = notes;
+            else payload.admin_notes = notes;
+
+            await api.put(`/admin/leaves/${id}`, payload);
             setPromptConfig({ isOpen: false, id: null, status: '' });
             loadLeaves();
             setModalConfig({
@@ -54,7 +63,19 @@ const LeaveManagement = () => {
     };
 
     // Filter Logic
-    const pendingLeaves = leaves.filter(l => l.status === 'pending');
+    const pendingLeaves = leaves.filter(l => {
+        if (isExecutive) return l.status === 'pending';
+        if (isAdmin) return l.status === 'approved_by_principal';
+        return false;
+    });
+
+    // Other leaves (not just 'pending' but also waiting on the other person)
+    const waitingForOthers = leaves.filter(l => {
+        if (isExecutive) return l.status === 'approved_by_principal';
+        if (isAdmin) return l.status === 'pending';
+        return false;
+    });
+
     const approvedLeaves = leaves.filter(l => l.status === 'approved');
     const rejectedLeaves = leaves.filter(l => l.status === 'rejected');
 
@@ -88,7 +109,7 @@ const LeaveManagement = () => {
                 onCancel={() => setPromptConfig({ isOpen: false, id: null, status: '' })}
             />
 
-            <div className="section-header" style={{ marginBottom: '32px' }}>
+            <div className="section-header-flex" style={{ marginBottom: '32px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                     {view !== 'pending' && (
                         <button
@@ -110,17 +131,23 @@ const LeaveManagement = () => {
                     )}
                     <div>
                         <h2 className="section-title" style={{ margin: 0 }}>
-                            {selectedStaff ? `${selectedStaff.name}'s ${view.charAt(0).toUpperCase() + view.slice(1)} Leaves` :
+                            {selectedStaff ? `${selectedStaff.name}'s ${view.charAt(0).toUpperCase() + view.slice(1)}` :
                                 view === 'approved' ? 'Approved History' :
                                     view === 'rejected' ? 'Rejected History' :
-                                        'Leave Management'}
+                                        view === 'schedule' ? 'Coverage & Planning' :
+                                            isExecutive ? 'Review Queue' : 'Review Queue'}
                         </h2>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: '4px 0 0 0' }}>
-                            {view === 'pending' ? 'Review and manage incoming leave applications.' :
-                                `Viewing all ${view} leave records.`}
-                        </p>
                     </div>
                 </div>
+                {view === 'pending' && (
+                    <button
+                        className="btn-primary"
+                        onClick={() => setView('schedule')}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 20px', borderRadius: '14px', fontSize: '13px', background: 'white', color: '#097969', border: '1px solid #097969' }}
+                    >
+                        <Plane size={16} /> Coverage Planning
+                    </button>
+                )}
             </div>
 
             {/* Main Navigation: Stat Cards (Only visible on Pending root view) */}
@@ -163,6 +190,24 @@ const LeaveManagement = () => {
                             <div className="stat-label">Rejected Requests</div>
                         </div>
                     </div>
+
+                    {waitingForOthers.length > 0 && (
+                        <div
+                            className="stat-card"
+                            style={{ borderLeft: '4px solid #94a3b8', background: '#f8fafc' }}
+                        >
+                            <div className="stat-card-top">
+                                <div className="stat-icon-wrapper" style={{ color: '#64748b', backgroundColor: '#f1f5f9' }}>
+                                    <Clock size={22} />
+                                </div>
+                                <div className="stat-badge" style={{ color: '#64748b', backgroundColor: '#f1f5f9' }}>Waiting</div>
+                            </div>
+                            <div style={{ marginTop: '16px' }}>
+                                <div className="stat-value">{waitingForOthers.length}</div>
+                                <div className="stat-label">{isExecutive ? 'Awaiting Final Admin Approval' : 'Awaiting Initial Executive Approval'}</div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -197,61 +242,273 @@ const LeaveManagement = () => {
                     </div>
                 )}
 
-                {/* VIEW 1: PENDING REQUESTS TABLE */}
+                {/* VIEW 1: REVIEW BOARD (Pending Requests) */}
                 {view === 'pending' && (
-                    <div className="table-container">
-                        <table>
-                            <thead>
-                                <tr><th>Staff</th><th>Period</th><th>Reason</th><th>Actions</th></tr>
-                            </thead>
-                            <tbody>
-                                {pendingLeaves.length > 0 ? (
-                                    pendingLeaves.map((l, i) => (
-                                        <tr key={i}>
-                                            <td>
-                                                <div style={{ fontWeight: '700', color: '#0f172a' }}>{l.staff_id?.name}</div>
-                                                <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>{l.staff_id?.department}</div>
-                                            </td>
-                                            <td>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#475569', fontWeight: '600' }}>
-                                                    <Calendar size={14} color="#097969" />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        {pendingLeaves.length > 0 ? (
+                            <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))', gap: '24px' }}>
+                                {pendingLeaves.map((l, i) => (
+                                    <div key={i} className="summary-card section-fade" style={{
+                                        padding: '28px',
+                                        position: 'relative',
+                                        overflow: 'hidden',
+                                        border: '1px solid rgba(0,0,0,0.05)',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '20px'
+                                    }}>
+                                        {/* Status Badge & Stepper */}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <div style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '8px',
+                                                padding: '6px 12px',
+                                                borderRadius: '50px',
+                                                background: '#f1f5f9',
+                                                fontSize: '11px',
+                                                fontWeight: '700',
+                                                color: '#64748b',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '0.5px'
+                                            }}>
+                                                <Clock size={14} /> Step {isExecutive ? '1' : '2'} of 2
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '4px' }}>
+                                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#097969' }}></div>
+                                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isAdmin ? '#097969' : '#e2e8f0' }}></div>
+                                            </div>
+                                        </div>
+
+                                        {/* Staff Info */}
+                                        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                                            <div style={{
+                                                width: '56px', height: '56px', borderRadius: '18px',
+                                                background: `linear-gradient(135deg, ${isExecutive ? '#097969' : '#334155'}, ${isExecutive ? '#059669' : '#1e293b'})`,
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                color: 'white', fontWeight: '800', fontSize: '20px',
+                                                boxShadow: '0 8px 16px -4px rgba(0,0,0,0.1)'
+                                            }}>
+                                                {l.staff_id?.name?.charAt(0)}
+                                            </div>
+                                            <div>
+                                                <div style={{ fontWeight: '800', fontSize: '18px', color: '#0f172a' }}>{l.staff_id?.name}</div>
+                                                <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '500' }}>{l.staff_id?.department}</div>
+                                            </div>
+                                        </div>
+
+                                        {/* Request Details */}
+                                        <div style={{ background: '#f8fafc', borderRadius: '20px', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <div>
+                                                    <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Leave Type</div>
+                                                    <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>{l.leave_type || 'Personal Leave'}</div>
+                                                </div>
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Duration</div>
+                                                    <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>
+                                                        {Math.max(1, Math.round((new Date(l.end_date) - new Date(l.start_date)) / (1000 * 60 * 60 * 24)) + 1)} Days
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Dates</div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#334155', fontWeight: '600', fontSize: '14px' }}>
+                                                    <Calendar size={16} />
                                                     {new Date(l.start_date).toLocaleDateString()} - {new Date(l.end_date).toLocaleDateString()}
                                                 </div>
-                                            </td>
-                                            <td style={{ maxWidth: '300px', color: '#64748b', fontSize: '14px' }}>{l.reason}</td>
-                                            <td>
-                                                <div style={{ display: 'flex', gap: '8px' }}>
-                                                    <button className="btn-primary" style={{ padding: '8px 16px', fontSize: '12px', borderRadius: '10px' }} onClick={() => handleAction(l._id, 'approved')}>Approve</button>
-                                                    <button className="btn-danger-outline" style={{ padding: '8px 16px', fontSize: '12px', borderRadius: '10px' }} onClick={() => handleAction(l._id, 'rejected')}>Reject</button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan="4" style={{ textAlign: 'center', padding: '80px' }}>
-                                            <div style={{ width: '56px', height: '56px', background: '#f8fafc', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                                                <Clock size={28} color="#94a3b8" />
                                             </div>
-                                            <h4 style={{ margin: '0 0 8px 0', color: '#1e293b' }}>No Pending Requests</h4>
-                                            <p style={{ margin: 0, color: '#64748b', fontSize: '14px' }}>All caught up! New leave applications will appear here.</p>
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+
+                                            <div>
+                                                <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Reason</div>
+                                                <div style={{
+                                                    fontSize: '14px',
+                                                    color: '#475569',
+                                                    lineHeight: '1.6',
+                                                    fontStyle: 'italic',
+                                                    padding: '12px',
+                                                    background: 'white',
+                                                    borderRadius: '12px',
+                                                    border: '1px solid #edf2f7'
+                                                }}>
+                                                    "{l.reason}"
+                                                </div>
+                                            </div>
+
+                                            {isAdmin && l.principal_notes && (
+                                                <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
+                                                    <div style={{ fontSize: '11px', fontWeight: '800', color: '#097969', textTransform: 'uppercase', marginBottom: '6px' }}>Principal's Recommendation</div>
+                                                    <div style={{ fontSize: '13px', color: '#065f46', fontWeight: '500' }}>{l.principal_notes}</div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Actions */}
+                                        <div style={{ display: 'flex', gap: '12px', marginTop: 'auto' }}>
+                                            <button
+                                                className="btn-primary"
+                                                style={{
+                                                    flex: 2,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '8px',
+                                                    padding: '14px',
+                                                    fontSize: '14px',
+                                                    fontWeight: '700',
+                                                    boxShadow: '0 4px 12px rgba(9, 121, 105, 0.2)'
+                                                }}
+                                                onClick={() => handleAction(l._id, 'approved')}
+                                            >
+                                                <CheckCircle size={18} />
+                                                {isExecutive ? 'Recommend Approval' : 'Finalize Approval'}
+                                            </button>
+                                            <button
+                                                className="btn-danger-outline"
+                                                style={{
+                                                    flex: 1,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    gap: '8px',
+                                                    padding: '14px',
+                                                    fontSize: '14px',
+                                                    fontWeight: '700'
+                                                }}
+                                                onClick={() => handleAction(l._id, 'rejected')}
+                                            >
+                                                <XCircle size={18} /> Reject
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="summary-card" style={{ padding: '100px 40px', textAlign: 'center' }}>
+                                <div style={{
+                                    width: '80px', height: '80px', background: '#f8fafc', borderRadius: '30px',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px',
+                                    color: '#94a3b8'
+                                }}>
+                                    <Clock size={40} />
+                                </div>
+                                <h3 style={{ fontSize: '24px', color: '#1e293b', marginBottom: '12px' }}>Inbox is Empty</h3>
+                                <p style={{ color: '#64748b', maxWidth: '400px', margin: '0 auto', fontSize: '16px', lineHeight: '1.6' }}>
+                                    All leave requests have been processed. You'll be notified when new applications arrive.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* VIEW 4: COVERAGE & PLANNING (Calendar/List View) */}
+                {view === 'schedule' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                        <div>
+                            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#1e293b', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{ width: '8px', height: '24px', background: '#097969', borderRadius: '4px' }}></div>
+                                CURRENTLY ON LEAVE (TODAY)
+                            </h3>
+                            <div className="table-container">
+                                <table>
+                                    <thead>
+                                        <tr><th>Staff Member</th><th>Leave Type</th><th>End Date</th><th>Daily Status</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        {approvedLeaves.filter(l => {
+                                            const today = new Date();
+                                            today.setHours(0, 0, 0, 0);
+                                            return new Date(l.start_date) <= today && new Date(l.end_date) >= today;
+                                        }).length > 0 ? (
+                                            approvedLeaves.filter(l => {
+                                                const today = new Date();
+                                                today.setHours(0, 0, 0, 0);
+                                                return new Date(l.start_date) <= today && new Date(l.end_date) >= today;
+                                            }).map((l, i) => (
+                                                <tr key={i}>
+                                                    <td>
+                                                        <div style={{ fontWeight: '700', color: '#0f172a' }}>{l.staff_id?.name}</div>
+                                                        <div style={{ fontSize: '11px', color: '#64748b' }}>{l.staff_id?.department}</div>
+                                                    </td>
+                                                    <td><span style={{ fontSize: '13px', fontWeight: '600', color: '#475569' }}>{l.leave_type}</span></td>
+                                                    <td>
+                                                        <div style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>
+                                                            {new Date(l.end_date).toLocaleDateString()}
+                                                        </div>
+                                                        <div style={{ fontSize: '11px', color: '#ef4444', fontWeight: '800' }}>
+                                                            Ends in {Math.max(0, Math.round((new Date(l.end_date) - new Date()) / (1000 * 60 * 60 * 24)))} days
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <span className="status-badge" style={{ background: '#f0f9ff', color: '#0369a1', border: 'none' }}>
+                                                            On Campus: NO
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr><td colSpan="4" style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>No one is scheduled for leave today.</td></tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#1e293b', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{ width: '8px', height: '24px', background: '#0ea5e9', borderRadius: '4px' }}></div>
+                                UPCOMING PLANNING (NEXT 14 DAYS)
+                            </h3>
+                            <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+                                {approvedLeaves
+                                    .filter(l => {
+                                        const today = new Date();
+                                        today.setHours(0, 0, 0, 0);
+                                        const future = new Date();
+                                        future.setDate(today.getDate() + 14);
+                                        return new Date(l.start_date) > today && new Date(l.start_date) <= future;
+                                    })
+                                    .sort((a, b) => new Date(a.start_date) - new Date(b.start_date))
+                                    .map((l, i) => (
+                                        <div key={i} className="summary-card" style={{ padding: '20px', border: '1px solid #f1f5f9', background: 'white' }}>
+                                            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px' }}>
+                                                <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: '#f0f9ff', color: '#0ea5e9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                    <Calendar size={20} />
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontWeight: '800', fontSize: '15px' }}>{l.staff_id?.name}</div>
+                                                    <div style={{ fontSize: '11px', color: '#64748b' }}>{l.staff_id?.department}</div>
+                                                </div>
+                                            </div>
+                                            <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between' }}>
+                                                <div>
+                                                    <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8' }}>STARTS</div>
+                                                    <div style={{ fontSize: '13px', fontWeight: '700' }}>{new Date(l.start_date).toLocaleDateString()}</div>
+                                                </div>
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8' }}>DURATION</div>
+                                                    <div style={{ fontSize: '13px', fontWeight: '700' }}>
+                                                        {Math.max(1, Math.round((new Date(l.end_date) - new Date(l.start_date)) / (1000 * 60 * 60 * 24)) + 1)} Days
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                            </div>
+                        </div>
                     </div>
                 )}
 
                 {/* VIEW 2: STAFF LIST DRILL-DOWN (For Approved/Rejected) */}
-                {(view !== 'pending' && !selectedStaff) && (
-                    <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px' }}>
+                {(view === 'approved' || view === 'rejected') && !selectedStaff && (
+                    <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>
                         {getStaffWithStatus(view === 'approved' ? approvedLeaves : rejectedLeaves).map(staff => (
                             <div
                                 key={staff._id}
-                                className="form-card"
+                                className="summary-card"
                                 onClick={() => setSelectedStaff(staff)}
-                                style={{ margin: 0, cursor: 'pointer', padding: '24px', position: 'relative' }}
+                                style={{ margin: 0, cursor: 'pointer', padding: '24px', position: 'relative', border: '1px solid #f1f5f9' }}
                             >
                                 <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                                     <div style={{ width: '52px', height: '52px', borderRadius: '14px', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #e2e8f0' }}>
@@ -276,7 +533,10 @@ const LeaveManagement = () => {
                         ))}
                         {getStaffWithStatus(view === 'approved' ? approvedLeaves : rejectedLeaves).length === 0 && (
                             <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '80px' }}>
-                                <p style={{ color: '#64748b' }}>No staff records found in {view} history.</p>
+                                <div style={{ width: '56px', height: '56px', background: '#f8fafc', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+                                    <Clock size={28} color="#94a3b8" />
+                                </div>
+                                <p style={{ color: '#64748b', fontWeight: '600' }}>No staff records found in {view} history.</p>
                             </div>
                         )}
                     </div>
@@ -286,7 +546,7 @@ const LeaveManagement = () => {
                 {selectedStaff && (
                     <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px' }}>
                         {getLeavesForSelectedStaff().map((l, i) => (
-                            <div key={i} className="activity-card" style={{
+                            <div key={i} className="summary-card" style={{
                                 padding: '24px', borderRadius: '24px', background: 'white', border: '1px solid #f1f5f9'
                             }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
@@ -309,7 +569,7 @@ const LeaveManagement = () => {
                                         </div>
                                         <div>
                                             <div style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b' }}>
-                                                {new Date(l.start_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(l.end_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                {new Date(l.start_date).toLocaleDateString()} - {new Date(l.end_date).toLocaleDateString()}
                                             </div>
                                             <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>Leave Duration</div>
                                         </div>
@@ -318,10 +578,11 @@ const LeaveManagement = () => {
                                         <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Staff Reason</div>
                                         <div style={{ fontSize: '13px', color: '#475569', lineHeight: '1.5' }}>"{l.reason}"</div>
                                     </div>
-                                    {l.admin_notes && (
+                                    {(l.principal_notes || l.admin_notes) && (
                                         <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '12px' }}>
-                                            <div style={{ fontSize: '11px', fontWeight: '800', color: '#097969', textTransform: 'uppercase', marginBottom: '4px' }}>Admin Remarks</div>
-                                            <div style={{ fontSize: '13px', color: '#1e293b', fontStyle: 'italic' }}>{l.admin_notes}</div>
+                                            <div style={{ fontSize: '11px', fontWeight: '800', color: '#097969', textTransform: 'uppercase', marginBottom: '4px' }}>Remarks</div>
+                                            {l.principal_notes && <div style={{ fontSize: '12px', color: '#1e293b', marginBottom: '4px' }}><strong>Principal:</strong> {l.principal_notes}</div>}
+                                            {l.admin_notes && <div style={{ fontSize: '12px', color: '#1e293b' }}><strong>Admin:</strong> {l.admin_notes}</div>}
                                         </div>
                                     )}
                                 </div>
@@ -352,6 +613,37 @@ const LeaveManagement = () => {
                 .btn-danger-outline:hover {
                     background: #fee2e2;
                     border-color: #fecaca;
+                }
+                .section-header-flex {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    gap: 20px;
+                }
+                .section-fade {
+                    animation: sectionFade 0.4s ease-out forwards;
+                }
+                @keyframes sectionFade {
+                    from { opacity: 0; transform: translateY(10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .premium-loader {
+                    width: 48px;
+                    height: 48px;
+                    border: 3px solid #f1f5f9;
+                    border-top-color: #097969;
+                    border-radius: 50%;
+                    animation: spin 1s linear infinite;
+                }
+                @keyframes spin {
+                    to { transform: rotate(360deg); }
+                }
+                @media (max-width: 768px) {
+                    .section-header-flex {
+                        flex-direction: column;
+                        align-items: flex-start;
+                        gap: 16px;
+                    }
                 }
             `}} />
         </div>

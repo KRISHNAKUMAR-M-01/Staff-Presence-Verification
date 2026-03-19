@@ -52,7 +52,7 @@ const MyLeaves = () => {
             />
             <h2 className="section-title">Leave Management</h2>
 
-            <div className="form-card">
+            <div className="summary-card" style={{ marginBottom: '32px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingBottom: '20px', borderBottom: '1px solid #f1f5f9' }}>
                     <div>
                         <h3 className="card-title" style={{ marginBottom: '4px' }}>Submit Leave Request</h3>
@@ -112,7 +112,9 @@ const MyLeaves = () => {
                 </form>
             </div>
 
-            <h3 className="card-title" style={{ marginTop: '32px' }}>Request History</h3>
+            <div className="section-header-flex" style={{ marginTop: '48px', marginBottom: '24px' }}>
+                <h3 className="card-title" style={{ margin: 0 }}>Request History</h3>
+            </div>
             <div className="table-container">
                 <table>
                     <thead>

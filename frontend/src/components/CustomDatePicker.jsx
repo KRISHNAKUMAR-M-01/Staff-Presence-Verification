@@ -5,6 +5,7 @@ import '../styles/Dashboard.css';
 const CustomDatePicker = ({ label, value, onChange, required, minDate }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [viewDate, setViewDate] = useState(new Date());
+    const [alignRight, setAlignRight] = useState(false);
     const containerRef = useRef(null);
 
     // Initialize viewDate from value if present
@@ -114,16 +115,33 @@ const CustomDatePicker = ({ label, value, onChange, required, minDate }) => {
         return days;
     };
 
+    const toggleDatePicker = () => {
+        if (!isOpen && containerRef.current) {
+            const rect = containerRef.current.getBoundingClientRect();
+            const spaceOnRight = window.innerWidth - rect.left;
+            setAlignRight(spaceOnRight < 340); // Calendar width is ~320px
+        }
+        setIsOpen(!isOpen);
+    };
+
     return (
-        <div className="form-group" ref={containerRef}>
+        <div className={`form-group ${alignRight ? 'align-right' : ''}`} ref={containerRef}>
             {label && <label className={`form-label ${required ? 'required-label-asterisk' : ''}`}>{label}</label>}
             <div className={`custom-date-picker ${isOpen ? 'active-dropdown' : ''}`}>
                 <div
                     className={`date-picker-trigger ${isOpen ? 'open' : ''}`}
-                    onClick={() => setIsOpen(!isOpen)}
+                    onClick={toggleDatePicker}
                 >
-                    <span>{value ? new Date(value).toLocaleDateString() : 'Select Date'}</span>
-                    <Calendar size={18} className="calendar-icon" />
+                    <span style={{ 
+                        overflow: 'hidden', 
+                        textOverflow: 'ellipsis', 
+                        whiteSpace: 'nowrap',
+                        marginRight: '8px',
+                        flex: 1
+                    }}>
+                        {value ? new Date(value).toLocaleDateString() : 'Select Date'}
+                    </span>
+                    <Calendar size={18} className="calendar-icon" style={{ flexShrink: 0 }} />
                 </div>
 
                 {isOpen && (

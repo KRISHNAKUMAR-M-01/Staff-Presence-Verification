@@ -5,6 +5,7 @@ import '../styles/Dashboard.css';
 const CustomSelect = ({ label, options, value, onChange, placeholder, required }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [alignRight, setAlignRight] = useState(false);
     const containerRef = useRef(null);
     const inputRef = useRef(null);
 
@@ -32,13 +33,18 @@ const CustomSelect = ({ label, options, value, onChange, placeholder, required }
     );
 
     return (
-        <div className="form-group" ref={containerRef}>
+        <div className={`form-group ${alignRight ? 'align-right' : ''}`} ref={containerRef}>
             {label && <label className={`form-label ${required ? 'required-label-asterisk' : ''}`}>{label}</label>}
             <div className={`custom-select-container ${isOpen ? 'active-dropdown' : ''}`}>
                 <div
                     className={`custom-select-trigger ${isOpen ? 'open' : ''}`}
                     onClick={() => {
                         if (!isOpen) {
+                            if (containerRef.current) {
+                                const rect = containerRef.current.getBoundingClientRect();
+                                const spaceOnRight = window.innerWidth - rect.left;
+                                setAlignRight(spaceOnRight < 260); // Dropdown min-width logic
+                            }
                             setIsOpen(true);
                         }
                     }}
@@ -63,11 +69,18 @@ const CustomSelect = ({ label, options, value, onChange, placeholder, required }
                             }}
                         />
                     ) : (
-                        <span style={{ color: selectedOption ? 'inherit' : '#cbd5e1' }}>
+                        <span style={{ 
+                            color: selectedOption ? 'inherit' : '#cbd5e1',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            flex: 1,
+                            marginRight: '8px'
+                        }}>
                             {selectedOption ? selectedOption.label : placeholder}
                         </span>
                     )}
-                    <ChevronDown size={18} className={`chevron-icon ${isOpen ? 'rotate' : ''}`} onClick={(e) => {
+                    <ChevronDown size={18} className={`chevron-icon ${isOpen ? 'rotate' : ''}`} style={{ flexShrink: 0 }} onClick={(e) => {
                         e.stopPropagation();
                         setIsOpen(!isOpen);
                         if (isOpen) setSearchTerm('');

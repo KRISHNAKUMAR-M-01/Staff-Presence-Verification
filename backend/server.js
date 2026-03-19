@@ -17,7 +17,7 @@ const Leave = require('./models/Leave');
 const Notification = require('./models/Notification');
 
 // Import Middleware
-const { generateToken, authenticateToken, requireAdmin, requireStaff } = require('./middleware/auth');
+const { generateToken, authenticateToken, requireAdmin, requireStaff, requireExecutive } = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -539,8 +539,14 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
     }
 });
 
-// Attendance Reports (Admin only)
-app.get('/api/admin/attendance', authenticateToken, requireAdmin, async (req, res) => {
+// Attendance Reports (Admin & Executive)
+app.get('/api/admin/attendance', authenticateToken, (req, res, next) => {
+    if (req.user.role === 'admin' || ['principal', 'secretary', 'director'].includes(req.user.role)) {
+        next();
+    } else {
+        res.status(403).json({ error: 'Access denied' });
+    }
+}, async (req, res) => {
     try {
         const { startDate, endDate, staffName, status } = req.query;
         let query = {};
@@ -571,18 +577,20 @@ app.get('/api/admin/attendance', authenticateToken, requireAdmin, async (req, re
             );
         }
 
-        const formatted = attendance.map(a => ({
-            id: a._id,
-            staff_id: a.staff_id._id,
-            classroom_id: a.classroom_id?._id,
-            staff_name: a.staff_id.name,
-            department: a.staff_id.department,
-            room_name: a.classroom_id?.room_name || 'N/A',
-            check_in_time: a.check_in_time,
-            last_seen_time: a.last_seen_time,
-            status: a.status,
-            date: a.date
-        }));
+        const formatted = attendance
+            .filter(a => a.staff_id) // Skip records with missing staff
+            .map(a => ({
+                id: a._id,
+                staff_id: a.staff_id._id,
+                classroom_id: a.classroom_id?._id,
+                staff_name: a.staff_id.name || 'Unknown Staff',
+                department: a.staff_id.department || 'N/A',
+                room_name: a.classroom_id?.room_name || 'N/A',
+                check_in_time: a.check_in_time,
+                last_seen_time: a.last_seen_time,
+                status: a.status,
+                date: a.date
+            }));
 
         res.json(formatted);
     } catch (err) {
@@ -680,11 +688,38 @@ app.put('/api/admin/alerts/read-by-dept', authenticateToken, requireAdmin, async
 // Dashboard Stats (Admin only)
 app.get('/api/admin/dashboard-stats', authenticateToken, requireAdmin, async (req, res) => {
     try {
-        const today = new Date().toISOString().split('T')[0];
-        const todayDate = new Date(today);
+        const todayStr = new Date().toISOString().split('T')[0];
+        const todayDate = new Date(todayStr); // Midnight UTC for today's date
+
+        // Calculate live tracking staffs
+        const attendance = await Attendance.find({ date: todayDate }).sort({ check_in_time: -1 });
+        const allStaff = await Staff.find().select('_id');
+        
+        const now = new Date();
+        const signalThreshold = 5 * 60 * 1000; // 5 minutes in ms
+        let liveTrackingCount = 0;
+
+        allStaff.forEach(s => {
+            const staffRecords = attendance.filter(a => a.staff_id.toString() === s._id.toString());
+            if (staffRecords.length > 0) {
+                const latest = staffRecords[0];
+                const lastSeen = new Date(latest.last_seen_time || latest.check_in_time);
+                if (now - lastSeen <= signalThreshold) {
+                    liveTrackingCount++;
+                }
+            }
+        });
+
+        // Calculate absent staff based on approved leaves
+        // Since start_date and end_date might be midnight UTC, we check if today is within range
+        const absentStaff = await Leave.countDocuments({
+            status: 'approved',
+            start_date: { $lte: todayDate },
+            end_date: { $gte: todayDate }
+        });
 
         const stats = {
-            totalStaff: await Staff.countDocuments(),
+            totalStaff: allStaff.length,
             totalClassrooms: await Classroom.countDocuments(),
             presentToday: await Attendance.countDocuments({
                 date: todayDate,
@@ -694,7 +729,11 @@ app.get('/api/admin/dashboard-stats', authenticateToken, requireAdmin, async (re
                 date: todayDate,
                 status: 'Late'
             }),
-            pendingLeaves: await Leave.countDocuments({ status: 'pending' })
+            pendingLeaves: await Leave.countDocuments({ status: 'pending' }),
+            
+            // New fields
+            liveTrackingStaff: liveTrackingCount,
+            absentOnLeave: absentStaff
         };
 
         res.json(stats);
@@ -703,8 +742,14 @@ app.get('/api/admin/dashboard-stats', authenticateToken, requireAdmin, async (re
     }
 });
 
-// Leave Management (Admin)
-app.get('/api/admin/leaves', authenticateToken, requireAdmin, async (req, res) => {
+// Leave Management (Admin & Executive)
+app.get('/api/admin/leaves', authenticateToken, (req, res, next) => {
+    if (req.user.role === 'admin' || ['principal', 'secretary', 'director'].includes(req.user.role)) {
+        next();
+    } else {
+        res.status(403).json({ error: 'Access denied' });
+    }
+}, async (req, res) => {
     try {
         const { status, startDate, endDate, staffName } = req.query;
         let query = {};
@@ -736,26 +781,73 @@ app.get('/api/admin/leaves', authenticateToken, requireAdmin, async (req, res) =
     }
 });
 
-app.put('/api/admin/leaves/:id', authenticateToken, requireAdmin, async (req, res) => {
+app.put('/api/admin/leaves/:id', authenticateToken, (req, res, next) => {
+    if (req.user.role === 'admin' || ['principal', 'secretary', 'director'].includes(req.user.role)) {
+        next();
+    } else {
+        res.status(403).json({ error: 'Access denied' });
+    }
+}, async (req, res) => {
     try {
-        const { status, admin_notes } = req.body;
-        const leave = await Leave.findByIdAndUpdate(
-            req.params.id,
-            { status, admin_notes, approved_by: req.user._id },
-            { new: true }
-        ).populate('staff_id', 'name');
-
+        const { status, admin_notes, principal_notes } = req.body;
+        const userRole = req.user.role;
+        
+        const leave = await Leave.findById(req.params.id).populate('staff_id', 'name');
         if (!leave) {
             return res.status(404).json({ error: 'Leave request not found' });
         }
 
-        // Notify staff
+        let newStatus = status;
+
+        // Executive Approval Step (Principal, Secretary, or Director)
+        if (['principal', 'secretary', 'director'].includes(userRole)) {
+            if (status === 'approved') {
+                newStatus = 'approved_by_principal';
+            }
+            // Executive can also reject directly
+            leave.status = newStatus;
+            if (principal_notes) leave.principal_notes = principal_notes;
+            leave.approved_by = req.user._id; // Track who last acted on it
+        } 
+        // Admin Approval Step (Final)
+        else if (userRole === 'admin') {
+            if (status === 'approved') {
+                // Admin can only approve if Executive has already approved
+                if (leave.status !== 'approved_by_principal') {
+                    return res.status(400).json({ error: 'Leave must be approved by an Executive first' });
+                }
+                newStatus = 'approved';
+            }
+            leave.status = newStatus;
+            if (admin_notes) leave.admin_notes = admin_notes;
+            leave.approved_by = req.user._id;
+        } else {
+            return res.status(403).json({ error: 'Unauthorized to approve leaves' });
+        }
+
+        await leave.save();
+
+        // Notify staff of the current progress
         const user = await User.findOne({ staff_id: leave.staff_id._id });
         if (user) {
+            let title = 'Leave Request Update';
+            let message = `Your leave request status is now: ${newStatus.replace(/_/g, ' ')}`;
+            
+            if (newStatus === 'approved_by_principal') {
+                title = 'Leave Approved by Executive';
+                message = `Your leave request has been approved by the Executive and is now pending final Admin approval.`;
+            } else if (newStatus === 'approved') {
+                title = 'Leave Fully Approved';
+                message = `Your leave request has been fully approved.`;
+            } else if (newStatus === 'rejected') {
+                title = 'Leave Rejected';
+                message = `Your leave request has been rejected.`;
+            }
+
             const notifData = {
                 recipient_id: user._id,
-                title: 'Leave Request ' + status.charAt(0).toUpperCase() + status.slice(1),
-                message: `Your leave request from ${leave.start_date.toDateString()} has been ${status}`,
+                title,
+                message,
                 type: 'leave_update'
             };
             await Notification.create(notifData);
@@ -770,8 +862,30 @@ app.put('/api/admin/leaves/:id', authenticateToken, requireAdmin, async (req, re
             }
         }
 
-        // Handle substitution alerts if approved
-        if (status === 'approved') {
+        // If Principal approved, notify Admin
+        if (newStatus === 'approved_by_principal') {
+            const admins = await User.find({ role: 'admin' });
+            for (const admin of admins) {
+                const adminNotif = {
+                    recipient_id: admin._id,
+                    title: 'New Leave Approval Needed',
+                    message: `Leave request for ${leave.staff_id.name} was approved by Principal and needs your final approval.`,
+                    type: 'leave_request'
+                };
+                await Notification.create(adminNotif);
+                if (admin.pushSubscription) {
+                    await sendPushNotification(admin.pushSubscription, {
+                        title: adminNotif.title,
+                        body: adminNotif.message,
+                        icon: '/logo192.png',
+                        data: { url: '/admin/leaves' }
+                    });
+                }
+            }
+        }
+
+        // Handle substitution alerts ONLY if fully approved by Admin
+        if (newStatus === 'approved') {
             const startStr = leave.start_date.toISOString().split('T')[0];
             const endStr = leave.end_date.toISOString().split('T')[0];
 
@@ -904,22 +1018,27 @@ app.post('/api/staff/leave', authenticateToken, requireStaff, async (req, res) =
         });
         await leave.save();
 
-        // Notify all admins
-        const admins = await User.find({ role: { $in: ['admin', 'principal', 'secretary', 'director'] } });
+        // Notify Principal (First Step)
+        const principals = await User.find({ role: 'principal' });
         const staff = await Staff.findById(req.user.staff_id);
         const staffName = staff ? staff.name : req.user.name;
+        
+        // Also notify admins but they shouldn't act yet? User said "first sent to the principal"
+        // Let's notify both but maybe emphasize Principal
+        const recipients = await User.find({ role: { $in: ['admin', 'principal'] } });
 
-        for (const admin of admins) {
+        for (const recipient of recipients) {
+            const isPrincipal = recipient.role === 'principal';
             const leaveNotifData = {
-                recipient_id: admin._id,
-                title: 'New Leave Request',
-                message: `${staffName} has submitted a leave request starting ${new Date(start_date).toDateString()}`,
+                recipient_id: recipient._id,
+                title: isPrincipal ? 'Action Required: New Leave Request' : 'New Leave Request (Pending Principal)',
+                message: `${staffName} has submitted a leave request starting ${new Date(start_date).toDateString()}. ${isPrincipal ? 'Please review for initial approval.' : 'Waiting for Principal approval.'}`,
                 type: 'leave_request'
             };
             await Notification.create(leaveNotifData);
 
-            if (admin.pushSubscription) {
-                await sendPushNotification(admin.pushSubscription, {
+            if (recipient.pushSubscription) {
+                await sendPushNotification(recipient.pushSubscription, {
                     title: leaveNotifData.title,
                     body: leaveNotifData.message,
                     icon: '/logo192.png',

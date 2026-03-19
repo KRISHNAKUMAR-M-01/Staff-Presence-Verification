@@ -4,7 +4,7 @@ import api from '../services/api';
 
 const AdminOverview = () => {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
-    const [stats, setStats] = useState({ totalStaff: 0, totalClassrooms: 0, presentToday: 0, lateToday: 0, pendingLeaves: 0 });
+    const [stats, setStats] = useState({ totalStaff: 0, totalClassrooms: 0, presentToday: 0, lateToday: 0, pendingLeaves: 0, liveTrackingStaff: 0, absentOnLeave: 0 });
     const [allStaff, setAllStaff] = useState([]);
 
     // Drill-down state
@@ -43,9 +43,8 @@ const AdminOverview = () => {
     }, [selectedStaff]);
 
     const statItems = [
-        { label: 'Present Today', value: stats.presentToday, icon: <Clipboard size={22} />, color: '#097969', accent: '#e6fcf9' },
-        { label: 'Late Today', value: stats.lateToday, icon: <AlertCircle size={22} />, color: '#d97706', accent: '#fffbeb' },
-        { label: 'Pending Leaves', value: stats.pendingLeaves, icon: <Plane size={22} />, color: '#097969', accent: '#e6fcf9' }
+        { label: 'Live Tracking Staffs', value: stats.liveTrackingStaff || 0, icon: <Activity size={22} />, color: '#097969', accent: '#e6fcf9' },
+        { label: 'Absent on Leave', value: stats.absentOnLeave || 0, icon: <Plane size={22} />, color: '#d97706', accent: '#fffbeb' }
     ];
 
     // Grouping logic

@@ -44,8 +44,8 @@ const StaffOverview = () => {
     ];
 
     return (
-        <div className="section" style={{ animation: 'fadeIn 0.6s ease-out' }}>
-            <div className="section-header" style={{ marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <div className="section section-fade">
+            <div className="section-header-flex">
                 <div>
                     <h2 className="section-title" style={{ fontSize: '32px', fontWeight: '800', letterSpacing: '-0.03em', marginBottom: '8px', color: '#0f172a' }}>Staff Overview</h2>
                     <p style={{ color: '#64748b', fontSize: '16px', fontWeight: '500' }}>Welcome back, <span style={{ color: 'var(--primary)', fontWeight: '700' }}>{user.name}</span>. Here's your shift summary.</p>
@@ -96,15 +96,9 @@ const StaffOverview = () => {
                 ))}
             </div>
 
-            <div className="responsive-grid" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.2fr)', gap: '32px' }}>
+            <div className="responsive-grid schedule-grid">
                 {/* Today's Schedule Card */}
-                <div style={{
-                    background: 'white',
-                    borderRadius: '28px',
-                    padding: '32px',
-                    border: '1px solid rgba(226, 232, 240, 0.8)',
-                    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.04)'
-                }}>
+                <div className="summary-card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                         <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#f0fdf9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -149,13 +143,7 @@ const StaffOverview = () => {
                 </div>
 
                 {/* Recent Activity Card */}
-                <div style={{
-                    background: 'white',
-                    borderRadius: '28px',
-                    padding: '32px',
-                    border: '1px solid rgba(226, 232, 240, 0.8)',
-                    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.04)'
-                }}>
+                <div className="summary-card">
                     <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
                         <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#f0f9ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <CheckCircle size={18} color="#0ea5e9" />
@@ -163,7 +151,7 @@ const StaffOverview = () => {
                         Recent Attendance
                     </h3>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div className="activity-list">
                         {recentAttendance.map((item, i) => {
                             const diffMs = (item.last_seen_time && item.check_in_time) ?
                                 new Date(item.last_seen_time) - new Date(item.check_in_time) : 0;
@@ -173,36 +161,21 @@ const StaffOverview = () => {
                             const duration = hrs > 0 ? `${hrs}h ${m}m` : `${m}m`;
 
                             return (
-                                <div key={i} style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: '80px 1fr 60px 100px',
-                                    alignItems: 'center',
-                                    padding: '16px',
-                                    borderBottom: i === recentAttendance.length - 1 ? 'none' : '1px solid #f1f5f9',
-                                    gap: '12px'
-                                }}>
-                                    <div style={{ fontSize: '12px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase' }}>
+                                <div key={i} className="activity-item">
+                                    <div className="activity-date">
                                         {new Date(item.date).toLocaleDateString([], { month: 'short', day: 'numeric' })}
                                     </div>
-                                    <div>
-                                        <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>{item.classroom_id?.room_name}</div>
-                                        <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '500' }}>
+                                    <div className="activity-main">
+                                        <div className="activity-room">{item.classroom_id?.room_name}</div>
+                                        <div className="activity-time">
                                             {new Date(item.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                             {item.last_seen_time && ` → `}
                                             {item.last_seen_time && new Date(item.last_seen_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </div>
                                     </div>
-                                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#475569' }}>
-                                        {duration}
-                                    </div>
-                                    <div style={{ textAlign: 'right' }}>
-                                        <span className={`status-badge status-${item.status.toLowerCase()}`} style={{
-                                            padding: '6px 12px',
-                                            fontSize: '10px',
-                                            borderRadius: '8px',
-                                            boxShadow: 'none',
-                                            border: '1px solid currentColor'
-                                        }}>
+                                    <div className="activity-meta">
+                                        <div className="activity-duration">{duration}</div>
+                                        <span className={`status-badge status-${item.status.toLowerCase()}`}>
                                             {item.status}
                                         </span>
                                     </div>

@@ -21,7 +21,7 @@ const leaveSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['pending', 'approved', 'rejected'],
+        enum: ['pending', 'approved_by_principal', 'approved', 'rejected'],
         default: 'pending'
     },
     leave_type: {
@@ -32,6 +32,10 @@ const leaveSchema = new mongoose.Schema({
     approved_by: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
+    },
+    principal_notes: {
+        type: String,
+        trim: true
     },
     admin_notes: {
         type: String,

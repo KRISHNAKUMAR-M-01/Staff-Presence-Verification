@@ -43,7 +43,8 @@ const AdminDashboard = () => {
     const loadPendingLeaves = async () => {
         try {
             const res = await api.get('/admin/leaves');
-            const pending = res.data.filter(l => l.status === 'pending').length;
+            // For Admin (Step 2), pending means approved by Principal/Executive but not yet finalized
+            const pending = res.data.filter(l => l.status === 'approved_by_principal').length;
             setPendingLeaves(pending);
         } catch (err) { console.error(err); }
     };
