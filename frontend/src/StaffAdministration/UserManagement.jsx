@@ -17,12 +17,13 @@ const UserManagement = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (/^\d/.test(formData.email)) {
+        const emailRegex = /^[a-zA-Z][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+        if (!emailRegex.test(formData.email.trim())) {
             setModalConfig({
                 isOpen: true,
                 type: 'error',
                 title: 'Invalid Email',
-                message: 'Email address should not start with a number. Please correct it to continue.'
+                message: 'Please enter a valid email address (e.g. user@domain.com). It must not start with a number and must contain a proper domain.'
             });
             return;
         }
@@ -222,10 +223,11 @@ const UserManagement = () => {
                                 className="form-input"
                                 placeholder="user@institution.edu"
                                 type="email"
-                                pattern="^[^0-9].*"
-                                title="Email should not start with a number"
+                                pattern="^[a-zA-Z][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
+                                title="Enter a valid email address (e.g. user@domain.com)"
                                 value={formData.email}
                                 onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                onKeyDown={(e) => { if (/^\d$/.test(e.key)) e.preventDefault(); }}
                                 style={{ fontSize: '14px' }}
                                 required
                             />

@@ -3,14 +3,33 @@ import api from '../services/api';
 
 const MyAttendance = () => {
     const [attendance, setAttendance] = useState([]);
+    const [leaves, setLeaves] = useState([]);
 
     useEffect(() => {
         const fetch = async () => {
-            const res = await api.get('/staff/my-attendance');
-            setAttendance(res.data);
+            try {
+                const [attRes, leaveRes] = await Promise.all([
+                    api.get('/staff/my-attendance'),
+                    api.get('/staff/my-leaves')
+                ]);
+                setAttendance(attRes.data);
+                setLeaves(leaveRes.data.filter(l => l.status === 'approved'));
+            } catch (err) {
+                console.error('Error fetching attendance/leaves:', err);
+            }
         };
         fetch();
     }, []);
+
+    const isOnApprovedLeave = (dateStr) => {
+        const d = new Date(dateStr);
+        d.setHours(0, 0, 0, 0);
+        return leaves.some(l => {
+            const start = new Date(l.start_date); start.setHours(0, 0, 0, 0);
+            const end   = new Date(l.end_date);   end.setHours(23, 59, 59, 999);
+            return d >= start && d <= end;
+        });
+    };
 
     return (
         <div className="section">
@@ -29,6 +48,8 @@ const MyAttendance = () => {
                     </thead>
                     <tbody>
                         {attendance.map((a, i) => {
+                            const onLeave = isOnApprovedLeave(a.date);
+                            
                             // Calculate duration
                             let durationText = '---';
                             if (a.check_in_time && a.last_seen_time) {
@@ -40,8 +61,11 @@ const MyAttendance = () => {
                             }
 
                             return (
-                                <tr key={i}>
-                                    <td>{new Date(a.date).toLocaleDateString()}</td>
+                                <tr key={i} style={onLeave ? { background: '#f8fafc' } : {}}>
+                                    <td>
+                                        <div style={{ fontWeight: '600' }}>{new Date(a.date).toLocaleDateString()}</div>
+                                        {onLeave && <div style={{ fontSize: '10px', color: '#0891b2', fontWeight: '700' }}>OFFICIAL LEAVE</div>}
+                                    </td>
                                     <td>{a.classroom_id?.room_name}</td>
                                     <td>{new Date(a.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                                     <td>
@@ -53,9 +77,15 @@ const MyAttendance = () => {
                                     </td>
                                     <td style={{ fontWeight: '500' }}>{durationText}</td>
                                     <td>
-                                        <span className={`status-badge status-${a.status.toLowerCase()}`}>
-                                            {a.status}
-                                        </span>
+                                        {onLeave ? (
+                                            <span className="status-badge" style={{ background: '#ecfeff', color: '#0891b2', border: 'none' }}>
+                                                Excused
+                                            </span>
+                                        ) : (
+                                            <span className={`status-badge status-${a.status.toLowerCase()}`}>
+                                                {a.status}
+                                            </span>
+                                        )}
                                     </td>
                                 </tr>
                             );

@@ -34,6 +34,24 @@ app.use(bodyParser.json());
 
 const { sendPushNotification } = require('./utils/pushService');
 
+// Performance Caches & Throttles
+const staffCache = new Map(); // UUID -> Staff Object
+const classroomCache = new Map(); // ESP32_ID -> Classroom Object
+const bleThrottle = new Map(); // UUID+ESP32 -> Last Processed Timestamp (ms)
+
+// Clear caches every 10 minutes to reflect DB updates
+setInterval(() => {
+    staffCache.clear();
+    classroomCache.clear();
+    console.log('⚡ Performance: Cleared Staff/Classroom ID caches.');
+}, 10 * 60 * 1000);
+
+// Clear throttle map every hour to prevent memory growth
+setInterval(() => {
+    bleThrottle.clear();
+    console.log('⚡ Performance: Reset BLE throttle map.');
+}, 60 * 60 * 1000);
+
 // ============================================
 // AUTHENTICATION ENDPOINTS (Public)
 // ============================================
@@ -62,11 +80,12 @@ app.post('/api/auth/login', async (req, res) => {
     try {
         let { email, password } = req.body;
 
-        // Normalize email and validate
+        // Normalize email and validate format
         if (email) {
             email = email.trim().toLowerCase();
-            if (/^\d/.test(email)) {
-                return res.status(400).json({ error: 'Email address should not start with a number' });
+            const emailRegex = /^[a-zA-Z][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+            if (!emailRegex.test(email)) {
+                return res.status(400).json({ error: 'Please enter a valid email address (e.g. user@domain.com)' });
             }
         }
 
@@ -141,9 +160,10 @@ app.post('/api/admin/register-user', authenticateToken, requireAdmin, async (req
     try {
         const { email, password, role, staff_id, name } = req.body;
 
-        // Validation: email should not start with a number
-        if (email && /^\d/.test(email.trim())) {
-            return res.status(400).json({ error: 'Email address should not start with a number' });
+        // Validation: must be a valid email format
+        const emailRegex = /^[a-zA-Z][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+        if (email && !emailRegex.test(email.trim())) {
+            return res.status(400).json({ error: 'Please enter a valid email address (e.g. user@domain.com)' });
         }
 
         // Validation: Password complexity
@@ -1124,15 +1144,33 @@ app.post('/api/ble-data', async (req, res) => {
         const currentTime = now.toTimeString().split(' ')[0].substring(0, 5);
         const todayStr = now.toISOString().split('T')[0];
 
-        // Find staff by UUID
-        const staff = await Staff.findOne({ beacon_uuid: beacon_uuid.toUpperCase() });
+        // 1. Throttle: Only process the same beacon in the same room once every 15 seconds
+        const throttleKey = `${beacon_uuid.toUpperCase()}-${esp32_id.toUpperCase()}`;
+        const lastProcessed = bleThrottle.get(throttleKey) || 0;
+        if (now.getTime() - lastProcessed < 15000) {
+            return res.json({ status: 'ignored', message: 'Throttled: Recently processed this beacon.' });
+        }
+        bleThrottle.set(throttleKey, now.getTime());
+
+        // 2. Cached Staff Lookup
+        let staff = staffCache.get(beacon_uuid.toUpperCase());
+        if (!staff) {
+            staff = await Staff.findOne({ beacon_uuid: beacon_uuid.toUpperCase() });
+            if (staff) staffCache.set(beacon_uuid.toUpperCase(), staff);
+        }
+        
         if (!staff) {
             console.log(`[BLE Error] Staff not found for UUID: "${beacon_uuid.toUpperCase()}"`);
             return res.status(404).json({ error: 'Staff not found' });
         }
 
-        // Find classroom by ESP32 ID
-        const classroom = await Classroom.findOne({ esp32_id: esp32_id.toUpperCase() });
+        // 3. Cached Classroom Lookup
+        let classroom = classroomCache.get(esp32_id.toUpperCase());
+        if (!classroom) {
+            classroom = await Classroom.findOne({ esp32_id: esp32_id.toUpperCase() });
+            if (classroom) classroomCache.set(esp32_id.toUpperCase(), classroom);
+        }
+
         if (!classroom) {
             console.log(`[BLE Error] Classroom not found for ESP32 ID: "${esp32_id.toUpperCase()}"`);
             return res.status(404).json({ error: 'Classroom not found' });
@@ -1604,10 +1642,10 @@ cron.schedule('*/15 * * * *', async () => {
                 const durationMs = record.last_seen_time - record.check_in_time;
                 const durationMinutes = durationMs / (1000 * 60);
 
-                // User Rule: If duration < 30 mins, mark as Absent
-                record.status = durationMinutes < 30 ? 'Absent' : 'Present';
+                // User Rule: If duration < 25 mins, mark as Absent
+                record.status = durationMinutes < 25 ? 'Absent' : 'Present';
                 await record.save();
-                console.log(`[Cleanup] Finalized old record for staff ${record.staff_id} from ${recordDateStr}`);
+                console.log(`[Cleanup] Finalized old record for staff ${record.staff_id} from ${recordDateStr} (Status: ${record.status})`);
                 continue;
             }
 
@@ -1628,7 +1666,7 @@ cron.schedule('*/15 * * * *', async () => {
                 if (now > slotEndTime) {
                     const durationMinutes = (record.last_seen_time - record.check_in_time) / (1000 * 60);
 
-                    if (durationMinutes < 30) {
+                    if (durationMinutes < 25) {
                         record.status = 'Absent';
                     } else {
                         // Check for lateness as well
@@ -1646,7 +1684,7 @@ cron.schedule('*/15 * * * *', async () => {
                 const minutesSinceLastSeen = (now - record.last_seen_time) / (1000 * 60);
                 if (minutesSinceLastSeen > 60) {
                     const durationMinutes = (record.last_seen_time - record.check_in_time) / (1000 * 60);
-                    record.status = durationMinutes < 30 ? 'Absent' : 'Present';
+                    record.status = durationMinutes < 25 ? 'Absent' : 'Present';
                     await record.save();
                     console.log(`[Cleanup] Finalized unscheduled tracking for ${record.staff_id} due to inactivity`);
                 }
@@ -1654,6 +1692,56 @@ cron.schedule('*/15 * * * *', async () => {
         }
     } catch (err) {
         console.error('Error in Cleanup Cron:', err);
+    }
+});
+
+// Job 4: Auto-expire stale leave requests
+// Runs every day at midnight. If a leave is still 'pending' or 'approved_by_principal'
+// but the end_date has already passed, mark it 'expired' so it disappears from queues.
+cron.schedule('0 0 * * *', async () => {
+    try {
+        const now = new Date();
+        now.setHours(0, 0, 0, 0); // Start of today
+
+        const expiredLeaves = await Leave.find({
+            status: { $in: ['pending', 'approved_by_principal'] },
+            end_date: { $lt: now }
+        }).populate('staff_id', 'name');
+
+        if (expiredLeaves.length === 0) return;
+
+        console.log(`[Leave Expiry] Found ${expiredLeaves.length} stale leave request(s) to expire.`);
+
+        for (const leave of expiredLeaves) {
+            leave.status = 'expired';
+            leave.admin_notes = (leave.admin_notes ? leave.admin_notes + ' | ' : '') +
+                'Auto-expired: Leave dates passed without full approval.';
+            await leave.save();
+
+            // Notify the staff member
+            const user = await User.findOne({ staff_id: leave.staff_id._id });
+            if (user) {
+                const notifData = {
+                    recipient_id: user._id,
+                    title: 'Leave Request Expired',
+                    message: `Your leave request for ${new Date(leave.start_date).toLocaleDateString()} - ${new Date(leave.end_date).toLocaleDateString()} was not fully approved before the dates passed and has been automatically closed.`,
+                    type: 'leave_update'
+                };
+                await Notification.create(notifData);
+
+                if (user.pushSubscription) {
+                    await sendPushNotification(user.pushSubscription, {
+                        title: notifData.title,
+                        body: notifData.message,
+                        icon: '/logo192.png',
+                        data: { url: '/staff/my-leaves' }
+                    });
+                }
+            }
+            console.log(`[Leave Expiry] Expired leave for ${leave.staff_id?.name} (end: ${leave.end_date?.toISOString().split('T')[0]})`);
+        }
+    } catch (err) {
+        console.error('Error in Leave Expiry Cron:', err);
     }
 });
 

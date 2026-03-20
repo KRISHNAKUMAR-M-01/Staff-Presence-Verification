@@ -45,13 +45,18 @@ const ExecutiveDashboard = () => {
             const response = await api.get('/admin/leaves');
             const data = response.data || [];
             
+            // Exclude leaves whose end_date has already passed (expired/stale)
+            const todayMidnight = new Date();
+            todayMidnight.setHours(0, 0, 0, 0);
+            const validData = data.filter(l => new Date(l.end_date) >= todayMidnight || l.status === 'approved' || l.status === 'rejected');
+
             // For Executives, we care about 'pending' status
             const isExecutiveRole = ['principal', 'secretary', 'director'].includes(user?.role);
             const statusToWatch = isExecutiveRole ? 'pending' : 'approved_by_principal';
             
-            const pending = data.filter(l => l.status === statusToWatch).length;
-            const approved = data.filter(l => l.status === 'approved').length;
-            const rejected = data.filter(l => l.status === 'rejected').length;
+            const pending = validData.filter(l => l.status === statusToWatch).length;
+            const approved = validData.filter(l => l.status === 'approved').length;
+            const rejected = validData.filter(l => l.status === 'rejected').length;
             
             setPendingLeavesCount(pending);
             setApprovedLeavesCount(approved);

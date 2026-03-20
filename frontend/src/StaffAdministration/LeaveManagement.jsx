@@ -62,15 +62,21 @@ const LeaveManagement = () => {
         }
     };
 
-    // Filter Logic
+    // Today's midnight for date comparison
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+
+    // Filter Logic — also exclude leaves whose end_date has already passed (real-time guard)
     const pendingLeaves = leaves.filter(l => {
+        if (new Date(l.end_date) < todayMidnight) return false; // past dates — hide immediately
         if (isExecutive) return l.status === 'pending';
         if (isAdmin) return l.status === 'approved_by_principal';
         return false;
     });
 
-    // Other leaves (not just 'pending' but also waiting on the other person)
+    // Other leaves waiting on the other party
     const waitingForOthers = leaves.filter(l => {
+        if (new Date(l.end_date) < todayMidnight) return false; // past dates — hide immediately
         if (isExecutive) return l.status === 'approved_by_principal';
         if (isAdmin) return l.status === 'pending';
         return false;
@@ -78,6 +84,7 @@ const LeaveManagement = () => {
 
     const approvedLeaves = leaves.filter(l => l.status === 'approved');
     const rejectedLeaves = leaves.filter(l => l.status === 'rejected');
+    const expiredLeaves  = leaves.filter(l => l.status === 'expired');
 
     const getStaffWithStatus = (statusLeaves) => {
         const staffMap = new Map();

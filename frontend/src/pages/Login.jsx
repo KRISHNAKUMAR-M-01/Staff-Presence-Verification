@@ -18,9 +18,10 @@ const Login = () => {
         e.preventDefault();
         setError('');
 
-        // Validation: email should not start with a number
-        if (/^\d/.test(email)) {
-            setError('Email address should not start with a number');
+        // Validation: must be a valid email format
+        const emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+        if (!emailRegex.test(email.trim())) {
+            setError('Please enter a valid email address (e.g. user@domain.com)');
             return;
         }
 
@@ -60,10 +61,11 @@ const Login = () => {
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
+                                onKeyDown={(e) => { if (/^\d$/.test(e.key)) e.preventDefault(); }}
                                 required
                                 placeholder=" "
-                                title="Email should not start with a number"
-                                pattern="^[^0-9].*"
+                                title="Enter a valid email address (e.g. user@domain.com)"
+                                pattern="^[a-zA-Z][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
                             />
                             <label>Email Address</label>
                         </div>

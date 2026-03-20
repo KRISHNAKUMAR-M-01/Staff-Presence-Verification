@@ -21,12 +21,36 @@ const StaffOverview = () => {
                 const today = days[new Date().getDay()];
                 const todayClasses = timetable.data.filter(t => t.day_of_week === today);
 
-                const presentClasses = attendance.data.filter(a => a.status === 'Present').length;
-                const rate = attendance.data.length > 0 ? Math.round((presentClasses / attendance.data.length) * 100) : 0;
+                // Get approved leave date ranges
+                const approvedLeaves = leaves.data.filter(l => l.status === 'approved');
+
+                // Helper: check if a date falls within any approved leave period
+                const isOnApprovedLeave = (dateStr) => {
+                    const d = new Date(dateStr);
+                    d.setHours(0, 0, 0, 0);
+                    return approvedLeaves.some(l => {
+                        const start = new Date(l.start_date); start.setHours(0, 0, 0, 0);
+                        const end   = new Date(l.end_date);   end.setHours(23, 59, 59, 999);
+                        return d >= start && d <= end;
+                    });
+                };
+
+                // Separate attendance records: leave-excused vs active
+                const excusedRecords = attendance.data.filter(a => isOnApprovedLeave(a.date));
+                const activeRecords  = attendance.data.filter(a => !isOnApprovedLeave(a.date));
+
+                // Present = Present OR Late (both mean staff was physically there)
+                const presentClasses = activeRecords.filter(a => ['Present', 'Late'].includes(a.status)).length;
+
+                // Rate = attended / (total active - excused). Avoid division by zero.
+                const rate = activeRecords.length > 0
+                    ? Math.round((presentClasses / activeRecords.length) * 100)
+                    : 0;
 
                 setStats({
                     classesToday: todayClasses.length,
                     attendanceRate: rate,
+                    leaveDaysCount: excusedRecords.length,
                     pendingLeaves: leaves.data.filter(l => l.status === 'pending').length,
                     unreadNotifications: notifs.data.count
                 });
@@ -40,7 +64,7 @@ const StaffOverview = () => {
 
     const statItems = [
         { label: 'Classes Today', value: stats.classesToday, icon: <Calendar size={24} />, color: '#097969', accent: 'linear-gradient(135deg, #e6fcf5 0%, #c3fae8 100%)' },
-        { label: 'Attendance Rate', value: `${stats.attendanceRate}%`, icon: <CheckCircle size={24} />, color: '#0891b2', accent: 'linear-gradient(135deg, #ecfeff 0%, #cffafe 100%)' }
+        { label: 'Attendance Rate', value: `${stats.attendanceRate}%`, subLabel: `${stats.leaveDaysCount} sessions excused on leave`, icon: <CheckCircle size={24} />, color: '#0891b2', accent: 'linear-gradient(135deg, #ecfeff 0%, #cffafe 100%)' }
     ];
 
     return (
@@ -91,6 +115,20 @@ const StaffOverview = () => {
                         <div style={{ marginTop: '20px' }}>
                             <div className="stat-value" style={{ fontSize: '42px', fontWeight: '800', color: '#1e293b' }}>{item.value}</div>
                             <div className="stat-label" style={{ fontWeight: '700', color: '#64748b', fontSize: '13px' }}>{item.label}</div>
+                            {item.subLabel && (
+                                <div style={{ 
+                                    fontSize: '11px', 
+                                    color: item.color, 
+                                    fontWeight: '600', 
+                                    marginTop: '4px',
+                                    background: `${item.color}10`,
+                                    padding: '2px 8px',
+                                    borderRadius: '6px',
+                                    display: 'inline-block'
+                                }}>
+                                    {item.subLabel}
+                                </div>
+                            )}
                         </div>
                     </div>
                 ))}
