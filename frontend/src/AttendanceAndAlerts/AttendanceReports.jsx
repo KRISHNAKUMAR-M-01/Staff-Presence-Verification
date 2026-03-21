@@ -3,6 +3,7 @@ import api from '../services/api';
 import { Search, X, ChevronLeft, Building2, User, UserCheck, Clock, Calendar, ArrowRight, Home, AlertCircle, Plane, Sprout, Brain, Car, Activity, FlaskConical, Compass, Code, Monitor, Zap, Cpu, Globe, Settings, Bot } from 'lucide-react';
 import CustomSelect from '../components/CustomSelect';
 import CustomDatePicker from '../components/CustomDatePicker';
+import Avatar from '../components/Avatar';
 
 const AttendanceReports = () => {
     const [attendance, setAttendance] = useState([]);
@@ -115,7 +116,8 @@ const AttendanceReports = () => {
                     name: a.staff_name,
                     recordCount: 0,
                     absentCount: 0,
-                    presentToday: false
+                    presentToday: false,
+                    profile_picture: a.profile_picture || null
                 });
             }
             const info = staffMap.get(a.staff_id);
@@ -324,13 +326,12 @@ const AttendanceReports = () => {
                         >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                    <div style={{
-                                        width: '40px', height: '40px', borderRadius: '10px',
-                                        background: staff.presentToday ? '#f0fdf4' : '#f8fafc',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                    }}>
-                                        <User size={20} color={staff.presentToday ? '#22c55e' : '#64748b'} />
-                                    </div>
+                                    <Avatar 
+                                        name={staff.name} 
+                                        picturePath={staff.profile_picture}
+                                        size={40}
+                                        borderRadius="10px"
+                                    />
                                     <div>
                                         <div style={{ fontWeight: '700', fontSize: '14px', color: '#1e293b' }}>{staff.name}</div>
                                         <div style={{ color: '#94a3b8', fontSize: '11px', fontWeight: '500' }}>

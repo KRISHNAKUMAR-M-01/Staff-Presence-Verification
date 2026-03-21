@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LogOut, Menu, X } from 'lucide-react';
+import Avatar from './Avatar';
 import '../styles/Dashboard.css';
 
 const DashboardLayout = ({ children, title, navItems, userName, themeClass, brandColor, headerActions }) => {
-    const { logout } = useAuth();
+    const { user, logout } = useAuth();
     const navigate = useNavigate();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -77,9 +78,12 @@ const DashboardLayout = ({ children, title, navItems, userName, themeClass, bran
                     <div className="header-right">
                         {headerActions}
                         <div className="user-profile">
-                            <div className="user-avatar">
-                                {userName ? userName.split(' ').map(n => n[0]).join('').toUpperCase() : 'U'}
-                            </div>
+                            <Avatar 
+                                name={userName} 
+                                picturePath={user?.staff_id?.profile_picture}
+                                size={40}
+                                borderRadius="10px"
+                            />
                             <div className="user-info">
                                 <span className="user-name">{userName}</span>
                                 <span className="user-role">{themeClass.includes('admin') ? 'Administrator' : 'Staff Member'}</span>

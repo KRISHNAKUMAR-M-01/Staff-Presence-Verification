@@ -17,6 +17,7 @@ void setup() {
   
   Serial.println("Starting BLE...");
   BLEDevice::init("Staff-Tag-01");
+  BLEDevice::setPower(ESP_PWR_LVL_N12); // Reduce range to ~1-2 meters
 
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
   

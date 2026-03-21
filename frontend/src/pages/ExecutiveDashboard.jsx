@@ -6,6 +6,7 @@ import { Bell, Search, LogOut, MapPin, Clock, BookOpen, Phone, Users, CheckCircl
 import '../styles/Dashboard.css';
 import LeaveManagement from '../StaffAdministration/LeaveManagement';
 import AttendanceReports from '../AttendanceAndAlerts/AttendanceReports';
+import Avatar from '../components/Avatar';
 
 const ExecutiveDashboard = () => {
     const { user, logout } = useAuth();
@@ -360,6 +361,22 @@ const ExecutiveDashboard = () => {
                                         <div key={n._id} onClick={() => markAsRead(n._id)} style={{ padding: '12px 20px', borderBottom: '1px solid #f8fafc', background: n.is_read ? 'transparent' : '#f0fdf9', cursor: 'pointer' }}>
                                             <div style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b' }}>{n.title}</div>
                                             <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', lineHeight: '1.4' }}>{n.message}</div>
+                                            
+                                            {n.type === 'swap_request' && n.title.includes('Urgent') && !n.is_read && (
+                                                <button 
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        api.put(`/admin/swap-request/${n.related_data.swapRequestId}/approve`)
+                                                            .then(res => {
+                                                                alert(res.data.message);
+                                                                markAsRead(n._id);
+                                                            });
+                                                    }}
+                                                    style={{ marginTop: '8px', padding: '6px 12px', background: '#097969', color: 'white', border: 'none', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}
+                                                >
+                                                    Approve Swap
+                                                </button>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -374,6 +391,12 @@ const ExecutiveDashboard = () => {
                             <div style={{ fontSize: '12px', fontWeight: '900', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.01em' }}>{user?.name}</div>
                             <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '600' }}>Admin Access</div>
                         </div>
+                        <Avatar 
+                            name={user?.name} 
+                            picturePath={user?.staff_id?.profile_picture}
+                            size={40}
+                            borderRadius="12px"
+                        />
                         <button onClick={handleLogout} className="logout-btn" style={{ padding: '8px 14px' }}>
                             <LogOut size={14} />
                             <span className="logout-text">Logout</span>
@@ -601,9 +624,12 @@ const ExecutiveDashboard = () => {
                                             <div style={{ padding: '24px', flex: 1 }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
                                                     <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                                                        <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: `${getDeptColor(staff.department)}10`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: getDeptColor(staff.department) }}>
-                                                            {getDeptIcon(staff.department)}
-                                                        </div>
+                                                        <Avatar 
+                                                            name={staff.name} 
+                                                            picturePath={staff.profile_picture}
+                                                            size={48}
+                                                            borderRadius="14px"
+                                                        />
                                                         <div>
                                                             <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '900', color: '#0f172a', letterSpacing: '-0.01em', textTransform: 'uppercase' }}>{staff.name}</h3>
                                                             <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '600', marginTop: '1px' }}>{staff.department}</div>
@@ -684,9 +710,13 @@ const ExecutiveDashboard = () => {
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
                     <div style={{ background: 'white', borderRadius: '28px', maxWidth: '480px', width: '100%', overflow: 'hidden', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
                         <div style={{ padding: '32px 32px 24px' }}>
-                            <div style={{ width: '56px', height: '56px', borderRadius: '18px', background: '#f0fdf9', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#097969', marginBottom: '24px' }}>
-                                <Phone size={24} />
-                            </div>
+                            <Avatar 
+                                name={selectedStaff.name} 
+                                picturePath={selectedStaff.profile_picture}
+                                size={56}
+                                borderRadius="18px"
+                                style={{ marginBottom: '24px' }}
+                            />
                             <h2 style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a', margin: '0 0 12px' }}>Request Meeting</h2>
                             <p style={{ color: '#64748b', fontSize: '15px', lineHeight: '1.6', margin: 0 }}>
                                 Are you sure you want to request an immediate meeting with <strong style={{ color: '#0f172a' }}>{selectedStaff.name}</strong>?

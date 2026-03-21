@@ -1,101 +1,154 @@
 /*
  * Staff Presence - ESP32 Firmware
- * FIXED FOR MAXIMUM COMPATIBILITY
+ * V4: FULL DUAL-MODE (Hardware Tag Scanner + Mobile Verification Mailbox)
+ *
+ * This version supports BOTH ways for a staff member to be detected:
+ * 1. AUTOMATIC: Scans for physical staff iBeacon tags (Averaged RSSI).
+ * 2. MOBILE: Accepts a physical BLE connection from the staff phone.
  */
+
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEScan.h>
 #include <BLEAdvertisedDevice.h>
+#include <BLEServer.h>
+#include <BLE2902.h>
+#include <map>
+#include <vector>
+#include <numeric>
 
-// --- CONFIGURATION ---
-const char* ssid = "TEC_MECH 1";
-const char* password = "12345678";
-const char* serverUrl = "http://192.168.1.152:5000/api/ble-data";
+// ── CONFIGURATION ──────────────────────────────────────────────────────────
+const char* ssid        = "TEC_MECH 1";
+const char* password    = "12345678";
+const char* serverUrl   = "http://192.168.1.152:5000/api/ble-data";
 const char* classroomId = "ROOM_101";
 
-int scanTime = 5; 
+// BLE UUIDs for Mobile Verification
+#define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
+#define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
+
+// Scanner settings
+const int scanTime = 5; // seconds
+const int MIN_READINGS_TO_SEND = 2;
+const int RSSI_THRESHOLD = -75; // Signals weaker than -75dBm are ignored
+
+// ── Globals ─────────────────────────────────────────────────────────────────
 BLEScan* pBLEScan;
+BLEServer* pServer;
+bool mobileConnected = false;
+std::map<std::string, std::vector<int>> tagAccumulator;
 
-// --- Helper function for Backend Communication ---
-void sendDataToBackend(String uuid, int rssi) {
-    if (WiFi.status() == WL_CONNECTED) {
-        HTTPClient http;
-        http.begin(serverUrl);
-        http.addHeader("Content-Type", "application/json");
+// ── Helper: Send detection to backend ──────────────────────────────────────
+void reportToBackend(String staffUuid, int rssi, String method) {
+    if (WiFi.status() != WL_CONNECTED) return;
+    HTTPClient http;
+    http.begin(serverUrl);
+    http.addHeader("Content-Type", "application/json");
 
-        String jsonPayload = "{\"esp32_id\":\"" + String(classroomId) + 
-                             "\",\"beacon_uuid\":\"" + uuid + 
-                             "\",\"rssi\":" + String(rssi) + "}";
+    String payload = "{\"esp32_id\":\"" + String(classroomId) +
+                     "\",\"beacon_uuid\":\"" + staffUuid +
+                     "\",\"rssi\":" + String(rssi) + 
+                     ",\"method\":\"" + method + "\"}";
 
-        int httpResponseCode = http.POST(jsonPayload);
-        
-        if (httpResponseCode > 0) {
-            Serial.printf("HTTP %d: Sent UUID %s\n", httpResponseCode, uuid.c_str());
-        } else {
-            Serial.printf("HTTP Error %d\n", httpResponseCode);
-        }
-        http.end();
-    } else {
-        Serial.println("WiFi Disconnected");
-    }
+    int code = http.POST(payload);
+    Serial.printf("[%s] %s | Avg RSSI: %d | HTTP: %d\n", method.c_str(), staffUuid.c_str(), rssi, code);
+    http.end();
 }
 
-// --- BLE Callback Class ---
-class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
-    void onResult(BLEAdvertisedDevice advertisedDevice) {
-        uint8_t* payload = advertisedDevice.getPayload();
-        size_t payloadLength = advertisedDevice.getPayloadLength();
-        int rssi = advertisedDevice.getRSSI();
+// ── CALLBACK: When phone "writes" its identity to the ESP32 ─────────────────
+class MobileMailbox : public BLECharacteristicCallbacks {
+    void onWrite(BLECharacteristic *pChar) {
+        std::string val = pChar->getValue();
+        if (val.length() > 0) {
+            String staffUuid = String(val.c_str());
+            staffUuid.toUpperCase();
+            Serial.printf("\n📱 [Mobile Verification] Staff: %s\n", staffUuid.c_str());
+            reportToBackend(staffUuid, -30, "mobile_verification");
+        }
+    }
+};
 
-        // Search for iBeacon pattern: 0x4C 0x00 0x02 0x15
-        for (int i = 0; i < (int)payloadLength - 20; i++) {
-            if (payload[i] == 0x4C && payload[i+1] == 0x00 && payload[i+2] == 0x02 && payload[i+3] == 0x15) {
-                char uuidBuf[33];
-                for (int j = 0; j < 16; j++) {
-                    sprintf(&uuidBuf[j * 2], "%02X", payload[i + 4 + j]);
-                }
-                String uuid = String(uuidBuf);
-                Serial.printf("  [iBeacon] UUID: %s | RSSI: %d\n", uuid.c_str(), rssi);
-                sendDataToBackend(uuid, rssi);
-                return; 
+class ServerCallbacks : public BLEServerCallbacks {
+    void onConnect(BLEServer* pServer)    { mobileConnected = true;  Serial.println("📱 Mobile Connected."); }
+    void onDisconnect(BLEServer* pServer) { mobileConnected = false; Serial.println("📱 Mobile Disconnected."); pServer->getAdvertising()->start(); }
+};
+
+// ── CALLBACK: When scanning for physical tags ──────────────────────────────
+class TagScanCallback : public BLEAdvertisedDeviceCallbacks {
+    void onResult(BLEAdvertisedDevice dev) {
+        uint8_t* pay = dev.getPayload();
+        size_t len = dev.getPayloadLength();
+        int rssi = dev.getRSSI();
+
+        // Skip weak signals (wall-bleed prevention)
+        if (rssi < RSSI_THRESHOLD) return;
+
+        // Search for iBeacon pattern 0x4C 0x00 0x02 0x15
+        for (int i = 0; i < (int)len - 20; i++) {
+            if (pay[i] == 0x4C && pay[i+1] == 0x00 && pay[i+2] == 0x02 && pay[i+3] == 0x15) {
+                char buf[33];
+                for (int j = 0; j < 16; j++) sprintf(&buf[j*2], "%02X", pay[i+4+j]);
+                tagAccumulator[std::string(buf)].push_back(rssi);
+                return;
             }
         }
     }
 };
 
+// ── Setup ────────────────────────────────────────────────────────────────────
 void setup() {
     Serial.begin(115200);
-    
-    // Connect to Wi-Fi
-    WiFi.begin(ssid, password);
-    Serial.print("Connecting to WiFi");
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-    }
-    Serial.println("\nConnected to WiFi!");
 
-    // Initialize BLE
-    BLEDevice::init("");
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }
+    Serial.println("\n✅ WiFi OK.");
+
+    BLEDevice::init(classroomId);
+
+    // 1. Setup GATT Server (Mobile Verification Mode)
+    pServer = BLEDevice::createServer();
+    pServer->setCallbacks(new ServerCallbacks());
+    BLEService *pService = pServer->createService(SERVICE_UUID);
+    BLECharacteristic *pChar = pService->createCharacteristic(CHARACTERISTIC_UUID, BLECharacteristic::PROPERTY_WRITE);
+    pChar->setCallbacks(new MobileMailbox());
+    pService->start();
+
+    BLEAdvertising *pAdv = BLEDevice::getAdvertising();
+    pAdv->addServiceUUID(SERVICE_UUID);
+    pAdv->setScanResponse(true);
+    pAdv->start();
+
+    // 2. Setup Scanner (Hardware Tag Mode)
     pBLEScan = BLEDevice::getScan();
-    pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks(), false);
-    pBLEScan->setActiveScan(true); 
+    pBLEScan->setAdvertisedDeviceCallbacks(new TagScanCallback(), false);
+    pBLEScan->setActiveScan(true);
     pBLEScan->setInterval(100);
     pBLEScan->setWindow(99);
+
+    Serial.println("🚀 Dual-Mode Active: Scanning for Tags + Waiting for Mobile.");
 }
 
 void loop() {
-    Serial.println("Starting BLE Scan...");
+    Serial.println("\n--- BLE Scan Window (Scanning for Tags) ---");
+    tagAccumulator.clear();
     
-    // Start scan - returns a pointer in the current core version
-    BLEScanResults* foundDevices = pBLEScan->start(scanTime, false);
-    
-    if (foundDevices) {
-        Serial.printf("Scan complete. Devices found: %d\n", foundDevices->getCount());
-        pBLEScan->clearResults();   // Important to prevent memory leak
+    // Start scanning for hardware tags
+    BLEScanResults* results = pBLEScan->start(scanTime, false);
+    pBLEScan->clearResults();
+
+    // Process found tags
+    for (auto& entry : tagAccumulator) {
+        const std::string& uuid = entry.first;
+        std::vector<int>&  readings = entry.second;
+
+        if ((int)readings.size() >= MIN_READINGS_TO_SEND) {
+            int sum = std::accumulate(readings.begin(), readings.end(), 0);
+            int avgRssi = sum / (int)readings.size();
+            reportToBackend(String(uuid.c_str()), avgRssi, "hardware_tag");
+        }
     }
-    
-    delay(5000); 
+
+    delay(2000); // Wait between cycles
 }

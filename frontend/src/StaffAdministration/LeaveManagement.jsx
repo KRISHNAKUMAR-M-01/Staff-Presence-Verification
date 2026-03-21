@@ -4,6 +4,7 @@ import { Search, X, Clock, ChevronLeft, CheckCircle, XCircle, User, Building2, M
 import { useAuth } from '../context/AuthContext';
 import PromptModal from '../components/PromptModal';
 import StatusModal from '../components/StatusModal';
+import Avatar from '../components/Avatar';
 
 const LeaveManagement = () => {
     const { user: authUser } = useAuth();
@@ -289,15 +290,12 @@ const LeaveManagement = () => {
 
                                         {/* Staff Info */}
                                         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                                            <div style={{
-                                                width: '56px', height: '56px', borderRadius: '18px',
-                                                background: `linear-gradient(135deg, ${isExecutive ? '#097969' : '#334155'}, ${isExecutive ? '#059669' : '#1e293b'})`,
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                color: 'white', fontWeight: '800', fontSize: '20px',
-                                                boxShadow: '0 8px 16px -4px rgba(0,0,0,0.1)'
-                                            }}>
-                                                {l.staff_id?.name?.charAt(0)}
-                                            </div>
+                                            <Avatar 
+                                                name={l.staff_id?.name} 
+                                                picturePath={l.staff_id?.profile_picture}
+                                                size={56}
+                                                borderRadius="18px"
+                                            />
                                             <div>
                                                 <div style={{ fontWeight: '800', fontSize: '18px', color: '#0f172a' }}>{l.staff_id?.name}</div>
                                                 <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '500' }}>{l.staff_id?.department}</div>
@@ -518,9 +516,12 @@ const LeaveManagement = () => {
                                 style={{ margin: 0, cursor: 'pointer', padding: '24px', position: 'relative', border: '1px solid #f1f5f9' }}
                             >
                                 <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                                    <div style={{ width: '52px', height: '52px', borderRadius: '14px', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #e2e8f0' }}>
-                                        <User size={26} color="#64748b" />
-                                    </div>
+                                    <Avatar 
+                                        name={staff.name} 
+                                        picturePath={staff.profile_picture}
+                                        size={52}
+                                        borderRadius="14px"
+                                    />
                                     <div>
                                         <div style={{ fontWeight: '800', fontSize: '17px', color: '#0f172a' }}>{staff.name}</div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '12px', fontWeight: '500' }}>

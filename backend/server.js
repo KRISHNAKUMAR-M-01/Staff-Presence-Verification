@@ -4,6 +4,9 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const morgan = require('morgan');
 const cron = require('node-cron');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const connectDB = require('./config/database');
 
 // Import Models
@@ -15,6 +18,7 @@ const Alert = require('./models/Alert');
 const User = require('./models/User');
 const Leave = require('./models/Leave');
 const Notification = require('./models/Notification');
+const SwapRequest = require('./models/SwapRequest');
 
 // Import Middleware
 const { generateToken, authenticateToken, requireAdmin, requireStaff, requireExecutive } = require('./middleware/auth');
@@ -32,12 +36,36 @@ app.use(cors());
 app.use(morgan('dev'));
 app.use(bodyParser.json());
 
+// Serve uploaded profile pictures as static files
+const uploadsDir = path.join(__dirname, 'uploads', 'profiles');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Multer config — store to disk, accept only images
+const profileStorage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, uploadsDir),
+    filename: (req, file, cb) => {
+        const ext = path.extname(file.originalname).toLowerCase();
+        cb(null, `staff_${Date.now()}${ext}`);
+    }
+});
+const uploadProfile = multer({
+    storage: profileStorage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+    fileFilter: (req, file, cb) => {
+        if (['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) cb(null, true);
+        else cb(new Error('Only JPEG, PNG and WebP images are allowed'));
+    }
+});
+
 const { sendPushNotification } = require('./utils/pushService');
 
 // Performance Caches & Throttles
 const staffCache = new Map(); // UUID -> Staff Object
 const classroomCache = new Map(); // ESP32_ID -> Classroom Object
 const bleThrottle = new Map(); // UUID+ESP32 -> Last Processed Timestamp (ms)
+const rssiBuffer = new Map(); // UUID+ESP32 -> circular buffer of last N RSSI readings
+const RSSI_BUFFER_SIZE = 5;   // Number of readings to average over
 
 // Clear caches every 10 minutes to reflect DB updates
 setInterval(() => {
@@ -46,11 +74,95 @@ setInterval(() => {
     console.log('⚡ Performance: Cleared Staff/Classroom ID caches.');
 }, 10 * 60 * 1000);
 
-// Clear throttle map every hour to prevent memory growth
+// Clear throttle and RSSI buffer maps every hour to prevent memory growth
 setInterval(() => {
     bleThrottle.clear();
-    console.log('⚡ Performance: Reset BLE throttle map.');
+    rssiBuffer.clear();
+    console.log('⚡ Performance: Reset BLE throttle & RSSI buffer maps.');
 }, 60 * 60 * 1000);
+
+// ---- PERMISSION HELPER: CHECK IF STAFF IS ALLOWED TO ATTEND ----
+async function isStaffPermitted(staffId, classroomId) {
+    const now = new Date();
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const currentDay = days[now.getDay()];
+    const currentTime = now.toTimeString().split(' ')[0].substring(0, 5);
+
+    // 1. Direct match in timetable
+    const directSlot = await Timetable.findOne({
+        staff_id: staffId,
+        classroom_id: classroomId,
+        day_of_week: currentDay,
+        start_time: { $lte: currentTime },
+        end_time: { $gte: currentTime }
+    });
+    if (directSlot) return { permitted: true, slot: directSlot, type: 'direct' };
+
+    // 2. Check for substitution (Was someone else supposed to be here?)
+    const scheduledSlot = await Timetable.findOne({
+        classroom_id: classroomId,
+        day_of_week: currentDay,
+        start_time: { $lte: currentTime },
+        end_time: { $gte: currentTime }
+    });
+
+    if (scheduledSlot) {
+        const scheduledStaffId = scheduledSlot.staff_id;
+        
+        // Is the scheduled staff on Leave?
+        const onLeave = await Leave.findOne({
+            staff_id: scheduledStaffId,
+            status: 'approved',
+            start_date: { $lte: now },
+            end_date: { $gte: now }
+        });
+
+        // Is the scheduled staff Absent from work today?
+        const startOfToday = new Date();
+        startOfToday.setHours(0,0,0,0);
+        const presentToday = await Attendance.findOne({
+            staff_id: scheduledStaffId,
+            date: { $gte: startOfToday }
+        });
+
+        if (onLeave || !presentToday) {
+            // Original teacher is missing. Is THIS staff member authorized to cover?
+            const user = await User.findOne({ staff_id: staffId });
+            if (user) {
+                // Check if a substitution notification was sent to this user for this classroom
+                const subNotification = await Notification.findOne({
+                    recipient_id: user._id,
+                    type: { $in: ['meeting_request', 'substitution_request'] },
+                    'related_data.classroomId': classroomId.toString()
+                }).sort({ createdAt: -1 });
+
+                if (subNotification) return { permitted: true, slot: scheduledSlot, type: 'substitution' };
+            }
+        }
+    }
+
+    // 3. CHECK PERMITTED SWAP (ADMIN APPROVED + COMPLETED)
+    const activeSwap = await SwapRequest.findOne({
+        classroom_id: classroomId,
+        substitute_staff_id: staffId,
+        status: 'completed',
+        date: { $gte: startOfToday }
+    });
+
+    if (activeSwap) {
+        // Find the slot for the original requester
+        const originalSlot = await Timetable.findOne({
+            staff_id: activeSwap.requesting_staff_id,
+            classroom_id: classroomId,
+            day_of_week: currentDay,
+            start_time: { $lte: currentTime },
+            end_time: { $gte: currentTime }
+        });
+        if (originalSlot) return { permitted: true, slot: originalSlot, type: 'swap' };
+    }
+
+    return { permitted: false };
+}
 
 // ============================================
 // AUTHENTICATION ENDPOINTS (Public)
@@ -153,6 +265,69 @@ app.use('/api/executive', specialRoutes);
 // ============================================
 // ADMIN ENDPOINTS (Protected)
 // ============================================
+
+// ---- PROFILE PICTURE: Staff self-upload ----
+app.post('/api/staff/upload-profile-picture',
+    authenticateToken, requireStaff,
+    uploadProfile.single('profile_picture'),
+    async (req, res) => {
+        try {
+            if (!req.file) return res.status(400).json({ error: 'No image file provided.' });
+
+            const user = await User.findById(req.user._id).populate('staff_id');
+            if (!user?.staff_id) return res.status(404).json({ error: 'Staff profile not found.' });
+
+            // Delete old picture if it exists
+            if (user.staff_id.profile_picture) {
+                const oldPath = path.join(__dirname, user.staff_id.profile_picture.replace('/uploads', 'uploads'));
+                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+            }
+
+            const picturePath = `/uploads/profiles/${req.file.filename}`;
+            await Staff.findByIdAndUpdate(user.staff_id._id, { profile_picture: picturePath });
+
+            res.json({ message: 'Profile picture updated!', profile_picture: picturePath });
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    }
+);
+
+// ---- PROFILE PICTURE: Admin uploads for any staff ----
+app.put('/api/admin/staff/:id/upload-picture',
+    authenticateToken, requireAdmin,
+    uploadProfile.single('profile_picture'),
+    async (req, res) => {
+        try {
+            if (!req.file) return res.status(400).json({ error: 'No image file provided.' });
+
+            const staff = await Staff.findById(req.params.id);
+            if (!staff) return res.status(404).json({ error: 'Staff not found.' });
+
+            if (staff.profile_picture) {
+                const oldPath = path.join(__dirname, staff.profile_picture.replace('/uploads', 'uploads'));
+                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+            }
+
+            const picturePath = `/uploads/profiles/${req.file.filename}`;
+            await Staff.findByIdAndUpdate(req.params.id, { profile_picture: picturePath });
+
+            res.json({ message: 'Staff profile picture updated!', profile_picture: picturePath });
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    }
+);
+
+// ---- GET current staff profile (with picture) ----
+app.get('/api/staff/me', authenticateToken, requireStaff, async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id).select('-password').populate('staff_id');
+        res.json(user);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 
 // Register new user (Admin only)
@@ -543,6 +718,8 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
                 staff_id: s._id,
                 staff_name: s.name,
                 department: s.department,
+                is_hod: s.is_hod,
+                profile_picture: s.profile_picture,
                 expected_location: schedule ? schedule.classroom_id.room_name : 'No Class Assigned',
                 actual_location: (latestAttendance && !isStale) ? latestAttendance.classroom_id.room_name : 'Not detected',
                 status: liveStatus,
@@ -584,7 +761,7 @@ app.get('/api/admin/attendance', authenticateToken, (req, res, next) => {
         }
 
         let attendance = await Attendance.find(query)
-            .populate('staff_id', 'name department')
+            .populate('staff_id', 'name department profile_picture')
             .populate('classroom_id', 'room_name')
             .sort({ check_in_time: -1 });
 
@@ -609,7 +786,8 @@ app.get('/api/admin/attendance', authenticateToken, (req, res, next) => {
                 check_in_time: a.check_in_time,
                 last_seen_time: a.last_seen_time,
                 status: a.status,
-                date: a.date
+                date: a.date,
+                profile_picture: a.staff_id.profile_picture || null
             }));
 
         res.json(formatted);
@@ -785,7 +963,7 @@ app.get('/api/admin/leaves', authenticateToken, (req, res, next) => {
         }
 
         let leaves = await Leave.find(query)
-            .populate('staff_id', 'name department')
+            .populate('staff_id', 'name department profile_picture')
             .sort({ createdAt: -1 });
 
         if (staffName) {
@@ -982,6 +1160,224 @@ app.put('/api/admin/leaves/:id', authenticateToken, (req, res, next) => {
 });
 
 // ============================================
+// SOFT BEACON ENDPOINT (Authenticated Staff)
+// Lets a staff member use the web app as a virtual beacon.
+// Sends a heartbeat to the same attendance logic as the ESP32.
+// ============================================
+
+app.post('/api/staff/soft-beacon', authenticateToken, requireStaff, async (req, res) => {
+    try {
+        const { classroom_id } = req.body;
+        if (!classroom_id) {
+            return res.status(400).json({ error: 'classroom_id is required' });
+        }
+
+        // 1. Get the staff record linked to this user (to get their beacon_uuid)
+        const staff = await Staff.findById(req.user.staff_id);
+        if (!staff) {
+            return res.status(404).json({ error: 'Staff record not linked to your account. Contact Admin.' });
+        }
+        if (!staff.beacon_uuid) {
+            return res.status(400).json({ error: 'No beacon UUID assigned to your staff record. Contact Admin.' });
+        }
+
+        // 2. Get the classroom
+        const classroom = await Classroom.findById(classroom_id);
+        if (!classroom) {
+            return res.status(404).json({ error: 'Classroom not found.' });
+        }
+
+        const now = new Date();
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const currentDay = days[now.getDay()];
+        const currentTime = now.toTimeString().split(' ')[0].substring(0, 5);
+        const todayStr = now.toISOString().split('T')[0];
+
+        console.log(`[Soft Beacon] ${staff.name} → ${classroom.room_name} at ${currentTime}`);
+
+        // 3. CHECK PERMISSION (Timetable or Substitution)
+        const permission = await isStaffPermitted(staff._id, classroom._id);
+        if (!permission.permitted) {
+            return res.status(403).json({ 
+                error: `Not permitted: You have no scheduled class in ${classroom.room_name} right now and have not been assigned to cover it.` 
+            });
+        }
+
+        const slot = permission.slot;
+        const subType = permission.type;
+
+        if (!slot) {
+            console.log(`[Soft Beacon] No scheduled class for ${staff.name} in ${classroom.room_name} right now.`);
+            // Still allow tracking so the dashboard stays accurate
+        }
+
+        // 4. Find or create today's attendance record for this staff+classroom
+        let attendance = await Attendance.findOne({
+            staff_id:     staff._id,
+            classroom_id: classroom._id,
+            date:         new Date(todayStr)
+        });
+
+        if (attendance) {
+            attendance.last_seen_time = now;
+            if (attendance.status === 'Absent') attendance.status = 'Tracking';
+            await attendance.save();
+
+            const durationMs      = attendance.last_seen_time - attendance.check_in_time;
+            const durationMinutes = durationMs / (1000 * 60);
+
+            if (durationMinutes >= 25 && attendance.status === 'Tracking') {
+                let newStatus = 'Present';
+
+                if (slot) {
+                    const startTimeDate = new Date(`${todayStr}T${slot.start_time}:00`);
+                    const arrivalDiff   = (attendance.check_in_time - startTimeDate) / (1000 * 60);
+                    if (arrivalDiff > parseInt(process.env.TIME_WINDOW_MINUTES || 15)) {
+                        newStatus = 'Late';
+                    }
+                }
+
+                attendance.status = newStatus;
+                await attendance.save();
+
+                if (newStatus === 'Late') {
+                    const alertMessage = `${staff.name} marked Late via Soft Beacon for class in ${classroom.room_name}`;
+                    await Alert.create({ staff_id: staff._id, classroom_id: classroom._id, message: alertMessage });
+                }
+
+                return res.json({
+                    status: 'confirmed',
+                    message: `Attendance confirmed (25m reached). Status: ${newStatus}`,
+                    attendance_status: newStatus,
+                    duration_minutes: Math.round(durationMinutes)
+                });
+            }
+
+            return res.json({
+                status:             'updated',
+                message:            `Soft beacon heartbeat recorded. Duration: ${Math.round(durationMinutes)}m`,
+                attendance_status:  attendance.status,
+                duration_minutes:   Math.round(durationMinutes)
+            });
+
+        } else {
+            // First heartbeat of the day — start tracking
+            attendance = new Attendance({
+                staff_id:       staff._id,
+                classroom_id:   classroom._id,
+                check_in_time:  now,
+                last_seen_time: now,
+                status:         'Tracking',
+                date:           new Date(todayStr)
+            });
+            await attendance.save();
+
+            return res.json({
+                status:            'started',
+                message:           'Soft beacon: Attendance tracking started.',
+                attendance_status: 'Tracking',
+                duration_minutes:  0
+            });
+        }
+
+    } catch (err) {
+        console.error('[Soft Beacon Error]', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get list of classrooms (for staff soft-beacon room selector)
+app.get('/api/staff/classrooms', authenticateToken, requireStaff, async (req, res) => {
+    try {
+        const classrooms = await Classroom.find({}, 'room_name esp32_id room_uuid').lean();
+        res.json(classrooms);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Verify Location via Mobile BLE Scan (Reversed Detection)
+// This is used when the phone detects an ESP32 room beacon.
+app.post('/api/staff/verify-location', authenticateToken, requireStaff, async (req, res) => {
+    try {
+        const { room_uuid, rssi } = req.body;
+        console.log(`[Mobile BLE] Staff ${req.user.name} detected Room UUID: ${room_uuid} with RSSI: ${rssi}`);
+
+        // 1. Find classroom by its broadcasted UUID
+        const classroom = await Classroom.findOne({ room_uuid: room_uuid.toUpperCase() });
+        if (!classroom) return res.status(404).json({ error: 'Unrecognized classroom beacon.' });
+
+        // 1b. Verify permission
+        const permission = await isStaffPermitted(req.user.staff_id, classroom._id);
+        if (!permission.permitted) {
+            return res.status(403).json({ 
+                error: `Not permitted: You have no scheduled class in ${classroom.room_name} and have not been authorized for substitution.` 
+            });
+        }
+
+        const slot = permission.slot;
+
+        // 2. Reuse the same logic as the soft-beacon for consistency
+        // (This triggers the same 25-minute tracking logic)
+        const staff = await Staff.findById(req.user.staff_id);
+        if (!staff) return res.status(404).json({ error: 'Staff record not found.' });
+
+        const now = new Date();
+        const todayStr = now.toISOString().split('T')[0];
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const currentDay = days[now.getDay()];
+        const currentTime = now.toTimeString().split(' ')[0].substring(0, 5);
+
+        // Permission is already checked in step 1b above via isStaffPermitted
+        const subType = permission.type;
+
+        let attendance = await Attendance.findOne({
+            staff_id:     staff._id,
+            classroom_id: classroom._id,
+            date:         new Date(todayStr)
+        });
+
+        if (attendance) {
+            attendance.last_seen_time = now;
+            if (attendance.status === 'Absent') attendance.status = 'Tracking';
+            await attendance.save();
+
+            const durationMinutes = (attendance.last_seen_time - attendance.check_in_time) / (1000 * 60);
+
+            if (durationMinutes >= 25 && attendance.status === 'Tracking') {
+                let newStatus = 'Present';
+                if (slot) {
+                    const startTimeDate = new Date(`${todayStr}T${slot.start_time}:00`);
+                    if ((attendance.check_in_time - startTimeDate) / (1000 * 60) > 15) {
+                        newStatus = 'Late';
+                    }
+                }
+                attendance.status = newStatus;
+                await attendance.save();
+                if (newStatus === 'Late') {
+                    await Alert.create({ staff_id: staff._id, classroom_id: classroom._id, message: `${staff.name} marked Late via Mobile BLE` });
+                }
+                return res.json({ status: 'confirmed', attendance_status: newStatus });
+            }
+            return res.json({ status: 'updated', attendance_status: attendance.status, duration_minutes: Math.round(durationMinutes) });
+        } else {
+            attendance = new Attendance({
+                staff_id: staff._id,
+                classroom_id: classroom._id,
+                check_in_time: now,
+                last_seen_time: now,
+                status: 'Tracking',
+                date: new Date(todayStr)
+            });
+            await attendance.save();
+            return res.json({ status: 'started', attendance_status: 'Tracking' });
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ============================================
 // STAFF ENDPOINTS (Protected)
 // ============================================
 
@@ -1124,6 +1520,148 @@ app.get('/api/staff/notifications/unread-count', authenticateToken, async (req, 
 });
 
 // ============================================
+// SWAP & SUBSTITUTION ENDPOINTS (Proposed Feature)
+// ============================================
+
+// 1. Staff: Request Admin Permission for Urgent Swap
+app.post('/api/staff/swap-request', authenticateToken, requireStaff, async (req, res) => {
+    try {
+        const { classroom_id, reason } = req.body;
+        const swapReq = new SwapRequest({
+            requesting_staff_id: req.user.staff_id,
+            classroom_id,
+            reason
+        });
+        await swapReq.save();
+
+        // Notify Admin/Principal
+        const admins = await User.find({ role: { $in: ['admin', 'principal'] } });
+        const staff = await Staff.findById(req.user.staff_id);
+
+        for (const admin of admins) {
+            await Notification.create({
+                recipient_id: admin._id,
+                title: 'Urgent Swap Request',
+                message: `Staff ${staff.name} is requesting permission for an urgent swap in ${classroom_id}. Reason: ${reason}`,
+                type: 'swap_request',
+                related_data: { swapRequestId: swapReq._id }
+            });
+        }
+
+        res.json({ message: 'Urgent swap request sent to admin for approval.', swapReq });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 2. Admin: Approve Swap Request
+app.put('/api/admin/swap-request/:id/approve', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const swapReq = await SwapRequest.findById(req.params.id);
+        if (!swapReq) return res.status(404).json({ error: 'Swap request not found.' });
+        
+        swapReq.status = 'approved';
+        await swapReq.save();
+
+        // Notify Staff
+        const staffUser = await User.findOne({ staff_id: swapReq.requesting_staff_id });
+        if (staffUser) {
+            await Notification.create({
+                recipient_id: staffUser._id,
+                title: 'Swap Request Approved',
+                message: `Admin has approved your urgent swap request. You can now search for free staff to cover your class.`,
+                type: 'swap_request',
+                related_data: { swapRequestId: swapReq._id }
+            });
+        }
+        res.json({ message: 'Swap request approved.', swapReq });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 3. Staff: Find Free Staff for current time
+app.get('/api/staff/find-free-staff', authenticateToken, requireStaff, async (req, res) => {
+    try {
+        const now = new Date();
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const currentDay = days[now.getDay()];
+        const currentTime = now.toTimeString().split(' ')[0].substring(0, 5);
+
+        const busyStaffTimetables = await Timetable.find({
+            day_of_week: currentDay,
+            start_time: { $lte: currentTime },
+            end_time: { $gte: currentTime }
+        }).distinct('staff_id');
+
+        const freeStaff = await Staff.find({
+            _id: { $nin: busyStaffTimetables, $ne: req.user.staff_id }
+        });
+
+        res.json(freeStaff);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 4. Staff: Request Covering from Free Staff
+app.post('/api/staff/request-substitution', authenticateToken, requireStaff, async (req, res) => {
+    try {
+        const { target_staff_id, swap_request_id } = req.body;
+        const swapReq = await SwapRequest.findById(swap_request_id);
+        if (!swapReq || swapReq.status !== 'approved') {
+            return res.status(403).json({ error: 'Substitution can only be requested after Admin approval.' });
+        }
+
+        const requester = await Staff.findById(req.user.staff_id);
+        const targetUser = await User.findOne({ staff_id: target_staff_id });
+        if (targetUser) {
+            await Notification.create({
+                recipient_id: targetUser._id,
+                title: 'Substitution Request',
+                message: `Staff ${requester.name} has requested you to cover their class (Urgent). Do you accept?`,
+                type: 'substitution_request',
+                related_data: { swapRequestId: swapReq._id }
+            });
+        }
+
+        res.json({ message: 'Substitution request sent to the staff.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 5. Staff: Accept Substitution Request
+app.post('/api/staff/accept-substitution', authenticateToken, requireStaff, async (req, res) => {
+    try {
+        const { swap_request_id } = req.body;
+        const swapReq = await SwapRequest.findById(swap_request_id);
+        if (!swapReq) return res.status(404).json({ error: 'Request no longer exists.' });
+
+        swapReq.substitute_staff_id = req.user.staff_id;
+        swapReq.status = 'completed';
+        await swapReq.save();
+
+        // Notify Original Staff
+        const originUser = await User.findOne({ staff_id: swapReq.requesting_staff_id });
+        const substitute = await Staff.findById(req.user.staff_id);
+        if (originUser) {
+            await Notification.create({
+                recipient_id: originUser._id,
+                title: 'Substitution Accepted',
+                message: `Staff ${substitute.name} has accepted to cover your class.`,
+                type: 'swap_request',
+                related_data: { swapRequestId: swapReq._id }
+            });
+        }
+
+        res.json({ message: 'You have accepted the substitution. You are now authorized to check in for this classroom.', swapReq });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ============================================
 // BLE DATA ENDPOINT (Public - from ESP32)
 // ============================================
 
@@ -1132,10 +1670,22 @@ app.post('/api/ble-data', async (req, res) => {
         const { esp32_id, beacon_uuid, rssi } = req.body;
         console.log(`Received BLE scan: ESP32=${esp32_id}, UUID=${beacon_uuid}, RSSI=${rssi}`);
 
+        // --- Rolling RSSI Average Filter ---
+        // Maintain a sliding window of the last RSSI_BUFFER_SIZE readings per beacon+room.
+        // This smooths out noisy spikes and prevents false accepts/rejects from a single bad reading.
+        const bufferKey = `${beacon_uuid.toUpperCase()}-${esp32_id.toUpperCase()}`;
+        const readings = rssiBuffer.get(bufferKey) || [];
+        readings.push(rssi);
+        if (readings.length > RSSI_BUFFER_SIZE) readings.shift(); // keep only last N
+        rssiBuffer.set(bufferKey, readings);
+        const avgRssi = Math.round(readings.reduce((a, b) => a + b, 0) / readings.length);
+        console.log(`  RSSI buffer [${bufferKey}]: [${readings.join(', ')}] -> avg=${avgRssi} dBm`);
+
         const rssiThreshold = parseInt(process.env.RSSI_THRESHOLD || -75);
 
-        if (rssi < rssiThreshold) {
-            return res.json({ status: 'ignored', message: 'RSSI below threshold' });
+        // Use AVERAGED RSSI for the threshold check (not the raw noisy value)
+        if (avgRssi < rssiThreshold) {
+            return res.json({ status: 'ignored', message: `Avg RSSI ${avgRssi} dBm below threshold ${rssiThreshold} dBm` });
         }
 
         const now = new Date();
@@ -1176,20 +1726,14 @@ app.post('/api/ble-data', async (req, res) => {
             return res.status(404).json({ error: 'Classroom not found' });
         }
 
-        // Check timetable
-        const slot = await Timetable.findOne({
-            staff_id: staff._id,
-            classroom_id: classroom._id,
-            day_of_week: currentDay,
-            start_time: { $lte: currentTime },
-            end_time: { $gte: currentTime }
-        });
-
-        if (!slot) {
-            console.log(`[BLE Info] Unscheduled presence detected for ${staff.name} in ${classroom.room_name}`);
-            // We allow tracking even without a slot so the staff's "Current Location" 
-            // is updated on the executive dashboard.
+        // Check permission (Timetable or Substitution)
+        const permission = await isStaffPermitted(staff._id, classroom._id);
+        if (!permission.permitted) {
+            console.log(`[BLE Info] Rejecting presence for ${staff.name} in ${classroom.room_name} - Not permitted.`);
+            return res.json({ status: 'ignored', message: 'Not permitted for this room/time.' });
         }
+        const slot = permission.slot;
+        const subType = permission.type;
 
         // Check for existing attendance record
         let attendance = await Attendance.findOne({
@@ -1236,7 +1780,6 @@ app.post('/api/ble-data', async (req, res) => {
 
                 attendance.status = newStatus;
                 await attendance.save();
-
                 // If late, send alert (only sent once when status changes from Tracking -> Late)
                 if (newStatus === 'Late') {
                     const alertMessage = `${staff.name} marked Late for class in ${classroom.room_name} (verified after 25m duration)`;

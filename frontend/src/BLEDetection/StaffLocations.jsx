@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { Search, MapPin, Clock, User, CheckCircle, AlertCircle, XCircle, ChevronLeft, Building2, Plane, Sprout, Brain, Car, Activity, FlaskConical, Compass, Code, Monitor, Zap, Cpu, Globe, Settings, Bot } from 'lucide-react';
+import Avatar from '../components/Avatar';
 
 const StaffLocations = () => {
     const [locations, setLocations] = useState([]);
@@ -206,18 +207,12 @@ const StaffLocations = () => {
                                     }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                                             <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                                <div style={{
-                                                    width: '40px',
-                                                    height: '40px',
-                                                    borderRadius: '10px',
-                                                    background: '#f8fafc',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    flexShrink: 0
-                                                }}>
-                                                    <User size={20} color="#64748b" />
-                                                </div>
+                                                <Avatar 
+                                                    name={loc.staff_name} 
+                                                    picturePath={loc.profile_picture}
+                                                    size={40}
+                                                    borderRadius="10px"
+                                                />
                                                 <div>
                                                     <h3 style={{ margin: 0, fontSize: '15px', fontWeight: '700', color: '#0f172a' }}>{loc.staff_name}</h3>
                                                     {loc.is_hod && <span style={{ padding: '2px 6px', backgroundColor: '#65c6b7', color: '#097969', borderRadius: '4px', fontSize: '10px', fontWeight: '700', marginTop: '4px', display: 'inline-block' }}>HOD</span>}

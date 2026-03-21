@@ -26,6 +26,10 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = () => {
+        // Tell the Service Worker to stop the soft beacon before clearing session
+        if (navigator.serviceWorker?.controller) {
+            navigator.serviceWorker.controller.postMessage({ type: 'BEACON_STOP' });
+        }
         localStorage.clear();
         setToken(null);
         setUser(null);

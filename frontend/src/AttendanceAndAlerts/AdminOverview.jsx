@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Clipboard, AlertCircle, Plane, User, MapPin, Clock, ChevronLeft, Building2, History, Search, Sprout, Brain, Car, Activity, FlaskConical, Compass, Code, Monitor, Zap, Cpu, Globe, Settings, Bot } from 'lucide-react';
 import api from '../services/api';
+import Avatar from '../components/Avatar';
 
 const AdminOverview = () => {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -217,9 +218,12 @@ const AdminOverview = () => {
                                 }}
                             >
                                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <User size={20} color="#64748b" />
-                                    </div>
+                                    <Avatar 
+                                        name={staff.name} 
+                                        picturePath={staff.profile_picture}
+                                        size={40}
+                                        borderRadius="10px"
+                                    />
                                     <div>
                                         <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '15px' }}>{staff.name}</div>
                                         {staff.is_hod && <span style={{ fontSize: '10px', color: '#097969', background: '#e6fcf9', padding: '2px 6px', borderRadius: '4px', fontWeight: '800' }}>HOD</span>}
@@ -256,19 +260,12 @@ const AdminOverview = () => {
                                     }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
                                             <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                                                <div style={{
-                                                    width: '48px',
-                                                    height: '48px',
-                                                    borderRadius: '14px',
-                                                    background: isPresent ? '#dcfce7' : '#f8fafc',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    border: '1px solid',
-                                                    borderColor: isPresent ? '#86efac' : '#e2e8f0'
-                                                }}>
-                                                    <User size={22} color={isPresent ? '#166534' : '#64748b'} strokeWidth={2.5} />
-                                                </div>
+                                                <Avatar 
+                                                    name={selectedStaff.name} 
+                                                    picturePath={item.profile_picture || selectedStaff.profile_picture}
+                                                    size={48}
+                                                    borderRadius="14px"
+                                                />
                                                 <div>
                                                     <div style={{ fontWeight: '800', fontSize: '16px', color: '#0f172a', letterSpacing: '-0.01em' }}>{selectedStaff.name}</div>
                                                     <div style={{ fontSize: '11px', color: '#64748b', fontWeight: '600' }}>{selectedStaff.department}</div>

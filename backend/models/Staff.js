@@ -34,6 +34,10 @@ const staffSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    profile_picture: {
+        type: String,
+        default: null
+    },
     phone_number: {
         type: String,
         trim: true,
