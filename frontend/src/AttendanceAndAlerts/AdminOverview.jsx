@@ -44,7 +44,7 @@ const AdminOverview = () => {
     }, [selectedStaff]);
 
     const statItems = [
-        { label: 'Live Tracking Staffs', value: stats.liveTrackingStaff || 0, icon: <Activity size={22} />, color: '#097969', accent: '#e6fcf9' },
+        { label: 'Tracking ID Signal Found', value: stats.liveTrackingStaff || 0, icon: <Activity size={22} />, color: '#097969', accent: '#e6fcf9' },
         { label: 'Absent on Leave', value: stats.absentOnLeave || 0, icon: <Plane size={22} />, color: '#d97706', accent: '#fffbeb' }
     ];
 
@@ -243,6 +243,14 @@ const AdminOverview = () => {
                         {staffHistory.length > 0 ? (
                             staffHistory.map((item, i) => {
                                 const isPresent = item.status === 'Present';
+                                const getStatusInfo = () => {
+                                    if (item.status === 'On Leave') return { label: 'Leave', bg: '#0ea5e9', color: '#ffffff' };
+                                    if (item.status === 'Present' || item.status === 'Late') 
+                                        return { label: 'Tracking ID Signal Found', bg: isPresent ? '#16a34a' : '#f59e0b', color: '#ffffff' };
+                                    return { label: 'Scanning', bg: '#f1f5f9', color: '#64748b' };
+                                };
+                                const status = getStatusInfo();
+
                                 return (
                                     <div key={i} className="activity-card" style={{
                                         background: isPresent ? 'linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)' : '#ffffff',
@@ -277,12 +285,12 @@ const AdminOverview = () => {
                                                 borderRadius: '10px',
                                                 fontSize: '10px',
                                                 fontWeight: '800',
-                                                background: isPresent ? '#16a34a' : item.status === 'Late' ? '#f59e0b' : '#f1f5f9',
-                                                color: isPresent ? '#ffffff' : item.status === 'Late' ? '#ffffff' : '#64748b',
+                                                background: status.bg,
+                                                color: status.color,
                                                 textTransform: 'uppercase',
                                                 letterSpacing: '0.02em'
                                             }}>
-                                                {item.status}
+                                                {status.label}
                                             </div>
                                         </div>
 

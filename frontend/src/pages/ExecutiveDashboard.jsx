@@ -415,7 +415,7 @@ const ExecutiveDashboard = () => {
                         flexWrap: 'wrap', 
                         gap: '12px' 
                     }}>
-                        <div className="header-title-group" style={{ flex: '0 1 auto', minWidth: '300px' }}>
+                        <div className="header-title-group" style={{ flex: '1 1 250px', minWidth: 'min(100%, 250px)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                                 <div style={{ padding: '4px 10px', background: '#f0fdf9', color: '#097969', borderRadius: '20px', fontSize: '10px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                                     Real-time Intelligence
@@ -433,32 +433,8 @@ const ExecutiveDashboard = () => {
                             </p>
                         </div>
 
-                        <div className="header-actions" style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', flex: '0 1 auto', justifyContent: 'flex-end' }}>
-                            {selectedDept && (
-                                <button
-                                    onClick={() => setSelectedDept(null)}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '8px',
-                                        padding: '12px 18px',
-                                        background: 'white',
-                                        border: `1.5px solid ${currentDeptColor}20`,
-                                        borderRadius: '14px',
-                                        fontSize: '13px',
-                                        fontWeight: '700',
-                                        color: '#475569',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s',
-                                        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.04)',
-                                        whiteSpace: 'nowrap'
-                                    }}
-                                >
-                                    <ChevronLeft size={16} />
-                                    Back
-                                </button>
-                            )}
-                            <div className="search-container" style={{ position: 'relative', flex: '1 1 300px' }}>
+                        <div className="header-actions" style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'flex-end', flex: '0 1 auto' }}>
+                            <div className="search-container" style={{ position: 'relative', width: '300px', maxWidth: '100%' }}>
                                 <Search size={16} color="#94a3b8" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', zIndex: 1 }} />
                                 <input
                                     type="text"
@@ -479,6 +455,30 @@ const ExecutiveDashboard = () => {
                                     }}
                                 />
                             </div>
+                            {selectedDept && (
+                                <button
+                                    onClick={() => setSelectedDept(null)}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        padding: '8px 16px',
+                                        background: 'white',
+                                        border: `1.5px solid ${currentDeptColor}40`,
+                                        borderRadius: '10px',
+                                        fontSize: '13px',
+                                        fontWeight: '700',
+                                        color: '#475569',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        boxShadow: '0 2px 4px -1px rgba(0,0,0,0.02)',
+                                        whiteSpace: 'nowrap'
+                                    }}
+                                >
+                                    <ChevronLeft size={16} />
+                                    Back to Departments
+                                </button>
+                            )}
                         </div>
                     </div>
                 )}
@@ -488,12 +488,12 @@ const ExecutiveDashboard = () => {
                     <div className="stats-grid dashboard-stats-grid" style={{
                         marginBottom: '32px',
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, 320px)',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
                         gap: '24px',
                         justifyContent: 'flex-start'
                     }}>
                         {[
-                            { label: 'Live Tracking Staffs', value: statsStaff.filter(s => s.currentStatus === 'Present' || s.currentStatus === 'Tracking').length, icon: <Activity size={24} />, color: '#097969', accent: '#e6fcf9' },
+                            { label: 'Tracking ID Signal Found', value: statsStaff.filter(s => s.currentStatus === 'Present' || s.currentStatus === 'Tracking').length, icon: <Activity size={24} />, color: '#097969', accent: '#e6fcf9' },
                             { label: 'Absent on Leave', value: statsStaff.filter(s => s.currentStatus === 'On Leave').length, icon: <Plane size={24} />, color: '#d97706', accent: '#fffbeb' }
                         ].map((card, i) => (
                             <div key={i} className="stat-card" style={{
@@ -538,7 +538,7 @@ const ExecutiveDashboard = () => {
                 {view === 'status' ? (
                     <>
                         {!selectedDept && !searchTerm ? (
-                            <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px' }}>
+                            <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 340px), 1fr))', gap: '24px' }}>
                                 {departments.map(dept => (
                                     <div
                                         key={dept}
@@ -602,18 +602,16 @@ const ExecutiveDashboard = () => {
                                 ))}
                             </div>
                         ) : (
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '24px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 360px), 1fr))', gap: '24px' }}>
                                 {filteredStaff.map((staff) => {
                                     const isAbsent = staff.currentStatus === 'Absent';
                                     const isLate = staff.currentStatus === 'Late';
                                     const isLeft = staff.currentStatus === 'Left';
 
                                     const getTheme = () => {
-                                        if (staff.currentStatus === 'On Leave') return { bg: '#f0f9ff', color: '#0ea5e9', icon: <Plane size={14} /> };
-                                        if (isAbsent) return { bg: '#fef2f2', color: '#dc2626', icon: <XCircle size={14} /> };
-                                        if (isLate) return { bg: '#fffbeb', color: '#d97706', icon: <AlertCircle size={14} /> };
-                                        if (isLeft) return { bg: '#f1f5f9', color: '#64748b', icon: <Clock size={14} /> };
-                                        return { bg: '#f0fdf4', color: '#097969', icon: <CheckCircle size={14} /> };
+                                        if (staff.currentStatus === 'On Leave') return { bg: '#f0f9ff', color: '#0ea5e9', icon: <Plane size={14} />, label: 'Leave' };
+                                        if (isAbsent || isLeft) return { bg: '#fffbeb', color: '#d97706', icon: <Search size={14} />, label: 'Scanning' };
+                                        return { bg: '#f0fdf4', color: '#097969', icon: <CheckCircle size={14} />, label: 'Tracking ID Signal Found' };
                                     };
                                     const theme = getTheme();
 
@@ -622,8 +620,8 @@ const ExecutiveDashboard = () => {
                                             background: 'white', borderRadius: '24px', border: '1px solid #e2e8f0', overflow: 'hidden', display: 'flex', flexDirection: 'column', transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)'
                                         }} className="staff-card-hover">
                                             <div style={{ padding: '24px', flex: 1 }}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-                                                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+                                                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center', maxWidth: '100%', flexWrap: 'wrap' }}>
                                                         <Avatar 
                                                             name={staff.name} 
                                                             picturePath={staff.profile_picture}
@@ -640,7 +638,7 @@ const ExecutiveDashboard = () => {
                                                         background: theme.bg, color: theme.color, display: 'flex', alignItems: 'center', gap: '6px'
                                                     }}>
                                                         {theme.icon}
-                                                        {staff.currentStatus}
+                                                        {theme.label}
                                                     </div>
                                                 </div>
 
@@ -654,28 +652,54 @@ const ExecutiveDashboard = () => {
                                                         </div>
 
                                                         <div style={{
-                                                            background: staff.isCorrectLocation ? '#f0fdf4' : (isLeft ? '#f8fafc' : '#fff1f2'),
-                                                            padding: '10px 14px',
-                                                            borderRadius: '12px',
+                                                            background: staff.currentStatus === 'On Leave' ? '#eff6ff' : (staff.isCorrectLocation ? '#f0fdf4' : (isAbsent || isLeft ? '#fffbeb' : '#fff1f2')),
+                                                            padding: '12px 14px',
+                                                            borderRadius: '16px',
                                                             display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: '10px',
-                                                            border: `1px solid ${staff.isCorrectLocation ? '#dcfce7' : (isLeft ? '#e2e8f0' : '#ffe4e6')}`
+                                                            flexDirection: 'column',
+                                                            gap: '8px',
+                                                            border: `1px solid ${staff.currentStatus === 'On Leave' ? '#dbeafe' : (staff.isCorrectLocation ? '#dcfce7' : (isAbsent || isLeft ? '#fef3c7' : '#ffe4e6'))}`,
+                                                            transition: 'all 0.3s ease'
                                                         }}>
-                                                            <MapPin size={16} color={staff.currentStatus === 'On Leave' ? '#0ea5e9' : (staff.isCorrectLocation ? '#097969' : (isLeft ? '#94a3b8' : '#dc2626'))} />
-                                                            <div style={{ fontSize: '14px', color: staff.currentStatus === 'On Leave' ? '#0369a1' : (staff.isCorrectLocation ? '#065f46' : (isLeft ? '#64748b' : '#991b1b')), fontWeight: '700' }}>
-                                                                {staff.currentStatus === 'On Leave' ? 'Officially on Leave' : (isAbsent ? 'Not on Campus' : isLeft ? 'Off Campus (Signal Lost)' : `Currently in ${staff.currentLocation}`)}
-                                                            </div>
-                                                        </div>
-
-                                                        {staff.lastSeen && (
                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                                                <Clock size={16} color="#94a3b8" />
-                                                                <div style={{ fontSize: '13px', color: '#94a3b8', fontWeight: '500' }}>
-                                                                    Last seen: {new Date(staff.lastSeen).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                                                                <MapPin size={16} color={staff.currentStatus === 'On Leave' ? '#0ea5e9' : (staff.isCorrectLocation ? '#097969' : (isAbsent || isLeft ? '#d97706' : '#dc2626'))} />
+                                                                <div style={{ fontSize: '14px', color: staff.currentStatus === 'On Leave' ? '#0369a1' : (staff.isCorrectLocation ? '#065f46' : (isAbsent || isLeft ? '#92400e' : '#991b1b')), fontWeight: '800' }}>
+                                                                    {staff.currentStatus === 'On Leave' 
+                                                                        ? 'Not on Campus' 
+                                                                        : (isAbsent || isLeft 
+                                                                            ? 'Not in Range' 
+                                                                            : `Currently in ${staff.currentLocation}`)}
                                                                 </div>
                                                             </div>
-                                                        )}
+                                                            
+                                                            {staff.lastSeen && (
+                                                                <div style={{ 
+                                                                    display: 'flex', 
+                                                                    alignItems: 'center', 
+                                                                    gap: '8px', 
+                                                                    paddingTop: '6px', 
+                                                                    borderTop: '1px dashed rgba(0,0,0,0.05)',
+                                                                    marginTop: '2px'
+                                                                }}>
+                                                                    <Clock size={14} color={staff.currentStatus === 'On Leave' ? '#60a5fa' : (isAbsent || isLeft ? '#d97706' : '#94a3b8')} />
+                                                                    <div style={{ 
+                                                                        fontSize: '11px', 
+                                                                        color: staff.currentStatus === 'On Leave' ? '#60a5fa' : (isAbsent || isLeft ? '#d97706' : '#64748b'), 
+                                                                        fontWeight: '600' 
+                                                                    }}>
+                                                                        Last seen: {(() => {
+                                                                            const d = new Date(staff.lastSeen);
+                                                                            const today = new Date();
+                                                                            const isToday = d.toDateString() === today.toDateString();
+                                                                            const timeStr = isToday 
+                                                                                ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                                                                : `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} at ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                                                                            return `${timeStr} in ${staff.lastSeenLocation}`;
+                                                                        })()}
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
 

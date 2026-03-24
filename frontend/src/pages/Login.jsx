@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, Facebook, Chrome } from 'lucide-react';
 import '../styles/Login.css';
 
 const Login = () => {
@@ -18,10 +18,9 @@ const Login = () => {
         e.preventDefault();
         setError('');
 
-        // Validation: must be a valid email format
         const emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
         if (!emailRegex.test(email.trim())) {
-            setError('Please enter a valid email address (e.g. user@domain.com)');
+            setError('Please enter a valid email address');
             return;
         }
 
@@ -47,75 +46,88 @@ const Login = () => {
     };
 
     return (
-        <div className="login-body">
-            <div className="login-container">
-                <div className="login-card">
-                    <div className="login-header">
-                        <h1 style={{ background: 'none', webkitTextFillColor: 'unset', color: 'white' }}>Staff Presence System</h1>
-                        <p style={{ color: '#64748b' }}>Enterprise Authentication Portal</p>
+        <div className="login-page">
+            <div className="login-left-panel">
+                <div className="login-logo">
+                    <div className="logo-symbol">
+                        <div className="logo-inner"></div>
                     </div>
+                    <span className="logo-text">SPV</span>
+                </div>
+                <div className="login-left-content">
+                    <h1>STAFF PRESENCE <br/><span>VERIFICATION</span></h1>
+                </div>
+            </div>
 
-                    <form className="login-form" onSubmit={handleLogin}>
-                        <div className="form-group floating-group">
+            <div className="login-right-panel">
+                <div className="login-form-container">
+                    <h2>SIGN IN</h2>
+                    <p className="login-subtitle">Sign in with email address</p>
+
+                    <form onSubmit={handleLogin}>
+                        <div className="input-group">
+                            <Mail className="input-icon" size={20} />
                             <input
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                onKeyDown={(e) => { if (/^\d$/.test(e.key)) e.preventDefault(); }}
                                 required
-                                placeholder=" "
-                                title="Enter a valid email address (e.g. user@domain.com)"
-                                pattern="^[a-zA-Z][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
+                                placeholder="Yourname@gmail.com"
+                                autoComplete='email'
                             />
-                            <label>Email Address</label>
                         </div>
 
-                        <div className="form-group floating-group">
-                            <div className="input-wrapper">
-                                <input
-                                    type={showPassword ? "text" : "password"}
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    required
-                                    placeholder=" "
-                                />
-                                <label>Password</label>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="password-toggle"
-                                >
-                                    {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
-                                </button>
-                            </div>
+                        <div className="input-group">
+                            <Lock className="input-icon" size={20} />
+                            <input
+                                type={showPassword ? "text" : "password"}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                required
+                                placeholder="Password"
+                                autoComplete='current-password'
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="password-toggle"
+                            >
+                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                            </button>
                         </div>
 
                         {error && <div className="error-message">{error}</div>}
 
-                        <button type="submit" className="login-btn" disabled={loading}>
-                            <span>{loading ? 'Authenticating...' : 'Login'}</span>
-                            {loading && <div className="loader"></div>}
+                        <button type="submit" className="login-main-btn" disabled={loading}>
+                            {loading ? (
+                                <div className="btn-loading">
+                                    <div className="spinner"></div>
+                                    <span>Authenticating...</span>
+                                </div>
+                            ) : 'Sign in'}
                         </button>
                     </form>
 
-                    <div className="login-footer">
-                        <p>Demo Credentials</p>
-                        <div className="demo-credentials">
-                            <div>
-                                <strong>Admin:</strong> admin@school.com / Admin@123
-                            </div>
-                            <div>
-                                <strong>Principal:</strong> principal@gmail.com / Principal@123
-                            </div>
-                            <div>
-                                <strong>Staff:</strong> kriskanna17@gmail.com / Staff@123
-                            </div>
-                        </div> 
-                     </div>
+                    <div className="divider">
+                        <span>Or continue with</span>
+                    </div>
+
+                    <div className="social-login">
+                        <button type="button" className="social-btn">
+                            <Chrome size={20} /> Google
+                        </button>
+                        <button type="button" className="social-btn">
+                            <Facebook size={20} /> Facebook
+                        </button>
+                    </div>
+
+                    <p className="login-terms">
+                        By registering you with our <a href="#">Terms and Conditions</a>
+                    </p>
                 </div>
             </div>
         </div>
     );
-}; 
+};
 
 export default Login;

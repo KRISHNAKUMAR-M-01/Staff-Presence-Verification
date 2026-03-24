@@ -24,12 +24,10 @@ const StaffLocations = () => {
     }, []);
 
     const getStatusStyles = (loc) => {
-        if (loc.status === 'Tracking') return { color: '#0ea5e9', bg: '#f0f9ff', icon: <Clock size={14} /> };
-        if (loc.status === 'Present') return { color: '#10b981', bg: '#ecfdf5', icon: <CheckCircle size={14} /> };
-        if (loc.status === 'Late') return { color: '#f59e0b', bg: '#fffbeb', icon: <AlertCircle size={14} /> };
-        if (loc.status === 'Left') return { color: '#64748b', bg: '#f1f5f9', icon: <MapPin size={14} /> };
-        if (loc.status === 'Offline') return { color: '#94a3b8', bg: '#f8fafc', icon: <Clock size={14} /> };
-        return { color: '#ef4444', bg: '#fef2f2', icon: <XCircle size={14} /> };
+        if (loc.status === 'On Leave') return { color: '#0ea5e9', bg: '#f0f9ff', icon: <Plane size={14} />, label: 'Leave' };
+        if (loc.status === 'Tracking' || loc.status === 'Present' || loc.status === 'Late') 
+            return { color: '#10b981', bg: '#ecfdf5', icon: <CheckCircle size={14} />, label: 'Tracking ID Signal Found' };
+        return { color: '#d97706', bg: '#fffbeb', icon: <Search size={14} />, label: 'Scanning' };
     };
 
     const filteredLocations = locations.filter(loc => {
@@ -124,7 +122,7 @@ const StaffLocations = () => {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {!selectedDept ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 340px), 1fr))', gap: '24px' }}>
                         {Object.keys(groupedLocations).length > 0 ? (
                             Object.entries(groupedLocations).map(([dept, deptLocations]) => (
                                 <div
@@ -189,7 +187,7 @@ const StaffLocations = () => {
                         )}
                     </div>
                 ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 340px), 1fr))', gap: '24px' }}>
                         {(groupedLocations[selectedDept] || []).length > 0 ? (
                             groupedLocations[selectedDept].map((loc, i) => {
                                 const styles = getStatusStyles(loc);
@@ -205,8 +203,8 @@ const StaffLocations = () => {
                                         border: '1px solid #e2e8f0',
                                         background: 'white'
                                     }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                                            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', flexWrap: 'wrap', gap: '8px' }}>
+                                            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', maxWidth: '100%' }}>
                                                 <Avatar 
                                                     name={loc.staff_name} 
                                                     picturePath={loc.profile_picture}
@@ -231,7 +229,7 @@ const StaffLocations = () => {
                                                 textTransform: 'uppercase'
                                             }}>
                                                 {styles.icon}
-                                                {loc.status}
+                                                {styles.label}
                                             </span>
                                         </div>
 
@@ -243,34 +241,51 @@ const StaffLocations = () => {
                                             </div>
                                             <div style={{
                                                 display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '8px',
-                                                padding: '8px',
-                                                borderRadius: '8px',
-                                                background: loc.is_correct_location ? '#f0fdf4' : '#fff1f2',
-                                                border: `1px solid ${loc.is_correct_location ? '#dcfce7' : '#ffe4e6'}`
+                                                flexDirection: 'column',
+                                                gap: '6px',
+                                                padding: '10px',
+                                                borderRadius: '12px',
+                                                background: loc.status === 'On Leave' ? '#eff6ff' : (loc.is_correct_location ? '#f0fdf4' : (loc.status === 'Scanning' || loc.status === 'Left' || loc.status === 'Absent' ? '#fffbeb' : '#fff1f2')),
+                                                border: `1px solid ${loc.status === 'On Leave' ? '#dbeafe' : (loc.is_correct_location ? '#dcfce7' : (loc.status === 'Scanning' || loc.status === 'Left' || loc.status === 'Absent' ? '#fef3c7' : '#ffe4e6'))}`,
+                                                marginTop: '4px'
                                             }}>
-                                                <MapPin size={14} color={loc.is_correct_location ? '#10b981' : '#ef4444'} />
-                                                <span style={{ fontSize: '13px', color: loc.is_correct_location ? '#166534' : '#991b1b', fontWeight: '500' }}>
-                                                    {loc.actual_location === 'Not detected' ? 'Not detected' :
-                                                        (loc.status === 'Tracking' || loc.status === 'Present' || loc.status === 'Late' ? `Currently in ${loc.actual_location}` : `Last seen in ${loc.actual_location}`)}
-                                                </span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <MapPin size={14} color={loc.status === 'On Leave' ? '#0ea5e9' : (loc.is_correct_location ? '#10b981' : (loc.status === 'Scanning' || loc.status === 'Left' || loc.status === 'Absent' ? '#d97706' : '#ef4444'))} />
+                                                    <span style={{ fontSize: '13px', color: loc.status === 'On Leave' ? '#0369a1' : (loc.is_correct_location ? '#166534' : (loc.status === 'Scanning' || loc.status === 'Left' || loc.status === 'Absent' ? '#92400e' : '#991b1b')), fontWeight: '700' }}>
+                                                        {loc.status === 'On Leave' 
+                                                            ? 'Not on Campus' 
+                                                            : (loc.status === 'Tracking' || loc.status === 'Present' || loc.status === 'Late' 
+                                                                ? `Currently in ${loc.actual_location}` 
+                                                                : 'Not in Range')}
+                                                    </span>
+                                                </div>
+                                                
+                                                {loc.check_in_time && (
+                                                    <div style={{ 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        gap: '6px', 
+                                                        paddingTop: '6px', 
+                                                        borderTop: '1px dashed rgba(0,0,0,0.05)',
+                                                        marginTop: '2px',
+                                                        fontSize: '11px',
+                                                        color: loc.status === 'On Leave' ? '#60a5fa' : (loc.status === 'Scanning' || loc.status === 'Left' || loc.status === 'Absent' ? '#d97706' : '#94a3b8'),
+                                                        fontWeight: '600'
+                                                    }}>
+                                                        <Clock size={12} />
+                                                        Last seen: {(() => {
+                                                            const d = new Date(loc.check_in_time);
+                                                            const today = new Date();
+                                                            const isToday = d.toDateString() === today.toDateString();
+                                                            const timeStr = isToday 
+                                                                ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                                                                : `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} at ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+                                                            return `${timeStr} in ${loc.last_seen_location}`;
+                                                        })()}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
-
-                                        {loc.check_in_time && (
-                                            <div style={{
-                                                fontSize: '11px',
-                                                color: '#94a3b8',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '4px',
-                                                marginTop: 'auto'
-                                            }}>
-                                                <Clock size={12} />
-                                                Last seen: {new Date(loc.check_in_time).toLocaleTimeString()}
-                                            </div>
-                                        )}
                                     </div>
                                 );
                             })

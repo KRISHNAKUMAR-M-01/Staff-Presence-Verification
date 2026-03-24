@@ -652,13 +652,31 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
         const today = new Date().toISOString().split('T')[0];
         const todayDate = new Date(today);
 
-        // Get today's attendance records
-        const attendance = await Attendance.find({ date: todayDate })
+        // 1. Get today's attendance records
+        const attendanceToday = await Attendance.find({ date: todayDate })
             .populate('staff_id', 'name department')
             .populate('classroom_id', 'room_name')
-            .sort({ check_in_time: -1 });
+            .sort({ check_in_time: -1 }).lean();
 
-        // Get current timetable
+        // 1.5 Get overall latest attendance record for ALL staff members 
+        const latestHistoryOverall = await Attendance.aggregate([
+            { $sort: { check_in_time: -1 } },
+            { $group: {
+                _id: '$staff_id',
+                latest_record: { $first: '$$ROOT' }
+            }},
+            { $lookup: {
+                from: 'classrooms',
+                localField: 'latest_record.classroom_id',
+                foreignField: '_id',
+                as: 'room'
+            }},
+            { $unwind: { path: '$room', preserveNullAndEmptyArrays: true } }
+        ]);
+        const historyMap = new Map();
+        latestHistoryOverall.forEach(h => historyMap.set(h._id.toString(), h));
+
+        // 2. Get current timetable
         const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const currentDay = days[new Date().getDay()];
         const currentTime = new Date().toTimeString().split(' ')[0].substring(0, 5);
@@ -669,48 +687,39 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
             end_time: { $gte: currentTime }
         })
             .populate('staff_id', 'name department')
-            .populate('classroom_id', 'room_name');
+            .populate('classroom_id', 'room_name').lean();
 
         // Get all staff members
         const allStaff = await Staff.find().sort({ name: 1 });
 
         // Combined data for ALL staff
         const staffLocations = allStaff.map(s => {
-            // Find current timetable entry for this specific staff
-            const schedule = currentSchedule.find(
-                t => t.staff_id._id.toString() === s._id.toString()
-            );
+            const sid = s._id.toString();
+            const schedule = currentSchedule.find(t => t.staff_id._id.toString() === sid);
 
-            // Find ALL attendance records for this staff today and pick the most recent one overall
-            const staffAttendanceRecords = attendance.filter(
-                a => a.staff_id._id.toString() === s._id.toString()
-            ).sort((a, b) => {
-                const timeA = a.last_seen_time || a.check_in_time;
-                const timeB = b.last_seen_time || b.check_in_time;
-                return new Date(timeB) - new Date(timeA);
-            });
+            // Find attendance record for this staff TODAY
+            const staffAttendanceToday = attendanceToday.filter(a => a.staff_id._id.toString() === sid);
+            const latestAttendanceToday = staffAttendanceToday[0];
 
-            const latestAttendance = staffAttendanceRecords[0];
+            // Get absolute latest attendance record from historyMap
+            const latestHistoryFull = historyMap.get(sid);
+            const latestHistoryRec = latestHistoryFull?.latest_record;
+
             const now = new Date();
-            const signalThreshold = 5 * 60 * 1000; // 5 minutes in milliseconds
-
+            const signalThreshold = 5 * 60 * 1000;
             let isStale = false;
-            if (latestAttendance) {
-                const lastSeen = new Date(latestAttendance.last_seen_time || latestAttendance.check_in_time);
-                if (now - lastSeen > signalThreshold) {
-                    isStale = true;
-                }
+            
+            if (latestAttendanceToday) {
+                const lastSeenTS = new Date(latestAttendanceToday.last_seen_time || latestAttendanceToday.check_in_time);
+                if (now - lastSeenTS > signalThreshold) isStale = true;
             }
 
             let liveStatus = 'Idle';
-            if (latestAttendance && !isStale) {
-                // If they have been seen recently, we are actively tracking them
-                liveStatus = (latestAttendance.status === 'Late') ? 'Late' : 'Tracking';
-            } else if (latestAttendance && isStale) {
-                // If data is old, they have left the area
+            if (latestAttendanceToday && !isStale) {
+                liveStatus = (latestAttendanceToday.status === 'Late') ? 'Late' : 'Tracking';
+            } else if (latestAttendanceToday && isStale) {
                 liveStatus = 'Left';
             } else if (schedule) {
-                // Only show Absent if they have a class NOW and haven't checked in
                 liveStatus = 'Absent';
             }
 
@@ -720,12 +729,14 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
                 department: s.department,
                 is_hod: s.is_hod,
                 profile_picture: s.profile_picture,
-                expected_location: schedule ? schedule.classroom_id.room_name : 'No Class Assigned',
-                actual_location: (latestAttendance && !isStale) ? latestAttendance.classroom_id.room_name : 'Not detected',
+                expected_location: schedule ? schedule.classroom_id?.room_name : 'No Class Assigned',
+                actual_location: (latestAttendanceToday && !isStale) ? latestAttendanceToday.classroom_id?.room_name : 
+                                 (latestHistoryFull ? `Last seen in ${latestHistoryFull.room?.room_name || 'unknown'}` : 'Not detected'),
                 status: liveStatus,
-                check_in_time: latestAttendance ? (latestAttendance.last_seen_time || latestAttendance.check_in_time) : null,
-                is_correct_location: schedule && latestAttendance && !isStale ?
-                    (schedule.classroom_id._id.toString() === latestAttendance.classroom_id._id.toString()) :
+                check_in_time: latestHistoryRec ? (latestHistoryRec.last_seen_time || latestHistoryRec.check_in_time) : null,
+                last_seen_location: latestHistoryFull?.room?.room_name || 'unknown',
+                is_correct_location: schedule && latestAttendanceToday && !isStale ?
+                    (schedule.classroom_id?._id?.toString() === latestAttendanceToday.classroom_id?._id?.toString()) :
                     (schedule ? false : true)
             };
         });

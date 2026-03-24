@@ -170,8 +170,10 @@ exports.getAllStaffStatus = async (req, res) => {
         const endOfToday = new Date();
         endOfToday.setHours(23, 59, 59, 999);
 
-        // 1. Bulk Fetch all relevant data for today in just 3 queries
-        const [allAttendance, allActiveClasses, allApprovedLeaves] = await Promise.all([
+        // 1. Bulk Fetch all relevant data in just mapping queries
+        // - Fetch only TODAY's attendance for live tracking
+        // - Fetch EVERY staff's latest attendance overall for "Last Seen" data
+        const [allAttendanceToday, allActiveClasses, allApprovedLeaves, allLatestAttendance] = await Promise.all([
             Attendance.find({ date: { $gte: startOfToday, $lte: endOfToday } })
                 .populate('classroom_id', 'room_name').lean(),
             Timetable.find({ 
@@ -183,18 +185,38 @@ exports.getAllStaffStatus = async (req, res) => {
                 status: 'approved', 
                 start_date: { $lte: endOfToday }, 
                 end_date: { $gte: startOfToday } 
-            }).lean()
+            }).lean(),
+            // Get most recent attendance record for each staff member overall
+            Attendance.aggregate([
+                { $sort: { check_in_time: -1 } },
+                { $group: {
+                    _id: '$staff_id',
+                    latest_record: { $first: '$$ROOT' }
+                }},
+                { $lookup: {
+                    from: 'classrooms',
+                    localField: 'latest_record.classroom_id',
+                    foreignField: '_id',
+                    as: 'room'
+                }},
+                { $unwind: { path: '$room', preserveNullAndEmptyArrays: true } }
+            ])
         ]);
 
         // 2. Map data for O(1) lookup
-        const attendanceMap = new Map();
-        allAttendance.forEach(a => {
+        const attendanceTodayMap = new Map();
+        allAttendanceToday.forEach(a => {
             const sid = (a.staff_id || '').toString();
             if (!sid) return;
-            const existing = attendanceMap.get(sid);
+            const existing = attendanceTodayMap.get(sid);
             if (!existing || new Date(a.last_seen_time || a.check_in_time) > new Date(existing.last_seen_time || existing.check_in_time)) {
-                attendanceMap.set(sid, a);
+                attendanceTodayMap.set(sid, a);
             }
+        });
+
+        const latestAttendanceMap = new Map();
+        allLatestAttendance.forEach(a => {
+            if (a._id) latestAttendanceMap.set(a._id.toString(), a);
         });
 
         const activeClassMap = new Map();
@@ -209,29 +231,34 @@ exports.getAllStaffStatus = async (req, res) => {
         // 3. Assemble status for all staff
         const staffStatus = staffMembers.map(staff => {
             const sid = staff._id.toString();
-            const attendance = attendanceMap.get(sid);
+            const attendanceToday = attendanceTodayMap.get(sid);
+            const latestHistory = latestAttendanceMap.get(sid);
             const activeClass = activeClassMap.get(sid);
             const approvedLeave = leaveMap.get(sid);
 
-            const isStale = attendance && (now - new Date(attendance.last_seen_time || attendance.check_in_time) > signalThreshold);
+            const isStale = attendanceToday && (now - new Date(attendanceToday.last_seen_time || attendanceToday.check_in_time) > signalThreshold);
 
             let liveStatus = 'Absent';
             if (approvedLeave) {
                 liveStatus = 'On Leave';
-            } else if (attendance && !isStale) {
-                liveStatus = attendance.status; 
-            } else if (attendance && isStale) {
+            } else if (attendanceToday && !isStale) {
+                liveStatus = attendanceToday.status; 
+            } else if (attendanceToday && isStale) {
                 liveStatus = 'Left'; 
             }
+
+            const latestRec = latestHistory?.latest_record;
 
             return {
                 ...staff,
                 currentStatus: liveStatus,
-                lastSeen: attendance ? (attendance.last_seen_time || attendance.check_in_time) : null,
-                currentLocation: (attendance && !isStale) ? attendance.classroom_id.room_name : 'Not detected',
+                lastSeen: latestRec ? (latestRec.last_seen_time || latestRec.check_in_time) : null,
+                lastSeenLocation: latestHistory?.room?.room_name || 'unknown',
+                currentLocation: (attendanceToday && !isStale) ? attendanceToday.classroom_id.room_name : 
+                                 (latestRec ? `Last seen in ${latestHistory.room?.room_name || 'unknown'}` : 'Not detected'),
                 expectedLocation: activeClass ? activeClass.classroom_id.room_name : 'No Class Assigned',
-                isCorrectLocation: activeClass && attendance && !isStale ?
-                    (activeClass.classroom_id?._id?.toString() === attendance.classroom_id?._id?.toString()) :
+                isCorrectLocation: activeClass && attendanceToday && !isStale ?
+                    (activeClass.classroom_id?._id?.toString() === attendanceToday.classroom_id?._id?.toString()) :
                     (activeClass ? false : true),
                 activeClass: activeClass ? {
                     subject: activeClass.subject,
