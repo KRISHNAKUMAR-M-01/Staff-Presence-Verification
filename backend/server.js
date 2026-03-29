@@ -4,6 +4,7 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const morgan = require('morgan');
 const cron = require('node-cron');
+const compression = require('compression');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -22,6 +23,8 @@ const SwapRequest = require('./models/SwapRequest');
 
 // Import Middleware
 const { generateToken, authenticateToken, requireAdmin, requireStaff, requireExecutive } = require('./middleware/auth');
+const { OAuth2Client } = require('google-auth-library');
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -33,6 +36,7 @@ const { sendEmail } = require('./utils/emailService');
 connectDB();
 
 app.use(cors());
+app.use(compression());
 app.use(morgan('dev'));
 app.use(bodyParser.json());
 
@@ -237,6 +241,177 @@ app.post('/api/auth/login', async (req, res) => {
                 staff_id: user.staff_id
             }
         });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/auth/google-login', async (req, res) => {
+    try {
+        const { token, access_token } = req.body;
+        let email, name;
+
+        if (token) {
+            // Validate ID Token
+            const ticket = await googleClient.verifyIdToken({
+                idToken: token,
+                audience: process.env.GOOGLE_CLIENT_ID,
+            });
+            const payload = ticket.getPayload();
+            email = payload.email;
+            name = payload.name;
+        } else if (access_token) {
+            // Validate Access Token via Google userinfo endpoint
+            const axios = require('axios');
+            const googleResponse = await axios.get(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${access_token}`);
+            email = googleResponse.data.email;
+            name = googleResponse.data.name;
+        } else {
+            return res.status(400).json({ error: 'Missing token' });
+        }
+
+        console.log(`🔍 Google Login attempt for: ${email}`);
+
+        // Handle possible email formats (normalized)
+        const normalizedEmail = email.trim().toLowerCase();
+        
+        // Find user by normalized Google email
+        const user = await User.findOne({ email: normalizedEmail }).populate('staff_id');
+
+        if (!user) {
+            console.log('❌ Google email not registered in local system');
+            return res.status(401).json({ 
+                error: 'Your Google email is not registered. Please contact the administrator.' 
+            });
+        }
+
+        if (!user.isActive) {
+            return res.status(401).json({ error: 'Account is deactivated' });
+        }
+
+        // Optional: Update name if missing from local DB
+        if (!user.name) {
+            user.name = name;
+            await user.save();
+        }
+
+        // Generate token
+        const authToken = generateToken(user._id, user.role);
+
+        res.json({
+            token: authToken,
+            user: {
+                id: user._id,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                staff_id: user.staff_id
+            }
+        });
+    } catch (err) {
+        console.error('❌ Google Auth Error:', err);
+        res.status(500).json({ error: 'Internal Authentication Error' });
+    }
+});
+
+// --------------------------------------------
+// PASSWORD RESET / OTP FLOW
+// --------------------------------------------
+
+// 1. Request OTP
+app.post('/api/auth/request-otp', async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ error: 'Email is required' });
+
+        const user = await User.findOne({ email: email.trim().toLowerCase() });
+        if (!user) return res.status(404).json({ error: 'No account exists with this email' });
+
+        // Generate 6-digit OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+        // Save OTP and expiry (15 minutes)
+        user.resetPasswordOTP = otp;
+        user.resetPasswordExpires = Date.now() + 15 * 60 * 1000;
+        await user.save();
+
+        // Send Email
+        const emailSubject = "Your Password Reset OTP";
+        const emailText = `Your One-Time Password (OTP) for resetting your portal password is: ${otp}. It will expire in 15 minutes.`;
+        const emailHtml = `
+            <div style="font-family: 'Outfit', sans-serif; padding: 20px; border-radius: 12px; background-color: #f8fafc; border: 1px solid #e2e8f0;">
+                <h2 style="color: #097969; margin-top: 0;">Password Reset</h2>
+                <p>You requested a password reset for your <strong>Staff Portal</strong> account.</p>
+                <div style="background-color: #e6fcf9; padding: 24px; border-radius: 12px; text-align: center; margin: 24px 0;">
+                    <span style="font-size: 32px; font-weight: 800; letter-spacing: 12px; color: #097969;">${otp}</span>
+                </div>
+                <p style="color: #64748b; font-size: 14px;">This code will expire in 15 minutes. If you did not request this, please ignore this email.</p>
+                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 24px 0;">
+                <p style="font-size: 12px; color: #94a3b8;">© ${new Date().getFullYear()} Staff Presence Verification System</p>
+            </div>
+        `;
+        await sendEmail(user.email, emailSubject, emailText, emailHtml);
+
+        res.json({ message: 'OTP sent successfully to your email' });
+    } catch (err) {
+        console.error('❌ Request OTP Error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 2. Verify OTP
+app.post('/api/auth/verify-otp', async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+        if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required' });
+
+        const user = await User.findOne({ 
+            email: email.trim().toLowerCase(),
+            resetPasswordOTP: otp,
+            resetPasswordExpires: { $gt: Date.now() }
+        });
+
+        if (!user) {
+            return res.status(400).json({ error: 'Invalid or expired OTP' });
+        }
+
+        res.json({ message: 'OTP verified successfully. You can now reset your password.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 3. Reset Password
+app.post('/api/auth/reset-password', async (req, res) => {
+    try {
+        const { email, otp, newPassword } = req.body;
+        if (!email || !otp || !newPassword) {
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        // Validate password complexity
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/;
+        if (!passwordRegex.test(newPassword)) {
+            return res.status(400).json({ error: 'New password must be at least 8 characters long and include uppercase, lowercase, a number, and a special character.' });
+        }
+
+        const user = await User.findOne({ 
+            email: email.trim().toLowerCase(),
+            resetPasswordOTP: otp,
+            resetPasswordExpires: { $gt: Date.now() }
+        });
+
+        if (!user) {
+            return res.status(400).json({ error: 'Invalid or expired session. Please request a new OTP.' });
+        }
+
+        // Update password and clear OTP fields
+        user.password = newPassword;
+        user.resetPasswordOTP = null;
+        user.resetPasswordExpires = null;
+        await user.save();
+
+        res.json({ message: 'Password reset successfully. You can now log in with your new password.' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -1921,7 +2096,8 @@ app.get('/api/classrooms', async (req, res) => {
     }
 });
 
-app.get('/api/dashboard-stats', async (req, res) => {
+// Real-time Dashboard Stats
+app.get(['/api/admin/dashboard-stats', '/api/dashboard-stats'], authenticateToken, async (req, res) => {
     try {
         const today = new Date().toISOString().split('T')[0];
         const todayDate = new Date(today);
@@ -1944,6 +2120,7 @@ app.get('/api/dashboard-stats', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
 
 app.get('/', (req, res) => {
     res.json({ message: 'Staff Presence Verification API is running' });

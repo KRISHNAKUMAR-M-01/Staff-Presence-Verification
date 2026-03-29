@@ -26,7 +26,7 @@ const DashboardLayout = ({ children, title, navItems, userName, themeClass, bran
             <nav className={`sidebar ${isSidebarOpen ? 'mobile-open' : ''}`}>
                 <div className="sidebar-logo-container">
                     <h2 className="sidebar-logo" style={{ fontSize: '18px', fontWeight: '800', color: brandColor, margin: 0 }}>STAFF SYSTEM</h2>
-                    <button className="menu-toggle" onClick={() => setIsSidebarOpen(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'none' }}>
+                    <button className="menu-toggle close-sidebar" onClick={() => setIsSidebarOpen(false)} style={{ border: 'none', background: 'none', cursor: 'pointer' }}>
                         <X size={20} />
                     </button>
                 </div>

@@ -37,6 +37,14 @@ const userSchema = new mongoose.Schema({
     pushSubscription: {
         type: Object,
         default: null
+    },
+    resetPasswordOTP: {
+        type: String, // Stored as a string to preserve 6-digit leading zeros
+        default: null
+    },
+    resetPasswordExpires: {
+        type: Date,
+        default: null
     }
 }, {
     timestamps: true

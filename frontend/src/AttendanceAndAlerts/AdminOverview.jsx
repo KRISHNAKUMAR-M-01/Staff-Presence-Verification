@@ -169,7 +169,7 @@ const AdminOverview = () => {
 
                 {/* 1. Department List */}
                 {!selectedDept && !selectedStaff && (
-                    <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px' }}>
+                    <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(340px, 100%), 1fr))', gap: '24px' }}>
                         {getDeptsMatchingSearch().map(dept => (
                             <div
                                 key={dept}
@@ -201,7 +201,7 @@ const AdminOverview = () => {
 
                 {/* 2. Staff List in Department */}
                 {selectedDept && !selectedStaff && (
-                    <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px' }}>
+                    <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(340px, 100%), 1fr))', gap: '24px' }}>
                         {getStaffInDept(selectedDept).map(staff => (
                             <div
                                 key={staff._id}
@@ -239,7 +239,7 @@ const AdminOverview = () => {
 
                 {/* 3. Staff Activity History */}
                 {selectedStaff && (
-                    <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px' }}>
+                    <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(340px, 100%), 1fr))', gap: '24px' }}>
                         {staffHistory.length > 0 ? (
                             staffHistory.map((item, i) => {
                                 const isPresent = item.status === 'Present';
