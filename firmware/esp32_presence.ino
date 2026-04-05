@@ -20,10 +20,10 @@
 #include <numeric>
 
 // ── CONFIGURATION ──────────────────────────────────────────────────────────
-const char* ssid        = "TEC_MECH 1";
-const char* password    = "12345678";
-const char* serverUrl   = "http://192.168.1.152:5000/api/ble-data";
-const char* classroomId = "ROOM_101";
+const char* ssid        = "Thorfinn";
+const char* password    = "12345677";
+const char* serverUrl   = "http://10.31.158.78:5000/api/ble-data";
+const char* classroomId = "COMPUTERLAB";
 
 // BLE UUIDs for Mobile Verification
 #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
@@ -31,18 +31,33 @@ const char* classroomId = "ROOM_101";
 
 // Scanner settings
 const int scanTime = 5; // seconds
-const int MIN_READINGS_TO_SEND = 2;
-const int RSSI_THRESHOLD = -75; // Signals weaker than -75dBm are ignored
+const int MIN_READINGS_TO_SEND = 1;
+const int RSSI_THRESHOLD = -120; // Lowered to include all signals for debugging
 
 // ── Globals ─────────────────────────────────────────────────────────────────
 BLEScan* pBLEScan;
 BLEServer* pServer;
 bool mobileConnected = false;
+int lastMobileRssi = -30;               // Signal strength holder
+esp_bd_addr_t current_remote_bda = {0}; // Remote phone address
 std::map<std::string, std::vector<int>> tagAccumulator;
+
+// ── GAP CALLBACK: Capture the Real-time RSSI ─────────────────────────────────
+void my_gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param) {
+    if (event == ESP_GAP_BLE_READ_RSSI_COMPLETE_EVT) {
+        if (param->read_rssi_cmpl.status == ESP_BT_STATUS_SUCCESS) {
+            lastMobileRssi = param->read_rssi_cmpl.rssi;
+            Serial.printf("📶 [Signal] Live Mobile RSSI: %d dBm\n", lastMobileRssi);
+        }
+    }
+}
 
 // ── Helper: Send detection to backend ──────────────────────────────────────
 void reportToBackend(String staffUuid, int rssi, String method) {
-    if (WiFi.status() != WL_CONNECTED) return;
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.printf("[Offline Mode] Saw %s but WiFi is down.\n", staffUuid.c_str());
+        return;
+    }
     HTTPClient http;
     http.begin(serverUrl);
     http.addHeader("Content-Type", "application/json");
@@ -60,42 +75,68 @@ void reportToBackend(String staffUuid, int rssi, String method) {
 // ── CALLBACK: When phone "writes" its identity to the ESP32 ─────────────────
 class MobileMailbox : public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic *pChar) {
-        std::string val = pChar->getValue();
+        String val = pChar->getValue();
         if (val.length() > 0) {
-            String staffUuid = String(val.c_str());
+            String staffUuid = val;
             staffUuid.toUpperCase();
-            Serial.printf("\n📱 [Mobile Verification] Staff: %s\n", staffUuid.c_str());
-            reportToBackend(staffUuid, -30, "mobile_verification");
+            
+            // Trigger a real RSSI read from the Bluetooth stack
+            esp_ble_gap_read_rssi(current_remote_bda);
+            
+            Serial.printf("\n📱 [Mobile Verification] Staff: %s | Real RSSI: %d\n", staffUuid.c_str(), lastMobileRssi);
+            reportToBackend(staffUuid, lastMobileRssi, "mobile_verification");
         }
     }
 };
 
 class ServerCallbacks : public BLEServerCallbacks {
-    void onConnect(BLEServer* pServer)    { mobileConnected = true;  Serial.println("📱 Mobile Connected."); }
-    void onDisconnect(BLEServer* pServer) { mobileConnected = false; Serial.println("📱 Mobile Disconnected."); pServer->getAdvertising()->start(); }
+    // Override onConnect to capture the phone's MAC address
+    void onConnect(BLEServer* pServer, esp_ble_gatts_cb_param_t *param) {
+        memcpy(current_remote_bda, param->connect.remote_bda, 6);
+        mobileConnected = true;
+        Serial.println("📱 Mobile Connected.");
+        esp_ble_gap_read_rssi(current_remote_bda); // Initial read
+    }
+    
+    void onDisconnect(BLEServer* pServer) {
+        mobileConnected = false;
+        Serial.println("📱 Mobile Disconnected.");
+        pServer->getAdvertising()->start();
+    }
 };
 
 // ── CALLBACK: When scanning for physical tags ──────────────────────────────
 class TagScanCallback : public BLEAdvertisedDeviceCallbacks {
     void onResult(BLEAdvertisedDevice dev) {
-        uint8_t* pay = dev.getPayload();
-        size_t len = dev.getPayloadLength();
         int rssi = dev.getRSSI();
+        String devName = dev.getName().c_str();
+        String devAddr = dev.getAddress().toString().c_str();
 
-        // Skip weak signals (wall-bleed prevention)
+        // 1. Skip very weak or invalid signals
         if (rssi < RSSI_THRESHOLD) return;
 
-        // Search for iBeacon pattern 0x4C 0x00 0x02 0x15
+        // DEBUG: Print details of anything that starts with "Staff" or "Tag"
+        if (devName.length() > 0) {
+            Serial.printf("🔍 [Scanner] Found: \"%s\" (Addr: %s) | RSSI: %d\n", devName.c_str(), devAddr.c_str(), rssi);
+        }
+
+        uint8_t* pay = dev.getPayload();
+        size_t len = dev.getPayloadLength();
+
+        // 2. SEARCH FOR IBEACON (Look for Apple Prefix 4C 00 02 15)
         for (int i = 0; i < (int)len - 20; i++) {
             if (pay[i] == 0x4C && pay[i+1] == 0x00 && pay[i+2] == 0x02 && pay[i+3] == 0x15) {
                 char buf[33];
                 for (int j = 0; j < 16; j++) sprintf(&buf[j*2], "%02X", pay[i+4+j]);
                 tagAccumulator[std::string(buf)].push_back(rssi);
+                
+                Serial.printf("✅ iBeacon Found! UUID: %s | RSSI: %d\n", buf, rssi);
                 return;
             }
         }
     }
 };
+
 
 // ── Setup ────────────────────────────────────────────────────────────────────
 void setup() {
@@ -106,6 +147,7 @@ void setup() {
     Serial.println("\n✅ WiFi OK.");
 
     BLEDevice::init(classroomId);
+    BLEDevice::setCustomGapHandler(my_gap_event_handler);
 
     // 1. Setup GATT Server (Mobile Verification Mode)
     pServer = BLEDevice::createServer();

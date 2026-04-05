@@ -1,0 +1,56 @@
+\chapter{SYSTEM ANALYSIS}
+
+\section{Introduction to System Analysis}
+System analysis plays an important role in understanding how current systems work and what improvements are needed to make them more efficient. In this project, the analysis focuses on identifying the drawbacks of existing attendance systems and designing a better solution that can work effectively in indoor environments.
+
+\section{Software Requirements Specification (SRS)}
+An SRS is a formal report that specifies all the features, capabilities, and constraints for the proposed system.
+
+\subsection{Functional Requirements}
+Functional requirements describe the core tasks the system must perform.
+\begin{enumerate}
+    \item \textbf{Staff iBeacon Scanning}: The ESP32 receiver must scan and filter BLE broadcast packets every 5 seconds.
+    \item \textbf{Identity Verification}: The backend must match the broadcasting UUID against the staff database.
+    \item \textbf{Attendance Logic}: The system must record attendance only if the staff is in the correct classroom according to their assigned timetable.
+    \item \textbf{Admin Dashoard}: Provide a web interface to view real-time status and logs.
+\end{enumerate}
+
+\subsection{Non-Functional Requirements}
+Non-functional requirements specify the quality attributes of the system.
+\begin{enumerate}
+    \item \textbf{Accuracy}: The localization accuracy at room level should be above 95\%.
+    \item \textbf{Scalability}: The system should support multiple ESP32 nodes (one per classroom) simultaneously.
+    \item \textbf{Low Latency}: Presence updates on the dashboard should appear within 5 seconds.
+    \item \textbf{Power Efficiency}: Staff BLE tags should last for at least 6 months on a coin cell battery.
+\end{enumerate}
+
+\section{Hardware Requirements}
+The following hardware specifications are required for the development and operation of the context-aware presence verification system:
+\begin{itemize}
+    \item \textbf{Processor}: Intel Core i3 or above
+    \item \textbf{RAM}: Minimum 8 GB
+    \item \textbf{Storage Space}: 10 GB
+    \item \textbf{Tag}: BLE tag (ID card type)
+    \item \textbf{Microcontroller}: ESP32 (BLE Receiver)
+\end{itemize}
+
+\section{Software Requirements}
+The required software environment and technology stack for the project are defined as follows:
+\begin{itemize}
+    \item \textbf{Operating System}: Windows 10 or above
+    \item \textbf{Language}: JavaScript, C++
+    \item \textbf{Software}: VS Code / Arduino IDE
+    \item \textbf{Backend}: Express.js
+    \item \textbf{Frontend}: React.js
+    \item \textbf{Database}: MongoDB
+\end{itemize}
+
+\section{Feasibility Study}
+The feasibility study helps in understanding whether the project is practically and economically viable.
+
+\subsection{Technical Feasibility}
+The system uses standard ESP32 boards and the MERN stack. These are widely supported technologies with extensive library documentation. 
+\subsection{Economic Feasibility}
+Total cost per classroom node is approximately \$10, which is significantly cheaper than conventional biometric attendance systems.
+\subsection{Operational Feasibility}
+Staff simply need to carry their ID tag, making it frictionless and requiring zero manual training for the employees.

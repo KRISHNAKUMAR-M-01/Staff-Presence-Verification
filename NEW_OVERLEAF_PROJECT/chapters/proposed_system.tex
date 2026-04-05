@@ -1,0 +1,48 @@
+\chapter{PROPOSED SYSTEM}
+
+\section{System Analysis}
+System analysis plays an important role in understanding how current systems work and what improvements are needed to make them more efficient. In this project, the analysis focuses on identifying the drawbacks of existing attendance systems and designing a better solution that can work effectively in indoor environments. 
+
+\section{Existing Systems}
+At present, many institutions use different methods to record staff attendance, such as manual registers, biometric systems, facial recognition, and GPS-based tracking systems. Manual attendance systems require staff to sign registers, which consumes time and may lead to errors or manipulation. Biometric systems, such as fingerprint scanners, are more secure but still require physical interaction and can cause delays when many users are involved. In recent years, some systems have started using facial recognition along with GPS to automate attendance. However, facial recognition systems are highly dependent on lighting conditions and camera quality. 
+
+\section{Proposed System}
+To address the limitations of existing systems, this project proposes a context-aware indoor staff presence verification system using Bluetooth Low Energy (BLE). In this system, each staff member is provided with a BLE-enabled ID card that continuously transmits a unique signal. BLE receivers, such as ESP32 modules, are installed in classrooms to detect these signals. The system uses the Received Signal Strength Indicator (RSSI) value to estimate the distance between the staff member and the receiver. 
+
+\section{System Requirements}
+
+\subsection{Hardware Requirements}
+The hardware components required for the proposed system are listed in Table 4.1. 
+
+\begin{table}[h]
+\centering
+\caption{Hardware Requirements}
+\begin{tabular}{ll}
+\toprule
+Components & Specification \\ \midrule
+Processor & Intel Core i3 or above \\
+RAM & Minimum 8 GB \\
+BLE Tag & BLE-enabled ID card \\
+Microcontroller & ESP32 (BLE Receiver) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Software Requirements}
+The software requirements for the system are listed in Table 4.2. 
+
+\begin{table}[h]
+\centering
+\caption{Software Requirements}
+\begin{tabular}{ll}
+\toprule
+Component & Specification \\ \midrule
+Operating System & Windows 10 or above \\
+Programming Language & JavaScript, C++ \\
+Development Tools & VS Code, Arduino IDE \\
+Backend & Express.js \\
+Frontend & React.js \\
+Database & MongoDB \\
+\bottomrule
+\end{tabular}
+\end{table}

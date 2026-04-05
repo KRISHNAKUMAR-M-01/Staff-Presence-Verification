@@ -1,0 +1,96 @@
+\documentclass[14pt,a4paper,oneside]{report}
+
+% --- PACKAGES ---
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{times}
+\usepackage[margin=1in,left=1.5in,bottom=1.25in,top=1.25in]{geometry}
+\usepackage{setspace} \onehalfspacing
+\usepackage{graphicx}
+\usepackage{titlesec}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage[hidelinks]{hyperref}
+\usepackage{caption}
+\usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{microtype}
+\usepackage{float} % FIXES THE "EMPTY SPACE" PROBLEM
+\usepackage[document]{ragged2e}
+
+% --- Code Snippet Styling ---
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\scriptsize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    tabsize=2
+}
+\lstset{style=mystyle}
+
+% --- FIX HEADINGS SPACING ---
+\titleformat{\chapter}[display]
+  {\normalfont\Large\bfseries\centering}{\chaptertitlename\ \thechapter}{10pt}{\Large}
+\titleformat{\section}
+  {\normalfont\large\bfseries\raggedright}{\thesection}{1em}{}
+\titleformat{\subsection}
+  {\normalfont\normalsize\bfseries\raggedright}{\thesubsection}{1em}{}
+
+% --- REMOVE EMPTY SPACE ABOVE TITLES ---
+\titlespacing*{\chapter}{0pt}{-30pt}{12pt}
+\titlespacing*{\section}{0pt}{14pt}{6pt}
+\titlespacing*{\subsection}{0pt}{10pt}{4pt}
+
+\begin{document}
+
+% --- FRONT MATTER ---
+\input{title.tex}
+\pagenumbering{roman}
+\input{bonafide.tex}
+\input{acknowledgement.tex}
+\input{abstract.tex}
+
+\tableofcontents
+\listoftables
+\listoffigures
+\input{abbreviations.tex}
+
+\newpage
+\pagenumbering{arabic}
+\justifying 
+
+% --- CHAPTERS ---
+\input{chapters/introduction.tex}
+\input{chapters/literature_survey.tex}
+\input{chapters/system_analysis.tex}
+\input{chapters/proposed_system.tex}
+\input{chapters/architecture.tex}
+\input{chapters/system_implementation.tex}
+\input{chapters/uml_design.tex}
+\input{chapters/testing.tex}
+\input{chapters/system_screenshots.tex}
+\input{chapters/results.tex}
+\input{chapters/conclusion.tex}
+
+% --- APPENDIX ---
+\input{chapters/appendix.tex}
+
+% --- BIBLIOGRAPHY ---
+\renewcommand{\bibname}{REFERENCES}
+\bibliographystyle{plain}
+\bibliography{references.bib}
+
+\end{document}

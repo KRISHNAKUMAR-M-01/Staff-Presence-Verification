@@ -2,6 +2,38 @@ import React, { useState, useEffect, useRef } from 'react';
 import api from '../services/api';
 import { Save, Plus, Trash2, Clock, Settings, Calendar, ChevronDown, Check, Monitor } from 'lucide-react';
 
+// ── SUBJECT MAPPING (Institution-wide) ─────────────────────────────────────
+const SUBJECT_MAP = {
+    'Computer Science and Engineering': [
+        'Data Structures', 'Algorithms', 'Operating Systems', 'Database Management',
+        'Computer Networks', 'Machine Learning', 'Artificial Intelligence',
+        'Software Engineering', 'Full Stack Development', 'Python Programming', 'Java Programming'
+    ],
+    'Information Technology': [
+        'Cloud Computing', 'Cyber Security', 'Web Technologies', 'Mobile Apps', 'Big Data', 'Network Security'
+    ],
+    'Artificial Intelligence and Data Science': [
+        'Data Science', 'Neural Networks', 'Big Data Analytics', 'NLP', 'Computer Vision', 'Deep Learning'
+    ],
+    'Electronics and Communication Engineering': [
+        'Digital Electronics', 'VLSI Design', 'Embedded Systems', 'Digital Signal Processing',
+        'Microprocessors', 'Communication Systems', 'Antennas and Wave Propagation'
+    ],
+    'Electrical and Electronics Engineering': [
+        'Power Systems', 'Control Theory', 'Electric Machines', 'Circuit Theory',
+        'Renewable Energy', 'High Voltage Engineering', 'Analog Electronics'
+    ],
+    'Mechanical Engineering': [
+        'Thermodynamics', 'Strength of Materials', 'Fluid Mechanics', 'Robotics and Automation',
+        'Manufacturing Process', 'Thermal Engineering', 'CAD/CAM'
+    ],
+    'Civil Engineering': [
+        'Structural Analysis', 'Geotechnical Engineering', 'Surveying', 'Concrete Technology',
+        'Environmental Engineering', 'Hydraulics', 'Transportation Engineering'
+    ],
+    'Generic': ['Applied Physics', 'Applied Chemistry', 'Engineering Mathematics', 'Soft Skills', 'Professional Ethics']
+};
+
 const CompactSelect = ({ options, value, onChange, placeholder }) => {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef(null);
@@ -50,7 +82,7 @@ const CompactSelect = ({ options, value, onChange, placeholder }) => {
                     top: '100%',
                     left: 0,
                     width: '100%',
-                    minWidth: '180px', // Ensure wide enough for names
+                    minWidth: '180px',
                     maxHeight: '200px',
                     overflowY: 'auto',
                     background: 'white',
@@ -96,8 +128,8 @@ const CompactSelect = ({ options, value, onChange, placeholder }) => {
 const TimetableGridInput = ({ rooms, staffList, timetable, onSaveSuccess }) => {
     const [selectedRoom, setSelectedRoom] = useState('');
     const [showDayConfig, setShowDayConfig] = useState(false);
+    const [manualSubjects, setManualSubjects] = useState({});
 
-    // Default periods configuration (Flexible)
     const [periods, setPeriods] = useState([
         { id: '1', start: '09:00', end: '09:50', label: '1', type: 'class' },
         { id: '2', start: '09:50', end: '10:30', label: '2', type: 'class' },
@@ -116,13 +148,7 @@ const TimetableGridInput = ({ rooms, staffList, timetable, onSaveSuccess }) => {
     const [activeDays, setActiveDays] = useState(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']);
 
     const [gridData, setGridData] = useState({
-        'Monday': {},
-        'Tuesday': {},
-        'Wednesday': {},
-        'Thursday': {},
-        'Friday': {},
-        'Saturday': {},
-        'Sunday': {}
+        'Monday': {}, 'Tuesday': {}, 'Wednesday': {}, 'Thursday': {}, 'Friday': {}, 'Saturday': {}, 'Sunday': {}
     });
 
     useEffect(() => {
@@ -217,9 +243,17 @@ const TimetableGridInput = ({ rooms, staffList, timetable, onSaveSuccess }) => {
             return;
         }
 
-        if (!window.confirm('This will OVERWRITE the existing timetable for this class. Continue?')) {
-            return;
-        }
+        const daysToReset = [...new Set(activeDays.filter(d => {
+            const dayData = gridData[d] || {};
+            return Object.values(dayData).some(cell => cell && cell.staffId);
+        }))];
+
+        const confirmMsg = daysToReset.length === 0 
+            ? 'No changes to save. Please assign at least one staff member.'
+            : `This will update the timetable for: ${daysToReset.join(', ')}. Other days will not be affected. Continue?`;
+
+        if (daysToReset.length === 0) return alert(confirmMsg);
+        if (!window.confirm(confirmMsg)) return;
 
         const schedule = [];
 
@@ -242,14 +276,13 @@ const TimetableGridInput = ({ rooms, staffList, timetable, onSaveSuccess }) => {
         });
 
         try {
-            await api.post('/admin/timetable/bulk', {
+            const response = await api.post('/admin/timetable/bulk', {
                 classroom_id: selectedRoom,
                 schedule
             });
-            alert('Timetable saved successfully!');
+            alert(response.data.message);
             onSaveSuccess();
         } catch (err) {
-            console.error(err);
             alert('Failed to save timetable: ' + (err.response?.data?.error || err.message));
         }
     };
@@ -267,8 +300,16 @@ const TimetableGridInput = ({ rooms, staffList, timetable, onSaveSuccess }) => {
         transition: 'all 0.2s'
     };
 
-    // Prepare staff options for dropdown
     const staffOptions = staffList.map(s => ({ value: s._id, label: s.name }));
+
+    const getSubjectSuggestions = (staffId) => {
+        const staff = staffList.find(s => s._id === staffId);
+        if (!staff) return SUBJECT_MAP['Generic'];
+        
+        const dept = staff.department;
+        const subjects = SUBJECT_MAP[dept] || SUBJECT_MAP['Computer Science and Engineering'] || [];
+        return [...new Set([...subjects, ...SUBJECT_MAP['Generic']])];
+    };
 
     return (
         <div className="timetable-grid-container" style={{ padding: '0px 0' }}>
@@ -280,6 +321,10 @@ const TimetableGridInput = ({ rooms, staffList, timetable, onSaveSuccess }) => {
                     background: white !important;
                     border-color: #cbd5e1 !important;
                     box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+                }
+                .subject-dropdown:focus {
+                    border-color: #3b82f6 !important;
+                    border-width: 2px !important;
                 }
             `}</style>
 
@@ -460,25 +505,53 @@ const TimetableGridInput = ({ rooms, staffList, timetable, onSaveSuccess }) => {
                                             </td>
                                         );
                                     }
+                                    
+                                    const staffId = gridData[day]?.[colIndex]?.staffId || '';
+                                    const subject = gridData[day]?.[colIndex]?.subject || '';
+                                    const isManual = manualSubjects[`${day}-${colIndex}`];
+                                    const suggestions = getSubjectSuggestions(staffId);
+
                                     return (
                                         <td key={colIndex} style={{ padding: '8px', borderRight: '1px solid #f1f5f9', borderBottom: '1px solid #f1f5f9', background: 'white' }}>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                {/* Replaced native select with Custom CompactSelect */}
                                                 <CompactSelect
                                                     options={staffOptions}
-                                                    value={gridData[day]?.[colIndex]?.staffId || ''}
+                                                    value={staffId}
                                                     onChange={(val) => handleCellChange(day, colIndex, 'staffId', val)}
                                                     placeholder="Select Staff..."
                                                 />
 
-                                                <input
-                                                    type="text"
-                                                    className="subject-input"
-                                                    placeholder="Subject..."
-                                                    value={gridData[day]?.[colIndex]?.subject || ''}
-                                                    onChange={(e) => handleCellChange(day, colIndex, 'subject', e.target.value)}
-                                                    style={subjectInputStyle}
-                                                />
+                                                {!isManual && staffId ? (
+                                                    <select
+                                                        className="subject-dropdown"
+                                                        style={subjectInputStyle}
+                                                        value={suggestions.includes(subject) ? subject : ''}
+                                                        onChange={(e) => {
+                                                            if (e.target.value === 'MANUAL') {
+                                                                setManualSubjects(prev => ({ ...prev, [`${day}-${colIndex}`]: true }));
+                                                            } else {
+                                                                handleCellChange(day, colIndex, 'subject', e.target.value);
+                                                            }
+                                                        }}
+                                                    >
+                                                        <option value="">-- Select Subject --</option>
+                                                        {suggestions.map(s => <option key={s} value={s}>{s}</option>)}
+                                                        <option value="MANUAL" style={{ fontWeight: 'bold', color: '#2563eb' }}>+ Type Custom...</option>
+                                                    </select>
+                                                ) : (
+                                                    <input
+                                                        type="text"
+                                                        className="subject-input"
+                                                        placeholder="Type Subject..."
+                                                        value={subject}
+                                                        autoFocus={isManual}
+                                                        onChange={(e) => handleCellChange(day, colIndex, 'subject', e.target.value)}
+                                                        onBlur={() => {
+                                                            if (subject === '') setManualSubjects(prev => ({ ...prev, [`${day}-${colIndex}`]: false }));
+                                                        }}
+                                                        style={subjectInputStyle}
+                                                    />
+                                                )}
                                             </div>
                                         </td>
                                     );
@@ -507,7 +580,7 @@ const TimetableGridInput = ({ rooms, staffList, timetable, onSaveSuccess }) => {
                         borderRadius: '8px'
                     }}
                 >
-                    <Save size={18} /> Save Entire Schedule
+                    <Save size={18} /> Update Timetable
                 </button>
             </div>
         </div>

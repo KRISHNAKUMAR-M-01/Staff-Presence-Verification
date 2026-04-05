@@ -47,6 +47,20 @@ const staffSchema = new mongoose.Schema({
             },
             message: 'Invalid phone number format'
         }
+    },
+    // Live Location Tracking (updated by every BLE scan, regardless of class schedule)
+    last_seen_room: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Classroom',
+        default: null
+    },
+    last_seen_time: {
+        type: Date,
+        default: null
+    },
+    last_seen_rssi: {
+        type: Number,
+        default: null
     }
 }, {
     timestamps: true

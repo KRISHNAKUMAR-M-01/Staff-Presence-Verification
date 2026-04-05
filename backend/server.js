@@ -91,6 +91,8 @@ async function isStaffPermitted(staffId, classroomId) {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const currentDay = days[now.getDay()];
     const currentTime = now.toTimeString().split(' ')[0].substring(0, 5);
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
 
     // 1. Direct match in timetable
     const directSlot = await Timetable.findOne({
@@ -122,8 +124,6 @@ async function isStaffPermitted(staffId, classroomId) {
         });
 
         // Is the scheduled staff Absent from work today?
-        const startOfToday = new Date();
-        startOfToday.setHours(0,0,0,0);
         const presentToday = await Attendance.findOne({
             staff_id: scheduledStaffId,
             date: { $gte: startOfToday }
@@ -779,9 +779,16 @@ app.post('/api/admin/timetable/bulk', authenticateToken, requireAdmin, async (re
             return res.status(400).json({ error: 'Missing classroom_id or schedule array' });
         }
 
-        // Optional: Clear existing timetable for this classroom first?
-        // This is usually safer to avoid duplicates when re-uploading the same sheet.
-        await Timetable.deleteMany({ classroom_id: classroom_id });
+        // ONLY delete the days that are present in the new schedule payload.
+        // This allows Incremental Saving (e.g. saving just Monday without wiping Tuesday).
+        const daysToReset = [...new Set(schedule.map(item => item.day_of_week))];
+        
+        if (daysToReset.length > 0) {
+            await Timetable.deleteMany({ 
+                classroom_id: classroom_id, 
+                day_of_week: { $in: daysToReset } 
+            });
+        }
 
         const insertedDocs = [];
 
@@ -803,7 +810,11 @@ app.post('/api/admin/timetable/bulk', authenticateToken, requireAdmin, async (re
             }
         }
 
-        res.json({ message: `Successfully imported ${insertedDocs.length} timetable entries`, count: insertedDocs.length });
+        console.log(`📡 [Bulk Timetable] Room: ${classroom_id}, Items: ${schedule.length}, Days Reset: ${daysToReset.join(', ')}`);
+        res.json({ 
+            message: `Successfully updated ${insertedDocs.length} entries for ${daysToReset.join(', ')}`, 
+            count: insertedDocs.length 
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -827,31 +838,10 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
         const today = new Date().toISOString().split('T')[0];
         const todayDate = new Date(today);
 
-        // 1. Get today's attendance records
-        const attendanceToday = await Attendance.find({ date: todayDate })
-            .populate('staff_id', 'name department')
-            .populate('classroom_id', 'room_name')
-            .sort({ check_in_time: -1 }).lean();
+        // 1. Get today's attendance records (for attendance status)
+        const attendanceToday = await Attendance.find({ date: todayDate }).lean();
 
-        // 1.5 Get overall latest attendance record for ALL staff members 
-        const latestHistoryOverall = await Attendance.aggregate([
-            { $sort: { check_in_time: -1 } },
-            { $group: {
-                _id: '$staff_id',
-                latest_record: { $first: '$$ROOT' }
-            }},
-            { $lookup: {
-                from: 'classrooms',
-                localField: 'latest_record.classroom_id',
-                foreignField: '_id',
-                as: 'room'
-            }},
-            { $unwind: { path: '$room', preserveNullAndEmptyArrays: true } }
-        ]);
-        const historyMap = new Map();
-        latestHistoryOverall.forEach(h => historyMap.set(h._id.toString(), h));
-
-        // 2. Get current timetable
+        // 2. Get current timetable (for expected location)
         const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const currentDay = days[new Date().getDay()];
         const currentTime = new Date().toTimeString().split(' ')[0].substring(0, 5);
@@ -860,40 +850,42 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
             day_of_week: currentDay,
             start_time: { $lte: currentTime },
             end_time: { $gte: currentTime }
-        })
-            .populate('staff_id', 'name department')
-            .populate('classroom_id', 'room_name').lean();
+        }).populate('classroom_id', 'room_name').lean();
 
-        // Get all staff members
-        const allStaff = await Staff.find().sort({ name: 1 });
+        // 3. Get ALL staff members with their LIVE location
+        const allStaff = await Staff.find()
+            .populate('last_seen_room', 'room_name')
+            .sort({ name: 1 })
+            .lean();
 
-        // Combined data for ALL staff
+        // 4. Check for approved leaves today
+        const now = new Date();
+        const activeLeaves = await Leave.find({
+            status: 'approved',
+            start_date: { $lte: now },
+            end_date: { $gte: now }
+        }).lean();
+
         const staffLocations = allStaff.map(s => {
             const sid = s._id.toString();
-            const schedule = currentSchedule.find(t => t.staff_id._id.toString() === sid);
-
-            // Find attendance record for this staff TODAY
-            const staffAttendanceToday = attendanceToday.filter(a => a.staff_id._id.toString() === sid);
-            const latestAttendanceToday = staffAttendanceToday[0];
-
-            // Get absolute latest attendance record from historyMap
-            const latestHistoryFull = historyMap.get(sid);
-            const latestHistoryRec = latestHistoryFull?.latest_record;
-
-            const now = new Date();
-            const signalThreshold = 5 * 60 * 1000;
-            let isStale = false;
+            const schedule = currentSchedule.find(t => t.staff_id.toString() === sid);
+            const onLeave = activeLeaves.find(l => l.staff_id.toString() === sid);
             
-            if (latestAttendanceToday) {
-                const lastSeenTS = new Date(latestAttendanceToday.last_seen_time || latestAttendanceToday.check_in_time);
-                if (now - lastSeenTS > signalThreshold) isStale = true;
-            }
+            // Find if there's an active attendance tracking right now
+            const staffAttendance = attendanceToday.find(a => a.staff_id.toString() === sid);
 
-            let liveStatus = 'Idle';
-            if (latestAttendanceToday && !isStale) {
-                liveStatus = (latestAttendanceToday.status === 'Late') ? 'Late' : 'Tracking';
-            } else if (latestAttendanceToday && isStale) {
-                liveStatus = 'Left';
+            const signalThreshold = 30 * 1000; // 30 seconds (much more reactive)
+            const isLive = s.last_seen_time && (now - new Date(s.last_seen_time) < signalThreshold);
+
+            let liveStatus = 'Scanning'; // Default status
+            if (onLeave) {
+                liveStatus = 'On Leave';
+            } else if (isLive) {
+                if (staffAttendance && ['Present', 'Late'].includes(staffAttendance.status)) {
+                    liveStatus = staffAttendance.status;
+                } else {
+                    liveStatus = 'Tracking';
+                }
             } else if (schedule) {
                 liveStatus = 'Absent';
             }
@@ -905,19 +897,21 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
                 is_hod: s.is_hod,
                 profile_picture: s.profile_picture,
                 expected_location: schedule ? schedule.classroom_id?.room_name : 'No Class Assigned',
-                actual_location: (latestAttendanceToday && !isStale) ? latestAttendanceToday.classroom_id?.room_name : 
-                                 (latestHistoryFull ? `Last seen in ${latestHistoryFull.room?.room_name || 'unknown'}` : 'Not detected'),
+                actual_location: isLive ? 
+                                 (s.last_seen_room?.room_name || 'Classroom') : 
+                                 'Not in Range',
                 status: liveStatus,
-                check_in_time: latestHistoryRec ? (latestHistoryRec.last_seen_time || latestHistoryRec.check_in_time) : null,
-                last_seen_location: latestHistoryFull?.room?.room_name || 'unknown',
-                is_correct_location: schedule && latestAttendanceToday && !isStale ?
-                    (schedule.classroom_id?._id?.toString() === latestAttendanceToday.classroom_id?._id?.toString()) :
-                    (schedule ? false : true)
+                check_in_time: s.last_seen_time || null,
+                last_seen_location: s.last_seen_room?.room_name || 'Not in Range',
+                is_correct_location: schedule ? 
+                                     (isLive && s.last_seen_room?._id?.toString() === schedule.classroom_id?._id?.toString()) : 
+                                     true
             };
         });
 
         res.json(staffLocations);
     } catch (err) {
+        console.error('Error in staff-locations:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -1854,74 +1848,86 @@ app.post('/api/staff/accept-substitution', authenticateToken, requireStaff, asyn
 app.post('/api/ble-data', async (req, res) => {
     try {
         const { esp32_id, beacon_uuid, rssi } = req.body;
-        console.log(`Received BLE scan: ESP32=${esp32_id}, UUID=${beacon_uuid}, RSSI=${rssi}`);
+        if (!esp32_id || !beacon_uuid || rssi === undefined) {
+            return res.status(400).json({ error: 'Missing required fields: esp32_id, beacon_uuid, rssi' });
+        }
 
-        // --- Rolling RSSI Average Filter ---
-        // Maintain a sliding window of the last RSSI_BUFFER_SIZE readings per beacon+room.
-        // This smooths out noisy spikes and prevents false accepts/rejects from a single bad reading.
+        // ── STEP 1: RSSI Rolling Average Filter ─────────────────────────────
         const bufferKey = `${beacon_uuid.toUpperCase()}-${esp32_id.toUpperCase()}`;
         const readings = rssiBuffer.get(bufferKey) || [];
         readings.push(rssi);
-        if (readings.length > RSSI_BUFFER_SIZE) readings.shift(); // keep only last N
+        if (readings.length > RSSI_BUFFER_SIZE) readings.shift();
         rssiBuffer.set(bufferKey, readings);
         const avgRssi = Math.round(readings.reduce((a, b) => a + b, 0) / readings.length);
-        console.log(`  RSSI buffer [${bufferKey}]: [${readings.join(', ')}] -> avg=${avgRssi} dBm`);
 
         const rssiThreshold = parseInt(process.env.RSSI_THRESHOLD || -75);
-
-        // Use AVERAGED RSSI for the threshold check (not the raw noisy value)
         if (avgRssi < rssiThreshold) {
             return res.json({ status: 'ignored', message: `Avg RSSI ${avgRssi} dBm below threshold ${rssiThreshold} dBm` });
         }
 
-        const now = new Date();
-        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const currentDay = days[now.getDay()];
-        const currentTime = now.toTimeString().split(' ')[0].substring(0, 5);
-        const todayStr = now.toISOString().split('T')[0];
-
-        // 1. Throttle: Only process the same beacon in the same room once every 15 seconds
-        const throttleKey = `${beacon_uuid.toUpperCase()}-${esp32_id.toUpperCase()}`;
+        // ── STEP 2: Throttle (15s per beacon+room) ──────────────────────────
+        const throttleKey = bufferKey;
         const lastProcessed = bleThrottle.get(throttleKey) || 0;
+        const now = new Date();
         if (now.getTime() - lastProcessed < 15000) {
             return res.json({ status: 'ignored', message: 'Throttled: Recently processed this beacon.' });
         }
         bleThrottle.set(throttleKey, now.getTime());
 
-        // 2. Cached Staff Lookup
+        // ── STEP 3: Lookup Staff (cached) ────────────────────────────────────
         let staff = staffCache.get(beacon_uuid.toUpperCase());
         if (!staff) {
             staff = await Staff.findOne({ beacon_uuid: beacon_uuid.toUpperCase() });
             if (staff) staffCache.set(beacon_uuid.toUpperCase(), staff);
         }
-        
         if (!staff) {
-            console.log(`[BLE Error] Staff not found for UUID: "${beacon_uuid.toUpperCase()}"`);
-            return res.status(404).json({ error: 'Staff not found' });
+            console.log(`[BLE] Unknown beacon UUID: "${beacon_uuid.toUpperCase()}"`);
+            return res.status(404).json({ error: 'Staff not found for this beacon UUID' });
         }
 
-        // 3. Cached Classroom Lookup
+        // ── STEP 4: Lookup Classroom (cached) ────────────────────────────────
         let classroom = classroomCache.get(esp32_id.toUpperCase());
         if (!classroom) {
             classroom = await Classroom.findOne({ esp32_id: esp32_id.toUpperCase() });
             if (classroom) classroomCache.set(esp32_id.toUpperCase(), classroom);
         }
-
         if (!classroom) {
-            console.log(`[BLE Error] Classroom not found for ESP32 ID: "${esp32_id.toUpperCase()}"`);
-            return res.status(404).json({ error: 'Classroom not found' });
+            console.log(`[BLE] Unknown ESP32 ID: "${esp32_id.toUpperCase()}"`);
+            return res.status(404).json({ error: 'Classroom not found for this ESP32 ID' });
         }
 
-        // Check permission (Timetable or Substitution)
+        // ── STEP 5: ALWAYS Update Live Location ──────────────────────────────
+        // This runs regardless of class schedule — so the dashboard always shows
+        // where a staff member is, even outside class hours.
+        await Staff.findByIdAndUpdate(staff._id, {
+            last_seen_room: classroom._id,
+            last_seen_time: now,
+            last_seen_rssi: avgRssi
+        });
+        // Invalidate cache so fresh location is returned on next lookup
+        staffCache.delete(beacon_uuid.toUpperCase());
+        console.log(`[BLE] 📍 ${staff.name} → ${classroom.room_name} | RSSI: ${avgRssi} dBm`);
+
+        // ── STEP 6: Check Timetable Permission for Attendance ────────────────
+        // Attendance is only marked when there is a scheduled class right now.
+        const todayStr = now.toISOString().split('T')[0];
         const permission = await isStaffPermitted(staff._id, classroom._id);
-        if (!permission.permitted) {
-            console.log(`[BLE Info] Rejecting presence for ${staff.name} in ${classroom.room_name} - Not permitted.`);
-            return res.json({ status: 'ignored', message: 'Not permitted for this room/time.' });
-        }
-        const slot = permission.slot;
-        const subType = permission.type;
 
-        // Check for existing attendance record
+        if (!permission.permitted) {
+            // No class right now — but location was still updated above. That's fine.
+            console.log(`[BLE] No class for ${staff.name} in ${classroom.room_name} right now. Location updated only.`);
+            return res.json({
+                status: 'location_updated',
+                message: `Location updated: ${staff.name} is in ${classroom.room_name}`,
+                staff_name: staff.name,
+                room_name: classroom.room_name,
+                rssi: avgRssi
+            });
+        }
+
+        const slot = permission.slot;
+
+        // ── STEP 7: Attendance Tracking ──────────────────────────────────────
         let attendance = await Attendance.findOne({
             staff_id: staff._id,
             classroom_id: classroom._id,
@@ -1929,135 +1935,61 @@ app.post('/api/ble-data', async (req, res) => {
         });
 
         if (attendance) {
-            // Update last_seen_time
             attendance.last_seen_time = now;
-
-            // If they were previously marked Absent (e.g. by cleanup), resume tracking
-            if (attendance.status === 'Absent') {
-                attendance.status = 'Tracking';
-            }
-
+            if (attendance.status === 'Absent') attendance.status = 'Tracking';
             await attendance.save();
 
-            // Calculate duration in minutes
-            const durationMs = attendance.last_seen_time - attendance.check_in_time;
-            const durationMinutes = durationMs / (1000 * 60);
+            const durationMinutes = (attendance.last_seen_time - attendance.check_in_time) / (1000 * 60);
 
-            // If duration >= 25 mins and status is still 'Tracking', mark as Present/Late
             if (durationMinutes >= 25 && attendance.status === 'Tracking') {
                 let newStatus = 'Present';
-
-                // Only check for LATE if we have the slot info (i.e. we are still within class time)
-                // If class time is over (slot is null), we just count them as Present if they met 25m duration.
                 if (slot) {
-                    const startTime = slot.start_time;
-                    const startTimeDate = new Date(`${todayStr}T${startTime}:00`);
-                    const arrivalDiffMinutes = (attendance.check_in_time - startTimeDate) / (1000 * 60);
-
-                    if (arrivalDiffMinutes > parseInt(process.env.TIME_WINDOW_MINUTES || 15)) {
+                    const startTimeDate = new Date(`${todayStr}T${slot.start_time}:00`);
+                    const arrivalDiff = (attendance.check_in_time - startTimeDate) / (1000 * 60);
+                    if (arrivalDiff > parseInt(process.env.TIME_WINDOW_MINUTES || 15)) {
                         newStatus = 'Late';
                     }
-                } else {
-                    // Fallback: If no slot (after class), rely on existing status logic or simple Present
-                    // If they were already tracking, they were "checked in".
-                    // We can refine this by fetching the original timetable slot from the DB using attendance.classroom_id/staff_id if absolutely needed,
-                    // but for now, if they stayed 25 mins, they are Present.
                 }
-
                 attendance.status = newStatus;
                 await attendance.save();
-                // If late, send alert (only sent once when status changes from Tracking -> Late)
+
                 if (newStatus === 'Late') {
-                    const alertMessage = `${staff.name} marked Late for class in ${classroom.room_name} (verified after 25m duration)`;
-                    const alert = new Alert({
-                        staff_id: staff._id,
-                        classroom_id: classroom._id,
-                        message: alertMessage
-                    });
-                    await alert.save();
+                    const alertMessage = `${staff.name} marked Late for class in ${classroom.room_name}`;
+                    await Alert.create({ staff_id: staff._id, classroom_id: classroom._id, message: alertMessage });
 
-                    // Notify Staff
                     const staffUser = await User.findOne({ staff_id: staff._id });
-
-                    // 1. Send Email to Staff
-                    if (staffUser && staffUser.email) {
-                        await sendEmail(staffUser.email, 'Attendance Alert: Late', `You have been marked LATE for your class in ${classroom.room_name}.`);
-                    }
-
-                    // 2. In-app notification for Staff
                     if (staffUser) {
-                        const notificationData = {
-                            recipient_id: staffUser._id,
-                            title: 'Attendance Alert',
-                            message: `You have been marked LATE for your class in ${classroom.room_name}.`,
-                            type: 'late_alert'
-                        };
-                        await Notification.create(notificationData);
-
-                        if (staffUser.pushSubscription) {
-                            await sendPushNotification(staffUser.pushSubscription, {
-                                title: notificationData.title,
-                                body: notificationData.message,
-                                icon: '/logo192.png', // Default icon path
-                                data: { url: '/staff/notifications' }
-                            });
-                        }
+                        if (staffUser.email) await sendEmail(staffUser.email, 'Attendance Alert: Late', `You have been marked LATE for your class in ${classroom.room_name}.`);
+                        const notifData = { recipient_id: staffUser._id, title: 'Attendance Alert', message: `You have been marked LATE for your class in ${classroom.room_name}.`, type: 'late_alert' };
+                        await Notification.create(notifData);
+                        if (staffUser.pushSubscription) await sendPushNotification(staffUser.pushSubscription, { title: notifData.title, body: notifData.message, icon: '/logo192.png', data: { url: '/staff/notifications' } });
                     }
 
-                    // 2. Notify HOD(s)
                     const hods = await Staff.find({ department: staff.department, is_hod: true });
                     for (const hod of hods) {
                         const hodUser = await User.findOne({ staff_id: hod._id });
                         if (hodUser) {
-                            await sendEmail(hodUser.email, 'Department Lateness Alert', `HOD Alert: ${staff.name} has been marked LATE for class in ${classroom.room_name}.`);
-
-                            const hodNotifData = {
-                                recipient_id: hodUser._id,
-                                title: 'Dept. Lateness Alert',
-                                message: alertMessage,
-                                type: 'late_alert'
-                            };
-                            await Notification.create(hodNotifData);
-
-                            if (hodUser.pushSubscription) {
-                                await sendPushNotification(hodUser.pushSubscription, {
-                                    title: hodNotifData.title,
-                                    body: hodNotifData.message,
-                                    icon: '/logo192.png',
-                                    data: { url: '/admin/alerts' }
-                                });
-                            }
+                            await sendEmail(hodUser.email, 'Department Lateness Alert', `HOD Alert: ${staff.name} has been marked LATE in ${classroom.room_name}.`);
+                            const hodNotif = { recipient_id: hodUser._id, title: 'Dept. Lateness Alert', message: alertMessage, type: 'late_alert' };
+                            await Notification.create(hodNotif);
+                            if (hodUser.pushSubscription) await sendPushNotification(hodUser.pushSubscription, { title: hodNotif.title, body: hodNotif.message, icon: '/logo192.png', data: { url: '/admin/alerts' } });
                         }
                     }
 
-                    // 3. Notify Admins (Executives)
                     const admins = await User.find({ role: { $in: ['admin', 'principal', 'secretary', 'director'] } });
                     for (const admin of admins) {
-                        const adminNotifData = {
-                            recipient_id: admin._id,
-                            title: 'Staff Lateness Alert',
-                            message: `${staff.name} is marked LATE for class in ${classroom.room_name}.`,
-                            type: 'late_alert'
-                        };
-                        await Notification.create(adminNotifData);
-
-                        if (admin.pushSubscription) {
-                            await sendPushNotification(admin.pushSubscription, {
-                                title: adminNotifData.title,
-                                body: adminNotifData.message,
-                                icon: '/logo192.png',
-                                data: { url: '/admin/alerts' }
-                            });
-                        }
+                        const adminNotif = { recipient_id: admin._id, title: 'Staff Lateness Alert', message: `${staff.name} is marked LATE in ${classroom.room_name}.`, type: 'late_alert' };
+                        await Notification.create(adminNotif);
+                        if (admin.pushSubscription) await sendPushNotification(admin.pushSubscription, { title: adminNotif.title, body: adminNotif.message, icon: '/logo192.png', data: { url: '/admin/alerts' } });
                     }
                 }
-
-                return res.json({ status: 'updated', message: 'Attendance confirmed (30m duration reached)', attendance_status: newStatus });
+                return res.json({ status: 'updated', attendance_status: newStatus, staff_name: staff.name, room_name: classroom.room_name });
             }
 
-            return res.json({ status: 'updated', message: `Attendance tracking. Duration: ${Math.round(durationMinutes)}m`, attendance_status: attendance.status });
+            return res.json({ status: 'tracking', attendance_status: attendance.status, duration_minutes: Math.round(durationMinutes), staff_name: staff.name, room_name: classroom.room_name });
+
         } else {
-            // Create new attendance record with 'Tracking' status
+            // First detection for this class today — start tracking
             attendance = new Attendance({
                 staff_id: staff._id,
                 classroom_id: classroom._id,
@@ -2067,9 +1999,12 @@ app.post('/api/ble-data', async (req, res) => {
                 date: new Date(todayStr)
             });
             await attendance.save();
-            return res.json({ status: 'started', message: 'Attendance tracking started', attendance_status: 'Tracking' });
+            console.log(`[BLE] ✅ Attendance started: ${staff.name} in ${classroom.room_name}`);
+            return res.json({ status: 'started', attendance_status: 'Tracking', staff_name: staff.name, room_name: classroom.room_name });
         }
+
     } catch (err) {
+        console.error('[BLE Error]', err.message);
         res.status(500).json({ error: err.message });
     }
 });
@@ -2077,6 +2012,7 @@ app.post('/api/ble-data', async (req, res) => {
 // ============================================
 // LEGACY ENDPOINTS (For backward compatibility)
 // ============================================
+
 
 app.get('/api/staff', async (req, res) => {
     try {
@@ -2476,8 +2412,21 @@ cron.schedule('0 0 * * *', async () => {
     }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
+    const os = require('os');
+    const nets = os.networkInterfaces();
+    let localIp = 'localhost';
+    
+    for (const name of Object.keys(nets)) {
+        for (const net of nets[name]) {
+            if (net.family === 'IPv4' && !net.internal) {
+                localIp = net.address;
+            }
+        }
+    }
+
     console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`🔗 Backend API: http://localhost:${PORT}`);
+    console.log(`🔗 Local API:      http://localhost:${PORT}`);
+    console.log(`🌐 Network API:    http://${localIp}:${PORT}`);
     console.log(`📂 React Frontend: http://localhost:5173`);
 });

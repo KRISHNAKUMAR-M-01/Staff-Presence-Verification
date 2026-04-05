@@ -22,7 +22,11 @@ const MobileVerify = () => {
     const [selectedRoom, setSelectedRoom] = useState(null); // The Classroom Object
     const [status, setStatus]             = useState(null); // { type, msg }
     const [isConnecting, setIsConnecting] = useState(false);
+    const [isConnected, setIsConnected]   = useState(false);
     const [attendanceStatus, setAttendanceStatus] = useState(null);
+
+    const gattServerRef = useRef(null);
+    const heartbeatRef  = useRef(null);
 
     // GATT UUIDs (must match ESP32 firmware)
     const SERVICE_UUID        = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
@@ -55,8 +59,7 @@ const MobileVerify = () => {
         setStatus({ type: 'info', msg: `🔍 Scanning for ${selectedRoom.room_name}...` });
 
         try {
-            // 1. Request the specific device based on the room's ESP32 ID
-            // The ESP32 broadcasts its device name as the esp32_id (e.g. "ROOM_101")
+            // 1. Request device
             const device = await navigator.bluetooth.requestDevice({
                 filters: [{ name: selectedRoom.esp32_id }],
                 optionalServices: [SERVICE_UUID]
@@ -66,30 +69,38 @@ const MobileVerify = () => {
 
             // 2. Connect to the GATT Server
             const server = await device.gatt.connect();
+            gattServerRef.current = server;
 
-            // 3. Get the characteristic
-            const service = await server.getPrimaryService(SERVICE_UUID);
-            const characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+            // Handle accidental disconnection
+            device.addEventListener('gattserverdisconnected', onDisconnected);
 
-            // 4. WRITE the Staff UUID to the ESP32
-            // This is the "Signal" that the ESP32 "Reads"
-            const encoder = new TextEncoder();
-            await characteristic.writeValue(encoder.encode(staffUuid));
-
-            setStatus({ type: 'success', msg: `✅ Successfully verified! ESP32 has read your signal.` });
-            
-            // The ESP32 will now report to the backend via its own WiFi.
-            // We'll wait 2 seconds and then refresh our status from the backend.
-            setTimeout(async () => {
-                const res = await api.get('/staff/my-attendance');
-                if (res.data.length > 0) {
-                    setAttendanceStatus(res.data[0].status);
+            // 3. Setup continuous heartbeats
+            const sendHeartbeat = async () => {
+                try {
+                    const service = await server.getPrimaryService(SERVICE_UUID);
+                    const characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
+                    const encoder = new TextEncoder();
+                    await characteristic.writeValue(encoder.encode(staffUuid));
+                    console.log("[BLE] Heartbeat sent.");
+                } catch (e) {
+                    console.warn("[BLE] Heartbeat failed", e);
+                    handleUnpair();
                 }
-                setIsConnecting(false);
-            }, 2000);
+            };
 
-            // Optional: Disconnect to save battery on both sides
-            await server.disconnect();
+            // Send first identity pulse immediately
+            await sendHeartbeat();
+            
+            // Start 15s interval for Live Location tracking
+            heartbeatRef.current = setInterval(sendHeartbeat, 15000);
+
+            setIsConnected(true);
+            setIsConnecting(false);
+            setStatus({ type: 'success', msg: `✅ Live Presence Active! Stay in the room to remain verified.` });
+            
+            // Refresh status from backend
+            const res = await api.get('/staff/my-attendance');
+            if (res.data.length > 0) setAttendanceStatus(res.data[0].status);
 
         } catch (err) {
             console.error(err);
@@ -97,6 +108,26 @@ const MobileVerify = () => {
             setIsConnecting(false);
         }
     };
+
+    const onDisconnected = () => {
+        setIsConnected(false);
+        if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+        setStatus({ type: 'info', msg: 'Disconnected from ESP32.' });
+    };
+
+    const handleUnpair = async () => {
+        if (heartbeatRef.current) {
+            clearInterval(heartbeatRef.current);
+            heartbeatRef.current = null;
+        }
+        if (gattServerRef.current && gattServerRef.current.connected) {
+            await gattServerRef.current.disconnect();
+        }
+        setIsConnected(false);
+        setStatus({ type: 'info', msg: 'Session ended. You are now unpaired.' });
+    };
+
+
 
     return (
         <div style={{
@@ -153,34 +184,57 @@ const MobileVerify = () => {
                 </div>
             )}
 
-            {/* Action Button */}
-            <button
-                onClick={handleVerify}
-                disabled={isConnecting}
-                style={{
-                    width: '100%',
-                    padding: '16px',
-                    borderRadius: '14px',
-                    border: 'none',
-                    background: 'linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)',
-                    color: 'white',
-                    fontWeight: '800',
-                    fontSize: '15px',
-                    cursor: isConnecting ? 'not-allowed' : 'pointer',
-                    boxShadow: '0 4px 12px rgba(37,99,235,0.25)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '10px',
-                    transition: 'all 0.3s'
-                }}
-            >
-                {isConnecting ? (
-                    <><Loader className="spin" size={18} /> Connecting...</>
-                ) : (
-                    <><Wifi size={18} /> Verify with Room ESP32</>
-                )}
-            </button>
+            {/* Action Buttons */}
+            {!isConnected ? (
+                <button
+                    onClick={handleVerify}
+                    disabled={isConnecting}
+                    style={{
+                        width: '100%',
+                        padding: '16px',
+                        borderRadius: '14px',
+                        border: 'none',
+                        background: 'linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)',
+                        color: 'white',
+                        fontWeight: '800',
+                        fontSize: '15px',
+                        cursor: isConnecting ? 'not-allowed' : 'pointer',
+                        boxShadow: '0 4px 12px rgba(37,99,235,0.25)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '10px',
+                        transition: 'all 0.3s'
+                    }}
+                >
+                    {isConnecting ? (
+                        <><Loader className="spin" size={18} /> Connecting...</>
+                    ) : (
+                        <><Wifi size={18} /> Verify with Room ESP32</>
+                    )}
+                </button>
+            ) : (
+                <button
+                    onClick={handleUnpair}
+                    style={{
+                        width: '100%',
+                        padding: '16px',
+                        borderRadius: '14px',
+                        border: '2px solid #ef4444',
+                        background: 'white',
+                        color: '#ef4444',
+                        fontWeight: '800',
+                        fontSize: '15px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '10px'
+                    }}
+                >
+                    <XCircle size={18} /> Unpair / Terminate Live Session
+                </button>
+            )}
 
             {/* Attendance Status Display */}
             {attendanceStatus && (

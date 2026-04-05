@@ -1,0 +1,48 @@
+\chapter{LITERATURE SURVEY}
+
+\section{Introduction}
+A comprehensive review of existing literature is essential to understand the current technological landscape of indoor positioning and attendance automation. This chapter analyzes three key research papers that form the foundational basis and identify the technical gaps addressed by this project.
+
+\section{Literature Survey Summary}
+The table below summarizes the core methodologies and focus areas of the three primary reference papers.
+
+\begin{table}[H]
+\centering
+\caption{Literature Survey Summary}
+\begin{tabular}{|c|p{4cm}|c|p{4cm}|p{3.5cm}|}
+\hline
+\textbf{S.No.} & \centering \textbf{Author(s)} & \textbf{Year} & \centering \textbf{Title} & \centering \textbf{Method / Algorithm} \cr \hline
+1. & Mohammadali Khazen, Mazdak Nik-Bakht, Osama Moselhi, Jeffrey Dungen & 2025 & A Deployable Solution for Indoor Tracking of Workers in Construction Sites & BLE RSSI triangulation and Kalman filtering \cr \hline
+2. & Arjun Jain & 2025 & A BLE-Based Smart Attendance System for Scalable and Contactless Classroom Automation & RSSI proximity detection, Cloud-based management \cr \hline
+3. & B Ramesh S M, Arun P, Deekshith H R & 2025 & Smart Attendance System with Facial Recognition and GPS Verification & Facial recognition and GPS-based validation \cr \hline
+\end{tabular}
+\end{table}
+
+\section{Detailed Analysis of Existing Works}
+
+\subsection{Indoor Tracking via BLE Triangulation (Khazen et al., 2025)}
+In their research published in the \textit{Journal of Information Technology in Construction (ITcon)}, Khazen et al. \cite{khazen2025} explored the deployment of Bluetooth Low Energy for tracking workers in complex construction environments. 
+\par
+\textbf{Methodology}: The authors employed a triangulation algorithm, which calculates the exact physical coordinate (X, Y) of a worker by measuring the Received Signal Strength Indicator (RSSI) from at least three different BLE receivers simultaneously. To handle signal bouncing (multipath fading) caused by metallic objects, they implemented a Kalman filter to smooth the RSSI data.
+\par
+\textbf{Limitations}: While highly accurate, triangulation requires a dense, expensive matrix of receivers (minimum 3 per room). Furthermore, extracting physical coordinates is computationally heavy.
+\par
+\textbf{Impact on Proposed System}: Our project improves upon this by using a singular threshold-based proximity filter per classroom instead of full triangulation. By accepting signals strictly above a -95dBm cutoff, we achieve "Room-Level" accuracy using only one ESP32 receiver per room, vastly reducing hardware costs while maintaining logical precision.
+
+\subsection{Proximity Detection in Classrooms (Arjun Jain, 2025)}
+Arjun Jain's work in \textit{IJERT} \cite{jain2025} proposes a direct application of BLE for educational attendance. Similar to our approach, this system uses beacons to mark students present when they walk into a classroom.
+\par
+\textbf{Methodology}: Jain relies on pure proximity detection where a cloud database simply logs "User A was near Router B at Time C". It essentially replaces an RFID swipe with a wireless Bluetooth handshake.
+\par
+\textbf{Limitations}: The primary drawback of Jain's proposed system is that it lacks contextual awareness. If a staff member walks past a classroom, or visits a classroom they are not scheduled for, the system still marks them "present" in that specific log, generating massive amounts of false-positive attendance data.
+\par
+\textbf{Impact on Proposed System}: We solve this critical flaw by injecting a "Context-Aware" logic engine. In our system, the Node.js backend cross-references the BLE detection against a dynamic MongoDB timetable. The system only grants valid attendance if the detected location and the scheduled location match precisely.
+
+\subsection{Facial Recognition and GPS Verification (Ramesh et al., 2025)}
+Ramesh, Arun, and Deekshith \cite{ramesh2025} presented a modern approach to attendance using biometric computer vision alongside Global Positioning Systems (GPS) in \textit{IMRJR}.
+\par
+\textbf{Methodology}: Their system requires the user to look into a camera lens. The system uses Haar Cascade classifiers or Deep Learning models to extract facial features. To prevent "spoofing" (like showing a photo), the system pulls the mobile device's GPS coordinates to verify the person is actually on campus.
+\par
+\textbf{Limitations}: This system suffers from severe environmental limitations. GPS signals highly attenuate indoors, making it impossible to distinguish if a person is in "Classroom 101" or "Classroom 102". Furthermore, facial recognition requires the user to actively stop and engage with a camera, contradicting the goal of frictionless automation. Lighting conditions severely impact accuracy.
+\par
+\textbf{Impact on Proposed System}: This analysis justifies our choice of BLE over GPS and Vision. BLE effectively penetrates indoor environments without relying on satellites, and physical beacons require zero active user interaction—achieving true frictionless tracking.

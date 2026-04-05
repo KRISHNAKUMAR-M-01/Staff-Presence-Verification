@@ -1,0 +1,46 @@
+\chapter{INTRODUCTION}
+
+\section{Introduction to the System}
+In today’s educational institutions, maintaining accurate staff attendance and verifying their presence in classrooms is very important. Most colleges still depend on traditional methods such as manual attendance registers or biometric systems. These methods are not only time-consuming but also lack accuracy and real-time monitoring. In many cases, they cannot ensure whether a staff member is physically present inside the correct classroom. With the advancement of technology, systems based on GPS and facial recognition have been introduced to improve attendance management. However, these systems also have practical limitations. GPS signals are not reliable in indoor environments such as classrooms, laboratories, and office buildings. On the other hand, facial recognition systems depend heavily on lighting conditions, camera quality, and proper positioning of the user. This reduces their efficiency and accuracy in real-time situations.
+
+\section{Overview of BLE Technology}
+Bluetooth Low Energy (BLE) is a wireless communication technology designed for short-range data transmission with minimal power consumption. It is a part of the Bluetooth standard introduced to support applications that require energy efficiency and continuous operation, such as wearable devices, healthcare systems, and Internet of Things (IoT) applications. Unlike traditional Bluetooth, which is designed for high data rate communication, BLE focuses on transmitting small amounts of data while consuming significantly less power. This makes it highly suitable for battery-operated devices that need to function for extended periods without frequent recharging. BLE operates using a broadcasting mechanism where devices known as beacons continuously transmit signals at regular intervals. These signals can be detected by nearby devices such as smartphones, tablets, or embedded systems. Each beacon transmits unique identification information, which allows the receiving device to recognize and differentiate between multiple beacons deployed in an environment.
+
+\section{Context-Aware Systems}
+\subsection{Definition of Context-Aware Systems}
+A context-aware system is an intelligent computing system that can sense, interpret, and respond to information about its environment and user conditions. The term “context” refers to any relevant information such as location, time, user activity, environmental conditions, and device status that can influence system behavior. 
+
+\subsection{Role in Indoor Presence Verification}
+In the proposed indoor presence verification system, context-awareness enhances detection accuracy. Instead of relying only on BLE signal strength (RSSI), the system considers additional contextual parameters such as: 
+\begin{itemize}
+    \item Duration of presence 
+    \item Movement patterns 
+    \item Signal stability 
+    \item Time-based conditions 
+\end{itemize}
+By analyzing these factors, the system can distinguish between actual presence and false detections caused by signal fluctuations.
+
+\section{Applications of BLE-based Presence Detection}
+BLE-based presence detection systems are widely used in various real-world applications due to their low power consumption, cost-effectiveness, and ability to provide real-time indoor tracking. These systems help automate processes, improve accuracy, and enhance operational efficiency across different domains.
+\begin{itemize}
+    \item \textbf{Smart Office Systems}: Automated employee tracking and attendance.
+    \item \textbf{Healthcare}: Real-time monitoring of doctors and medical assets.
+    \item \textbf{Educational Institutions}: Automated classroom attendance verification.
+\end{itemize}
+
+\section{Challenges in Indoor Localization}
+Although BLE-based indoor presence detection systems offer many advantages, achieving high accuracy in indoor environments is challenging.
+\begin{enumerate}
+    \item \textbf{Signal Interference}: Walls and other physical obstructions weaken signals.
+    \item \textbf{Multipath Propagation}: Reflection of signals from multiple surfaces leads to inaccurate distance estimation.
+    \item \textbf{RSSI Variability}: Unstable signal strength even when the device is stationary.
+\end{enumerate}
+
+\section{Methodologies}
+The methodology describes the systematic approach followed to design and implement the context-aware indoor staff presence verification system using BLE.
+\subsection{Data Acquisition}
+Initial stage where raw RSSI signal data is collected from the ESP32 receivers.
+\subsection{Pre-processing}
+Raw data is cleaned using filtering and smoothing techniques to reduce environmental noise.
+\subsection{Feature Extraction}
+Mean RSSI and signal variance are extracted to provide a stable signature of staff presence.
