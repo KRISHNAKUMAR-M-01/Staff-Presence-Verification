@@ -22,7 +22,9 @@
 // ── CONFIGURATION ──────────────────────────────────────────────────────────
 const char* ssid        = "Thorfinn";
 const char* password    = "12345677";
-const char* serverUrl   = "http://10.31.158.78:5000/api/ble-data";
+// Production URL (Render cloud backend)
+const char* serverUrl   = "https://staff-presence-backend.onrender.com/api/ble-data";
+// Local fallback: const char* serverUrl = "http://10.31.158.78:5000/api/ble-data";
 const char* classroomId = "COMPUTERLAB";
 
 // BLE UUIDs for Mobile Verification

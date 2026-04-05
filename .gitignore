@@ -3,22 +3,30 @@ node_modules/
 backend/node_modules/
 frontend/node_modules/
 
-# Environment
+# Environment — NEVER commit these
 .env
+.env.*
 backend/.env
 frontend/.env
+frontend/.env.production
+frontend/.env.development
 keys.json
 backend/keys.json
 
-# Build and IDE
+# Build output
 dist/
 frontend/dist/
+
+# IDE and OS
 .DS_Store
 *.log
 .vscode/
 
-# Project Artifacts (Old versions)
+# Uploaded files (use Cloudinary in production)
+backend/uploads/
+
+# Project Artifacts (Old versions — keep repo clean)
 archive/
 *.pdf
 *.docx
-!UPDATED_Staff_Presence_Report.md
+*.zip

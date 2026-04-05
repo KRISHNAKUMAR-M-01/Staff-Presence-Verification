@@ -145,3 +145,76 @@ body {
   animation: modalScale 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   text-align: center;
 }
+
+/* ══════════════════════════════════════════════════
+   MOBILE & RESPONSIVE UTILITIES
+   ══════════════════════════════════════════════════ */
+
+/* Ensure all elements use box-sizing */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* Horizontal scroll for wide tables on small screens */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 12px;
+}
+
+/* Auto-fit responsive card grid */
+.grid-responsive {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+/* Touch-friendly minimum tap size */
+button, a, input, select, textarea {
+  touch-action: manipulation;
+}
+
+/* ── Small screens (phones ≤ 640px) ── */
+@media (max-width: 640px) {
+  /* Modals go full-width on phones */
+  .modal-content {
+    width: 95%;
+    padding: 20px 16px;
+    border-radius: 16px;
+  }
+
+  /* Cards stack to single column */
+  .grid-responsive {
+    grid-template-columns: 1fr;
+  }
+
+  /* Slightly smaller headings */
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.25rem; }
+}
+
+/* ── Tablet & up (≥ 768px) ── */
+@media (min-width: 768px) {
+  .grid-responsive {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
+}
+
+/* Render cold-start wakeup banner */
+.wakeup-banner {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1e293b;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  padding: 8px 20px;
+  border-radius: 999px;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+  animation: backdropFade 0.4s ease-out;
+}

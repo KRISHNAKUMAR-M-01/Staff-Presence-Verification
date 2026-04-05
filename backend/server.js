@@ -35,7 +35,24 @@ const { sendEmail } = require('./utils/emailService');
 // Connect to MongoDB
 connectDB();
 
-app.use(cors());
+// ── CORS ─────────────────────────────────────────────────────────────────────
+const allowedOrigins = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    process.env.FRONTEND_URL, // e.g. https://staff-presence.vercel.app
+].filter(Boolean);
+
+app.use(cors({
+    origin: function (origin, callback) {
+        // Allow requests with no origin (mobile apps, curl, Postman, ESP32)
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error(`CORS: Origin ${origin} not allowed`));
+        }
+    },
+    credentials: true,
+}));
 app.use(compression());
 app.use(morgan('dev'));
 app.use(bodyParser.json());
