@@ -37,8 +37,9 @@ const Login = () => {
             const response = await api.post('/auth/login', { email, password });
             const { token, user } = response.data;
             login(user, token);
-            const targetPath = user.role === 'admin' ? '/admin' : 
-                               ['principal', 'secretary', 'director'].includes(user.role) ? '/executive' : 
+            const role = user.role?.toLowerCase();
+            const targetPath = role === 'admin' ? '/admin' : 
+                               ['principal', 'secretary', 'director'].includes(role) ? '/executive' : 
                                '/staff';
             navigate(targetPath);
         } catch (err) {
@@ -56,8 +57,9 @@ const Login = () => {
                 const response = await api.post('/auth/google-login', { access_token: tokenResponse.access_token });
                 const { token, user } = response.data;
                 login(user, token);
-                const targetPath = user.role === 'admin' ? '/admin' : 
-                                   ['principal', 'secretary', 'director'].includes(user.role) ? '/executive' : 
+                const role = user.role?.toLowerCase();
+                const targetPath = role === 'admin' ? '/admin' : 
+                                   ['principal', 'secretary', 'director'].includes(role) ? '/executive' : 
                                    '/staff';
                 navigate(targetPath);
             } catch (err) {

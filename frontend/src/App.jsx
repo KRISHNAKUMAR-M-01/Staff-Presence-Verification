@@ -24,10 +24,13 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
   // Check if user role is in allowed roles
-  if (allowedRoles && !allowedRoles.includes(user?.role)) {
+  const userRole = user?.role?.toLowerCase();
+  const normalizedAllowed = allowedRoles.map(r => r.toLowerCase());
+  
+  if (allowedRoles && !normalizedAllowed.includes(userRole)) {
     // Redirect to appropriate dashboard based on role
-    const redirectPath = user?.role === 'admin' ? '/admin' :
-      ['principal', 'secretary', 'director'].includes(user?.role) ? '/executive' :
+    const redirectPath = userRole === 'admin' ? '/admin' :
+      ['principal', 'secretary', 'director'].includes(userRole) ? '/executive' :
         '/staff';
     return <Navigate to={redirectPath} replace />;
   }
@@ -62,8 +65,9 @@ const AppContent = () => {
 
   const getDefaultRoute = () => {
     if (!isAuthenticated) return '/login';
-    if (user?.role === 'admin') return '/admin';
-    if (['principal', 'secretary', 'director'].includes(user?.role)) return '/executive';
+    const role = user?.role?.toLowerCase();
+    if (role === 'admin') return '/admin';
+    if (['principal', 'secretary', 'director'].includes(role)) return '/executive';
     return '/staff';
   };
 

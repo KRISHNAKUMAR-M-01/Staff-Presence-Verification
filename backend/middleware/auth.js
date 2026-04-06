@@ -47,23 +47,24 @@ const requireAdmin = (req, res, next) => {
 
 // Check if user is staff
 const requireStaff = (req, res, next) => {
-    if (req.user.role !== 'staff') {
+    if (req.user.role.toLowerCase() !== 'staff') {
         return res.status(403).json({ error: 'Staff access required' });
     }
     next();
 };
 
 const requireExecutive = (req, res, next) => {
-    if (!['principal', 'secretary', 'director'].includes(req.user.role)) {
+    const role = req.user.role.toLowerCase();
+    if (!['principal', 'secretary', 'director'].includes(role)) {
         return res.status(403).json({ error: 'Executive access required' });
     }
     next();
 };
 
-// Allows staff AND executives (principal, secretary, director) to access an endpoint
 const requireStaffOrExecutive = (req, res, next) => {
+    const role = req.user.role.toLowerCase();
     const allowed = ['staff', 'principal', 'secretary', 'director'];
-    if (!allowed.includes(req.user.role)) {
+    if (!allowed.includes(role)) {
         return res.status(403).json({ error: 'Staff or Executive access required' });
     }
     next();
