@@ -192,6 +192,12 @@ const StaffManagement = () => {
             await api.delete(`/admin/staff/${id}`);
             loadStaff();
             setConfirmConfig({ isOpen: false, id: null, name: '' });
+            setModalConfig({
+                isOpen: true,
+                type: 'success',
+                title: 'Staff Removed',
+                message: `Successfully deleted staff member.`
+            });
         } catch (err) {
             setModalConfig({
                 isOpen: true,
