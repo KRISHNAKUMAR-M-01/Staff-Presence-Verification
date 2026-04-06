@@ -1731,28 +1731,47 @@ app.post('/api/staff/swap-request', authenticateToken, requireStaff, async (req,
         });
         await swapReq.save();
 
-        // Notify Admin/Principal
-        const admins = await User.find({ role: { $in: ['admin', 'principal'] } });
+        // Notify Admins and Executives (Principal, Secretary, Director)
+        const admins = await User.find({ role: { $in: ['admin', 'principal', 'secretary', 'director'] } });
         const staff = await Staff.findById(req.user.staff_id);
+        const classroom = await Classroom.findById(classroom_id);
+        const roomName = classroom ? classroom.room_name : 'unknown room';
 
         for (const admin of admins) {
-            await Notification.create({
+            const notifData = {
                 recipient_id: admin._id,
                 title: 'Urgent Swap Request',
-                message: `Staff ${staff.name} is requesting permission for an urgent swap in ${classroom_id}. Reason: ${reason}`,
+                message: `Staff ${staff?.name || 'Unknown'} is requesting permission for an urgent swap in ${roomName}. Reason: ${reason}`,
                 type: 'swap_request',
                 related_data: { swapRequestId: swapReq._id }
-            });
+            };
+            await Notification.create(notifData);
+
+            if (admin.pushSubscription) {
+                await sendPushNotification(admin.pushSubscription, {
+                    title: notifData.title,
+                    body: notifData.message,
+                    icon: '/logo192.png',
+                    data: { url: '/admin/swaps' }
+                });
+            }
         }
 
         res.json({ message: 'Urgent swap request sent to admin for approval.', swapReq });
     } catch (err) {
+        console.error('Swap Request Error:', err);
         res.status(500).json({ error: err.message });
     }
 });
 
-// 2. Admin: Approve Swap Request
-app.put('/api/admin/swap-request/:id/approve', authenticateToken, requireAdmin, async (req, res) => {
+// 2. Admin/Executive: Approve Swap Request
+app.put('/api/admin/swap-request/:id/approve', authenticateToken, (req, res, next) => {
+    if (req.user.role === 'admin' || ['principal', 'secretary', 'director'].includes(req.user.role)) {
+        next();
+    } else {
+        res.status(403).json({ error: 'Access denied' });
+    }
+}, async (req, res) => {
     try {
         const swapReq = await SwapRequest.findById(req.params.id);
         if (!swapReq) return res.status(404).json({ error: 'Swap request not found.' });
@@ -1763,13 +1782,23 @@ app.put('/api/admin/swap-request/:id/approve', authenticateToken, requireAdmin, 
         // Notify Staff
         const staffUser = await User.findOne({ staff_id: swapReq.requesting_staff_id });
         if (staffUser) {
-            await Notification.create({
+            const notifData = {
                 recipient_id: staffUser._id,
                 title: 'Swap Request Approved',
-                message: `Admin has approved your urgent swap request. You can now search for free staff to cover your class.`,
+                message: `The administration has approved your urgent swap request. You can now search for free staff to cover your class.`,
                 type: 'swap_request',
                 related_data: { swapRequestId: swapReq._id }
-            });
+            };
+            await Notification.create(notifData);
+            
+            if (staffUser.pushSubscription) {
+                await sendPushNotification(staffUser.pushSubscription, {
+                    title: notifData.title,
+                    body: notifData.message,
+                    icon: '/logo192.png',
+                    data: { url: '/staff' }
+                });
+            }
         }
         res.json({ message: 'Swap request approved.', swapReq });
     } catch (err) {
@@ -1777,8 +1806,14 @@ app.put('/api/admin/swap-request/:id/approve', authenticateToken, requireAdmin, 
     }
 });
 
-// Admin: Reject Swap Request
-app.put('/api/admin/swap-request/:id/reject', authenticateToken, requireAdmin, async (req, res) => {
+// Admin/Executive: Reject Swap Request
+app.put('/api/admin/swap-request/:id/reject', authenticateToken, (req, res, next) => {
+    if (req.user.role === 'admin' || ['principal', 'secretary', 'director'].includes(req.user.role)) {
+        next();
+    } else {
+        res.status(403).json({ error: 'Access denied' });
+    }
+}, async (req, res) => {
     try {
         const swapReq = await SwapRequest.findById(req.params.id);
         if (!swapReq) return res.status(404).json({ error: 'Swap request not found.' });
@@ -1792,7 +1827,7 @@ app.put('/api/admin/swap-request/:id/reject', authenticateToken, requireAdmin, a
             await Notification.create({
                 recipient_id: staffUser._id,
                 title: 'Swap Request Rejected',
-                message: `Admin has rejected your urgent swap request.`,
+                message: `Administration has rejected your urgent swap request.`,
                 type: 'swap_request',
                 related_data: { swapRequestId: swapReq._id }
             });
@@ -1803,14 +1838,20 @@ app.put('/api/admin/swap-request/:id/reject', authenticateToken, requireAdmin, a
     }
 });
 
-// Admin: Get all swap requests
-app.get('/api/admin/swap-requests', authenticateToken, requireAdmin, async (req, res) => {
+// Admin/Executive: Get all swap requests
+app.get('/api/admin/swap-requests', authenticateToken, (req, res, next) => {
+    if (req.user.role === 'admin' || ['principal', 'secretary', 'director'].includes(req.user.role)) {
+        next();
+    } else {
+        res.status(403).json({ error: 'Access denied' });
+    }
+}, async (req, res) => {
     try {
         const swaps = await SwapRequest.find()
             .populate('requesting_staff_id', 'name department profile_picture')
             .populate('classroom_id', 'room_name')
             .populate('substitute_staff_id', 'name')
-            .sort({ date: -1 });
+            .sort({ createdAt: -1 }); // Better to sort by createdAt for most recent first
         res.json(swaps);
     } catch(err) {
         res.status(500).json({ error: err.message });
