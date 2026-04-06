@@ -148,6 +148,24 @@ const AdminDashboard = () => {
                                 <div style={{ fontSize: '13px', fontWeight: '600' }}>{n.title}</div>
                                 <div style={{ fontSize: '12px', color: '#64748b' }}>{n.message}</div>
                                 <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '4px' }}>{new Date(n.createdAt).toLocaleString()}</div>
+                                
+                                {n.type === 'swap_request' && n.title.includes('Urgent') && !n.is_read && (
+                                    <button 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            api.put(`/admin/swap-request/${n.related_data.swapRequestId}/approve`)
+                                                .then(res => {
+                                                    alert(res.data.message);
+                                                    markAsRead(n._id);
+                                                }).catch(err => {
+                                                    alert(err.response?.data?.error || 'Failed to approve swap request');
+                                                });
+                                        }}
+                                        style={{ marginTop: '8px', padding: '6px 12px', background: '#097969', color: 'white', border: 'none', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}
+                                    >
+                                        Approve Swap
+                                    </button>
+                                )}
                             </div>
                         )) : <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8' }}>No alerts</div>}
                     </div>
