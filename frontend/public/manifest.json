@@ -1,0 +1,17 @@
+{
+  "name": "Staff Presence Verification",
+  "short_name": "SPV App",
+  "description": "Context-Aware Indoor BLE Tracking app for staff verification.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#20b2aa",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ]
+}
