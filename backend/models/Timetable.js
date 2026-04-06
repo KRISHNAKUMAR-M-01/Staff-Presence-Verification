@@ -38,4 +38,8 @@ const timetableSchema = new mongoose.Schema({
 // Compound index for efficient queries
 timetableSchema.index({ staff_id: 1, classroom_id: 1, day_of_week: 1 });
 
+// Compound index for fast schedule lookups
+timetableSchema.index({ staff_id: 1, day_of_week: 1, classroom_id: 1 });
+timetableSchema.index({ classroom_id: 1, day_of_week: 1 });
+
 module.exports = mongoose.model('Timetable', timetableSchema);

@@ -95,23 +95,23 @@ exports.sendMeetingRequest = async (req, res) => {
                             requesterRole
                         }
                     };
-                    await Notification.create(subNotifData);
-
+                    // Non-blocking background notifications
+                    Notification.create(subNotifData);
                     if (freeStaffUser.pushSubscription) {
                         const { sendPushNotification } = require('../utils/pushService');
-                        await sendPushNotification(freeStaffUser.pushSubscription, {
+                        sendPushNotification(freeStaffUser.pushSubscription, {
                             title: subNotifData.title,
                             body: subNotifData.message,
                             icon: '/logo192.png',
                             data: { url: '/staff/notifications' }
-                        });
+                        }).catch(e => console.error("Push Error (free staff):", e));
                     }
 
-                    await sendEmail(
+                    sendEmail(
                         freeStaffUser.email,
                         'Class Substitution Request',
                         `Please cover ${activeClass.subject || 'class'} in ${activeClass.classroom_id.room_name} for ${targetStaff.name}. Requested by ${requesterRole} (${requesterName}).`
-                    );
+                    ).catch(e => console.error("Email Error (free staff):", e));
                 }
             }
         }
@@ -132,19 +132,21 @@ exports.sendMeetingRequest = async (req, res) => {
                 type: 'meeting_request',
                 related_data: { requesterRole }
             };
-            await Notification.create(targetNotifData);
+            
+            // Non-blocking background notification for target
+            Notification.create(targetNotifData);
 
             if (targetUser.pushSubscription) {
                 const { sendPushNotification } = require('../utils/pushService');
-                await sendPushNotification(targetUser.pushSubscription, {
+                sendPushNotification(targetUser.pushSubscription, {
                     title: targetNotifData.title,
                     body: targetNotifData.message,
                     icon: '/logo192.png',
                     data: { url: '/staff/notifications' }
-                });
+                }).catch(e => console.error("Push Error (target):", e));
             }
 
-            await sendEmail(targetUser.email, 'Urgent Meeting Request', message);
+            sendEmail(targetUser.email, 'Urgent Meeting Request', message).catch(e => console.error("Email Error (target):", e));
         }
 
         res.status(200).json({

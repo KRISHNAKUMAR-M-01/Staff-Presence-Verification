@@ -68,4 +68,7 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
     return await bcrypt.compare(candidatePassword, this.password);
 };
 
+// Index for efficient lookups during deletion and registration
+userSchema.index({ staff_id: 1 });
+
 module.exports = mongoose.model('User', userSchema);

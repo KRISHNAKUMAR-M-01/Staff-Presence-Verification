@@ -1763,12 +1763,12 @@ app.post('/api/staff/swap-request', authenticateToken, requireStaffOrExecutive, 
             await Notification.create(notifData);
 
             if (admin.pushSubscription) {
-                await sendPushNotification(admin.pushSubscription, {
+                sendPushNotification(admin.pushSubscription, {
                     title: notifData.title,
                     body: notifData.message,
                     icon: '/logo192.png',
                     data: { url: '/admin/swaps' }
-                });
+                }).catch(e => console.error("Admin Push Error:", e));
             }
         }
 
@@ -1804,15 +1804,15 @@ app.put('/api/admin/swap-request/:id/approve', authenticateToken, (req, res, nex
                 type: 'swap_request',
                 related_data: { swapRequestId: swapReq._id }
             };
-            await Notification.create(notifData);
+            Notification.create(notifData);
             
             if (staffUser.pushSubscription) {
-                await sendPushNotification(staffUser.pushSubscription, {
+                sendPushNotification(staffUser.pushSubscription, {
                     title: notifData.title,
                     body: notifData.message,
                     icon: '/logo192.png',
                     data: { url: '/staff' }
-                });
+                }).catch(e => console.error("Staff Approve Push Error:", e));
             }
         }
         res.json({ message: 'Swap request approved.', swapReq });

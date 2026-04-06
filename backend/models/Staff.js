@@ -66,4 +66,7 @@ const staffSchema = new mongoose.Schema({
     timestamps: true
 });
 
+// Index for efficient beacon scans
+staffSchema.index({ beacon_uuid: 1 });
+
 module.exports = mongoose.model('Staff', staffSchema);
