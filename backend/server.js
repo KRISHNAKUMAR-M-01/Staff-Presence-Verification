@@ -1914,6 +1914,7 @@ app.post('/api/staff/accept-substitution', authenticateToken, requireStaff, asyn
 // ============================================
 
 app.post('/api/ble-data', async (req, res) => {
+    console.log(`[BLE DEBUG] Room: ${req.body.esp32_id}, ID: ${req.body.beacon_uuid}, RSSI: ${req.body.rssi}`);
     try {
         const { esp32_id, beacon_uuid, rssi } = req.body;
         if (!esp32_id || !beacon_uuid || rssi === undefined) {

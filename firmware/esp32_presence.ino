@@ -8,6 +8,7 @@
  */
 
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <BLEDevice.h>
 #include <BLEUtils.h>
@@ -20,11 +21,10 @@
 #include <numeric>
 
 // ── CONFIGURATION ──────────────────────────────────────────────────────────
-const char* ssid        = "Thorfinn";
-const char* password    = "12345677";
-// Production URL (Render cloud backend)
-const char* serverUrl   = "https://staff-presence-backend.onrender.com/api/ble-data";
-// Local fallback: const char* serverUrl = "http://10.31.158.78:5000/api/ble-data";
+const char* ssid        = "TEC_MECH 1";
+const char* password    = "12345678";
+const char* serverUrl = "https://staff-presence-backend.onrender.com/api/ble-data";
+
 const char* classroomId = "COMPUTERLAB";
 
 // BLE UUIDs for Mobile Verification
@@ -60,8 +60,11 @@ void reportToBackend(String staffUuid, int rssi, String method) {
         Serial.printf("[Offline Mode] Saw %s but WiFi is down.\n", staffUuid.c_str());
         return;
     }
+    WiFiClientSecure client;
+    client.setInsecure(); // Skip SSL certificate verification for Render
+
     HTTPClient http;
-    http.begin(serverUrl);
+    http.begin(client, serverUrl);
     http.addHeader("Content-Type", "application/json");
 
     String payload = "{\"esp32_id\":\"" + String(classroomId) +
