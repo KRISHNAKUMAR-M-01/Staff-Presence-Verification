@@ -891,7 +891,7 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
             // Find if there's an active attendance tracking right now
             const staffAttendance = attendanceToday.find(a => a.staff_id.toString() === sid);
 
-            const signalThreshold = 30 * 1000; // 30 seconds (much more reactive)
+            const signalThreshold = 90 * 1000; // 90 seconds — covers BLE heartbeat (15s) + Render latency
             const isLive = s.last_seen_time && (now - new Date(s.last_seen_time) < signalThreshold);
 
             let liveStatus = 'Scanning'; // Default status
@@ -1392,23 +1392,28 @@ app.post('/api/staff/soft-beacon', authenticateToken, requireStaff, async (req, 
 
         console.log(`[Soft Beacon] ${staff.name} → ${classroom.room_name} at ${currentTime}`);
 
-        // 3. CHECK PERMISSION (Timetable or Substitution)
+        // 3. ALWAYS update live-location (so admin sees staff as "Live" regardless of timetable)
+        await Staff.findByIdAndUpdate(staff._id, {
+            last_seen_room: classroom._id,
+            last_seen_time: now,
+        });
+        staffCache.delete(staff._id.toString());
+
+        // 4. CHECK PERMISSION for attendance tracking (Timetable or Substitution)
         const permission = await isStaffPermitted(staff._id, classroom._id);
         if (!permission.permitted) {
-            return res.status(403).json({ 
-                error: `Not permitted: You have no scheduled class in ${classroom.room_name} right now and have not been assigned to cover it.` 
+            // Location is updated — only attendance marking is restricted
+            return res.json({
+                status: 'location_updated',
+                message: `Location updated: You are in ${classroom.room_name}. No attendance recorded (no scheduled class).`,
+                attendance_status: null
             });
         }
 
         const slot = permission.slot;
         const subType = permission.type;
 
-        if (!slot) {
-            console.log(`[Soft Beacon] No scheduled class for ${staff.name} in ${classroom.room_name} right now.`);
-            // Still allow tracking so the dashboard stays accurate
-        }
-
-        // 4. Find or create today's attendance record for this staff+classroom
+        // 5. Find or create today's attendance record for this staff+classroom
         let attendance = await Attendance.findOne({
             staff_id:     staff._id,
             classroom_id: classroom._id,
@@ -1527,6 +1532,13 @@ app.post('/api/staff/verify-location', authenticateToken, requireStaff, async (r
 
         // Permission is already checked in step 1b above via isStaffPermitted
         const subType = permission.type;
+
+        // Update Staff live-location fields so admin dashboard shows this staff as "Live"
+        await Staff.findByIdAndUpdate(staff._id, {
+            last_seen_room: classroom._id,
+            last_seen_time: now,
+        });
+        staffCache.delete(staff._id.toString());
 
         let attendance = await Attendance.findOne({
             staff_id:     staff._id,
@@ -1975,11 +1987,11 @@ app.post('/api/ble-data', async (req, res) => {
             return res.json({ status: 'ignored', message: `Avg RSSI ${avgRssi} dBm below threshold ${rssiThreshold} dBm` });
         }
 
-        // ── STEP 2: Throttle (15s per beacon+room) ──────────────────────────
+        // ── STEP 2: Throttle (10s per beacon+room) ──────────────────────────
         const throttleKey = bufferKey;
         const lastProcessed = bleThrottle.get(throttleKey) || 0;
         const now = new Date();
-        if (now.getTime() - lastProcessed < 15000) {
+        if (now.getTime() - lastProcessed < 10000) {
             return res.json({ status: 'ignored', message: 'Throttled: Recently processed this beacon.' });
         }
         bleThrottle.set(throttleKey, now.getTime());

@@ -76,23 +76,43 @@ const MobileVerify = () => {
 
             // 3. Setup continuous heartbeats
             const sendHeartbeat = async () => {
+                // a) Write staff UUID to ESP32 via BLE  
                 try {
                     const service = await server.getPrimaryService(SERVICE_UUID);
                     const characteristic = await service.getCharacteristic(CHARACTERISTIC_UUID);
                     const encoder = new TextEncoder();
                     await characteristic.writeValue(encoder.encode(staffUuid));
-                    console.log("[BLE] Heartbeat sent.");
+                    console.log("[BLE] BLE heartbeat written to ESP32.");
                 } catch (e) {
-                    console.warn("[BLE] Heartbeat failed", e);
-                    handleUnpair();
+                    console.warn("[BLE] BLE write failed – will still update backend directly.", e);
+                    // Don't unpair here; let the direct API call keep presence alive
+                    if (!gattServerRef.current?.connected) {
+                        handleUnpair();
+                        return;
+                    }
+                }
+
+                // b) Also call the backend directly so Staff.last_seen_time is always fresh
+                //    (guards against Render cold-start delays and BLE throttle on ESP32 side)
+                try {
+                    const heartbeatRes = await api.post('/staff/soft-beacon', {
+                        classroom_id: selectedRoom._id
+                    });
+                    const newStatus = heartbeatRes.data?.attendance_status;
+                    if (newStatus) setAttendanceStatus(newStatus);
+                    console.log("[Heartbeat] Backend updated:", heartbeatRes.data?.message);
+                } catch (apiErr) {
+                    // 403 = no class right now (outside timetable), that's OK
+                    const msg = apiErr.response?.data?.error || apiErr.message;
+                    console.warn("[Heartbeat] Backend call:", msg);
                 }
             };
 
             // Send first identity pulse immediately
             await sendHeartbeat();
             
-            // Start 15s interval for Live Location tracking
-            heartbeatRef.current = setInterval(sendHeartbeat, 15000);
+            // Refresh every 20s (ESP32 BLE write + direct API call)
+            heartbeatRef.current = setInterval(sendHeartbeat, 20000);
 
             setIsConnected(true);
             setIsConnecting(false);
