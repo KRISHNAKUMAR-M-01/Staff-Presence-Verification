@@ -1805,7 +1805,18 @@ app.get('/api/staff/find-free-staff', authenticateToken, requireStaff, async (re
 app.post('/api/staff/request-substitution', authenticateToken, requireStaff, async (req, res) => {
     try {
         const { target_staff_id, swap_request_id } = req.body;
-        const swapReq = await SwapRequest.findById(swap_request_id);
+        let swapReq;
+
+        if (swap_request_id === 'auto') {
+            // Find the most recent approved swap request for this staff
+            swapReq = await SwapRequest.findOne({
+                requesting_staff_id: req.user.staff_id,
+                status: 'approved'
+            }).sort({ date: -1 });
+        } else {
+            swapReq = await SwapRequest.findById(swap_request_id);
+        }
+
         if (!swapReq || swapReq.status !== 'approved') {
             return res.status(403).json({ error: 'Substitution can only be requested after Admin approval.' });
         }
