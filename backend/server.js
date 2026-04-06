@@ -22,7 +22,7 @@ const Notification = require('./models/Notification');
 const SwapRequest = require('./models/SwapRequest');
 
 // Import Middleware
-const { generateToken, authenticateToken, requireAdmin, requireStaff, requireExecutive } = require('./middleware/auth');
+const { generateToken, authenticateToken, requireAdmin, requireStaff, requireExecutive, requireStaffOrExecutive } = require('./middleware/auth');
 const { OAuth2Client } = require('google-auth-library');
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -1732,9 +1732,12 @@ app.get('/api/staff/notifications/unread-count', authenticateToken, async (req, 
 // SWAP & SUBSTITUTION ENDPOINTS (Proposed Feature)
 // ============================================
 
-// 1. Staff: Request Admin Permission for Urgent Swap
-app.post('/api/staff/swap-request', authenticateToken, requireStaff, async (req, res) => {
+// 1. Staff/Executive: Request Admin Permission for Urgent Swap
+app.post('/api/staff/swap-request', authenticateToken, requireStaffOrExecutive, async (req, res) => {
     try {
+        if (!req.user.staff_id) {
+            return res.status(403).json({ error: 'Your account is not linked to a Staff profile. Contact Admin.' });
+        }
         const { classroom_id, reason } = req.body;
         const swapReq = new SwapRequest({
             requesting_staff_id: req.user.staff_id,
@@ -1870,9 +1873,12 @@ app.get('/api/admin/swap-requests', authenticateToken, (req, res, next) => {
     }
 });
 
-// 3. Staff: Find Free Staff for current time
-app.get('/api/staff/find-free-staff', authenticateToken, requireStaff, async (req, res) => {
+// 3. Staff/Executive: Find Free Staff for current time
+app.get('/api/staff/find-free-staff', authenticateToken, requireStaffOrExecutive, async (req, res) => {
     try {
+        if (!req.user.staff_id) {
+            return res.status(403).json({ error: 'Your account is not linked to a Staff profile. Contact Admin.' });
+        }
         const now = new Date();
         const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const currentDay = days[now.getDay()];
@@ -1894,9 +1900,12 @@ app.get('/api/staff/find-free-staff', authenticateToken, requireStaff, async (re
     }
 });
 
-// 4. Staff: Request Covering from Free Staff
-app.post('/api/staff/request-substitution', authenticateToken, requireStaff, async (req, res) => {
+// 4. Staff/Executive: Request Covering from Free Staff
+app.post('/api/staff/request-substitution', authenticateToken, requireStaffOrExecutive, async (req, res) => {
     try {
+        if (!req.user.staff_id) {
+            return res.status(403).json({ error: 'Your account is not linked to a Staff profile. Contact Admin.' });
+        }
         const { target_staff_id, swap_request_id } = req.body;
         let swapReq;
 
@@ -1932,9 +1941,12 @@ app.post('/api/staff/request-substitution', authenticateToken, requireStaff, asy
     }
 });
 
-// 5. Staff: Accept Substitution Request
-app.post('/api/staff/accept-substitution', authenticateToken, requireStaff, async (req, res) => {
+// 5. Staff/Executive: Accept Substitution Request
+app.post('/api/staff/accept-substitution', authenticateToken, requireStaffOrExecutive, async (req, res) => {
     try {
+        if (!req.user.staff_id) {
+            return res.status(403).json({ error: 'Your account is not linked to a Staff profile. Contact Admin.' });
+        }
         const { swap_request_id } = req.body;
         const swapReq = await SwapRequest.findById(swap_request_id);
         if (!swapReq) return res.status(404).json({ error: 'Request no longer exists.' });

@@ -60,10 +60,20 @@ const requireExecutive = (req, res, next) => {
     next();
 };
 
+// Allows staff AND executives (principal, secretary, director) to access an endpoint
+const requireStaffOrExecutive = (req, res, next) => {
+    const allowed = ['staff', 'principal', 'secretary', 'director'];
+    if (!allowed.includes(req.user.role)) {
+        return res.status(403).json({ error: 'Staff or Executive access required' });
+    }
+    next();
+};
+
 module.exports = {
     generateToken,
     authenticateToken,
     requireAdmin,
     requireStaff,
-    requireExecutive
+    requireExecutive,
+    requireStaffOrExecutive
 };

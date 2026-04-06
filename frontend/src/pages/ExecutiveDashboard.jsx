@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { Bell, Search, LogOut, MapPin, Clock, BookOpen, Phone, Users, CheckCircle, AlertCircle, XCircle, ChevronLeft, Plane, Sprout, Brain, Car, Activity, FlaskConical, Compass, Code, Monitor, Zap, Cpu, Globe, Settings, Bot, Building2 } from 'lucide-react';
+import { Bell, Search, LogOut, MapPin, Clock, BookOpen, Phone, Users, CheckCircle, AlertCircle, XCircle, ChevronLeft, Plane, Sprout, Brain, Car, Activity, FlaskConical, Compass, Code, Monitor, Zap, Cpu, Globe, Settings, Bot, Building2, X } from 'lucide-react';
 import '../styles/Dashboard.css';
 import LeaveManagement from '../StaffAdministration/LeaveManagement';
 import AttendanceReports from '../AttendanceAndAlerts/AttendanceReports';
 import SwapRequests from '../StaffAdministration/SwapRequests';
 import Avatar from '../components/Avatar';
+import CustomSelect from '../components/CustomSelect';
 
 const ExecutiveDashboard = () => {
     const { user, logout } = useAuth();
@@ -26,18 +27,36 @@ const ExecutiveDashboard = () => {
     const [pendingLeavesCount, setPendingLeavesCount] = useState(0);
     const [approvedLeavesCount, setApprovedLeavesCount] = useState(0);
     const [rejectedLeavesCount, setRejectedLeavesCount] = useState(0);
+    const [pendingSwapsCount, setPendingSwapsCount] = useState(0);
+
+    // Swap Modal State
+    const [showSwapModal, setShowSwapModal] = useState(false);
+    const [classrooms, setClassrooms] = useState([]);
+    const [selectedRoomId, setSelectedRoomId] = useState('');
+    const [swapReason, setSwapReason] = useState('');
+    const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
         fetchStaffStatus();
         fetchNotifications();
         fetchUnreadCount();
         loadPendingLeaves();
+        loadPendingSwaps();
+
+        const loadClassrooms = async () => {
+            try {
+                const res = await api.get('/staff/classrooms');
+                setClassrooms(res.data);
+            } catch (e) { console.error(e); }
+        };
+        loadClassrooms();
 
         const interval = setInterval(() => {
             fetchStaffStatus();
             fetchUnreadCount();
             loadPendingLeaves();
-        }, 30000);
+            loadPendingSwaps();
+        }, 12000);
 
         return () => clearInterval(interval);
     }, []);
@@ -65,6 +84,16 @@ const ExecutiveDashboard = () => {
             setRejectedLeavesCount(rejected);
         } catch (error) {
             console.error('Error fetching leave stats:', error);
+        }
+    };
+
+    const loadPendingSwaps = async () => {
+        try {
+            const res = await api.get('/admin/swap-requests');
+            const pending = res.data.filter(s => s.status === 'pending').length;
+            setPendingSwapsCount(pending);
+        } catch (error) {
+            console.error('Error fetching swap stats:', error);
         }
     };
 
@@ -137,6 +166,25 @@ const ExecutiveDashboard = () => {
     const openMeetingModal = (staff) => {
         setSelectedStaff(staff);
         setShowMeetingModal(true);
+    };
+
+    const handleSwapRequest = async () => {
+        if (!selectedRoomId || !swapReason) return alert('Please select a room and provide a reason.');
+        setSubmitting(true);
+        try {
+            const res = await api.post('/staff/swap-request', {
+                classroom_id: selectedRoomId,
+                reason: swapReason
+            });
+            alert(res.data.message);
+            setShowSwapModal(false);
+            setSwapReason('');
+            setSelectedRoomId('');
+        } catch (err) {
+            alert(err.response?.data?.error || 'Failed to send request.');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     const handleLogout = () => {
@@ -252,6 +300,26 @@ const ExecutiveDashboard = () => {
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px', background: '#f1f5f9', padding: '4px', borderRadius: '12px' }}>
+                    <button
+                        onClick={() => setShowSwapModal(true)}
+                        style={{
+                            background: '#e6fcf5',
+                            border: 'none',
+                            padding: '8px 16px',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            color: '#097969',
+                            fontSize: '13px',
+                            fontWeight: '700',
+                            transition: 'all 0.2s',
+                            marginRight: '8px'
+                        }}
+                    >
+                        <Plane size={14} style={{ transform: 'rotate(-45deg)' }} /> Swap Class
+                    </button>
                     <button 
                         onClick={() => setView('status')}
                         style={{
@@ -337,10 +405,32 @@ const ExecutiveDashboard = () => {
                             fontWeight: '700',
                             cursor: 'pointer',
                             boxShadow: view === 'swaps' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
-                            transition: 'all 0.2s'
+                            transition: 'all 0.2s',
+                            position: 'relative'
                         }}
                     >
                         Swap Requests
+                        {pendingSwapsCount > 0 && (
+                            <span style={{
+                                position: 'absolute',
+                                top: '-6px',
+                                right: '-4px',
+                                background: '#097969',
+                                color: 'white',
+                                fontSize: '10px',
+                                fontWeight: '800',
+                                minWidth: '18px',
+                                height: '18px',
+                                borderRadius: '50%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                border: '2px solid white',
+                                boxShadow: '0 2px 4px rgba(9, 121, 105, 0.2)'
+                            }}>
+                                {pendingSwapsCount}
+                            </span>
+                        )}
                     </button>
                 </div>
 
@@ -628,8 +718,10 @@ const ExecutiveDashboard = () => {
 
                                     const getTheme = () => {
                                         if (staff.currentStatus === 'On Leave') return { bg: '#f0f9ff', color: '#0ea5e9', icon: <Plane size={14} />, label: 'Leave' };
-                                        if (isAbsent || isLeft) return { bg: '#fffbeb', color: '#d97706', icon: <Search size={14} />, label: 'Scanning' };
-                                        return { bg: '#f0fdf4', color: '#097969', icon: <CheckCircle size={14} />, label: 'Tracking ID Signal Found' };
+                                        if (['Present', 'Late', 'Tracking'].includes(staff.currentStatus)) {
+                                            return { bg: '#f0fdf4', color: '#097969', icon: <CheckCircle size={14} />, label: staff.currentStatus === 'Tracking' ? 'Tracking ID Signal Found' : staff.currentStatus };
+                                        }
+                                        return { bg: '#fffbeb', color: '#d97706', icon: <Search size={14} />, label: staff.currentStatus || 'Scanning' };
                                     };
                                     const theme = getTheme();
 
@@ -773,6 +865,50 @@ const ExecutiveDashboard = () => {
                              <button onClick={handleMeetingRequest} style={{ flex: 1, padding: '14px', background: '#097969', border: 'none', borderRadius: '14px', fontSize: '14px', fontWeight: '700', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
                                 {sendingRequest ? <div className="loader-small"></div> : 'Confirm Request'}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Swap Request Modal */}
+            {showSwapModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                    <div style={{ background: 'white', borderRadius: '28px', maxWidth: '440px', width: '100%', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
+                        <div style={{ padding: '32px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                <h3 style={{ fontSize: '22px', fontWeight: '800', margin: 0 }}>Urgent Swap Request</h3>
+                                <button onClick={() => setShowSwapModal(false)} style={{ border: 'none', background: '#f1f5f9', padding: '8px', borderRadius: '10px', cursor: 'pointer' }}><X size={20}/></button>
+                            </div>
+                            <p style={{ fontSize: '15px', color: '#64748b', lineHeight: '1.6', marginBottom: '24px' }}>Request permission for an urgent swap. On approval, you can search for substitutes.</p>
+                            
+                                <CustomSelect 
+                                    label="Select Classroom"
+                                    options={classrooms.map(c => ({ label: c.room_name, value: c._id }))}
+                                    value={selectedRoomId}
+                                    onChange={setSelectedRoomId}
+                                    placeholder="Choose room..."
+                                    required
+                                />
+
+                            <div style={{ marginTop: '20px' }}>
+                                <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '8px' }}>Reason for Urgency</label>
+                                <textarea 
+                                    placeholder="E.g. Medical emergency, urgent family matter..."
+                                    value={swapReason}
+                                    onChange={(e) => setSwapReason(e.target.value)}
+                                    style={{ width: '100%', padding: '16px', borderRadius: '16px', border: '1.5px solid #e2e8f0', minHeight: '100px', outline: 'none', fontSize: '14px', fontWeight: '500' }}
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+                                <button onClick={() => setShowSwapModal(false)} style={{ flex: 1, padding: '14px', borderRadius: '14px', border: 'none', background: '#f1f5f9', fontWeight: '700', cursor: 'pointer', color: '#475569' }}>Cancel</button>
+                                <button 
+                                    onClick={handleSwapRequest}
+                                    style={{ flex: 2, padding: '14px', borderRadius: '14px', border: 'none', background: '#097969', color: 'white', fontWeight: '700', cursor: 'pointer', boxShadow: '0 10px 15px -3px rgba(9, 121, 105, 0.3)' }}
+                                >
+                                    {submitting ? 'Sending...' : 'Send Request'}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

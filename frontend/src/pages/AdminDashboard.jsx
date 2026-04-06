@@ -31,6 +31,7 @@ const AdminDashboard = () => {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const [unreadCount, setUnreadCount] = useState(0);
     const [pendingLeaves, setPendingLeaves] = useState(0);
+    const [pendingSwapsCount, setPendingSwapsCount] = useState(0);
     const [notifs, setNotifs] = useState([]);
     const [showNotifs, setShowNotifs] = useState(false);
 
@@ -47,6 +48,14 @@ const AdminDashboard = () => {
             // For Admin (Step 2), pending means approved by Principal/Executive but not yet finalized
             const pending = res.data.filter(l => l.status === 'approved_by_principal').length;
             setPendingLeaves(pending);
+        } catch (err) { console.error(err); }
+    };
+
+    const loadPendingSwaps = async () => {
+        try {
+            const res = await api.get('/admin/swap-requests');
+            const pending = res.data.filter(s => s.status === 'pending').length;
+            setPendingSwapsCount(pending);
         } catch (err) { console.error(err); }
     };
 
@@ -72,9 +81,11 @@ const AdminDashboard = () => {
     useEffect(() => {
         loadUnreadCount();
         loadPendingLeaves();
+        loadPendingSwaps();
         const interval = setInterval(() => {
             loadUnreadCount();
             loadPendingLeaves();
+            loadPendingSwaps();
         }, 30000);
         return () => clearInterval(interval);
     }, []);
@@ -184,7 +195,7 @@ const AdminDashboard = () => {
         { label: 'Timetable', path: '/admin/timetable', icon: <Calendar size={20} /> },
         { label: 'Attendance', path: '/admin/attendance', icon: <Clipboard size={20} /> },
         { label: 'Leave Requests', path: '/admin/leaves', icon: <Plane size={20} />, badge: pendingLeaves },
-        { label: 'Swap Requests', path: '/admin/swaps', icon: <Bell size={20} /> },
+        { label: 'Swap Requests', path: '/admin/swaps', icon: <Bell size={20} />, badge: pendingSwapsCount },
         { label: 'Alerts', path: '/admin/alerts', icon: <AlertCircle size={20} /> },
     ];
 

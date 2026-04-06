@@ -161,7 +161,7 @@ exports.sendMeetingRequest = async (req, res) => {
 // Get All Staff Status (for Special roles dashboard) - OPTIMIZED
 exports.getAllStaffStatus = async (req, res) => {
     try {
-        const staffMembers = await Staff.find().lean();
+        const staffMembers = await Staff.find().populate('last_seen_room', 'room_name').lean();
         const currentDay = getDayName();
         const currentTime = getCurrentTime();
         
@@ -226,7 +226,7 @@ exports.getAllStaffStatus = async (req, res) => {
         allApprovedLeaves.forEach(l => leaveMap.set((l.staff_id || '').toString(), l));
 
         const now = new Date();
-        const signalThreshold = 5 * 60 * 1000; // 5 minutes
+        const signalThreshold = 90 * 1000; // 90 seconds — matches Admin Dashboard for responsiveness
 
         // 3. Assemble status for all staff
         const staffStatus = staffMembers.map(staff => {
@@ -236,29 +236,41 @@ exports.getAllStaffStatus = async (req, res) => {
             const activeClass = activeClassMap.get(sid);
             const approvedLeave = leaveMap.get(sid);
 
-            const isStale = attendanceToday && (now - new Date(attendanceToday.last_seen_time || attendanceToday.check_in_time) > signalThreshold);
+            const isLive = staff.last_seen_time && (now - new Date(staff.last_seen_time) < signalThreshold);
+            const attendanceStale = attendanceToday && (now - new Date(attendanceToday.last_seen_time || attendanceToday.check_in_time) > signalThreshold);
 
-            let liveStatus = 'Absent';
+            let liveStatus = 'Scanning';
             if (approvedLeave) {
                 liveStatus = 'On Leave';
-            } else if (attendanceToday && !isStale) {
-                liveStatus = attendanceToday.status; 
-            } else if (attendanceToday && isStale) {
-                liveStatus = 'Left'; 
+            } else if (isLive) {
+                if (attendanceToday && !attendanceStale && ['Present', 'Late'].includes(attendanceToday.status)) {
+                    liveStatus = attendanceToday.status;
+                } else {
+                    liveStatus = 'Tracking';
+                }
+            } else if (activeClass) {
+                liveStatus = 'Absent';
             }
 
             const latestRec = latestHistory?.latest_record;
+            const lastSeenTime = staff.last_seen_time || (latestRec ? (latestRec.last_seen_time || latestRec.check_in_time) : null);
+            
+            // Populating lastSeenRoom manually since we already have it in the staff object or latestHistory
+            const lastSeenRoomName = (isLive && staff.last_seen_room) ? 
+                (staff.last_seen_room.room_name || 'Classroom') : 
+                (latestHistory?.room?.room_name || 'unknown');
 
             return {
                 ...staff,
                 currentStatus: liveStatus,
-                lastSeen: latestRec ? (latestRec.last_seen_time || latestRec.check_in_time) : null,
-                lastSeenLocation: latestHistory?.room?.room_name || 'unknown',
-                currentLocation: (attendanceToday && !isStale) ? attendanceToday.classroom_id.room_name : 
-                                 (latestRec ? `Last seen in ${latestHistory.room?.room_name || 'unknown'}` : 'Not detected'),
-                expectedLocation: activeClass ? activeClass.classroom_id.room_name : 'No Class Assigned',
-                isCorrectLocation: activeClass && attendanceToday && !isStale ?
-                    (activeClass.classroom_id?._id?.toString() === attendanceToday.classroom_id?._id?.toString()) :
+                lastSeen: lastSeenTime,
+                lastSeenLocation: lastSeenRoomName,
+                currentLocation: isLive ? 
+                                 (staff.last_seen_room?.room_name || 'Classroom') : 
+                                 'Not in Range',
+                expectedLocation: activeClass ? (activeClass.classroom_id?.room_name || 'Unknown Room') : 'No Class Assigned',
+                isCorrectLocation: activeClass && isLive ?
+                    (activeClass.classroom_id?._id?.toString() === staff.last_seen_room?._id?.toString()) :
                     (activeClass ? false : true),
                 activeClass: activeClass ? {
                     subject: activeClass.subject,
