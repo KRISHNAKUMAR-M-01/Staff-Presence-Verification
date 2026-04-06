@@ -1777,6 +1777,46 @@ app.put('/api/admin/swap-request/:id/approve', authenticateToken, requireAdmin, 
     }
 });
 
+// Admin: Reject Swap Request
+app.put('/api/admin/swap-request/:id/reject', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const swapReq = await SwapRequest.findById(req.params.id);
+        if (!swapReq) return res.status(404).json({ error: 'Swap request not found.' });
+        
+        swapReq.status = 'rejected';
+        await swapReq.save();
+
+        // Notify Staff
+        const staffUser = await User.findOne({ staff_id: swapReq.requesting_staff_id });
+        if (staffUser) {
+            await Notification.create({
+                recipient_id: staffUser._id,
+                title: 'Swap Request Rejected',
+                message: `Admin has rejected your urgent swap request.`,
+                type: 'swap_request',
+                related_data: { swapRequestId: swapReq._id }
+            });
+        }
+        res.json({ message: 'Swap request rejected.', swapReq });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Admin: Get all swap requests
+app.get('/api/admin/swap-requests', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const swaps = await SwapRequest.find()
+            .populate('requesting_staff_id', 'name department profile_picture')
+            .populate('classroom_id', 'room_name')
+            .populate('substitute_staff_id', 'name')
+            .sort({ date: -1 });
+        res.json(swaps);
+    } catch(err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // 3. Staff: Find Free Staff for current time
 app.get('/api/staff/find-free-staff', authenticateToken, requireStaff, async (req, res) => {
     try {

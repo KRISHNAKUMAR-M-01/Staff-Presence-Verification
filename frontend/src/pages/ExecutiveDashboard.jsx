@@ -6,6 +6,7 @@ import { Bell, Search, LogOut, MapPin, Clock, BookOpen, Phone, Users, CheckCircl
 import '../styles/Dashboard.css';
 import LeaveManagement from '../StaffAdministration/LeaveManagement';
 import AttendanceReports from '../AttendanceAndAlerts/AttendanceReports';
+import SwapRequests from '../StaffAdministration/SwapRequests';
 import Avatar from '../components/Avatar';
 
 const ExecutiveDashboard = () => {
@@ -323,6 +324,23 @@ const ExecutiveDashboard = () => {
                         }}
                     >
                         Attendance Reports
+                    </button>
+                    <button 
+                        onClick={() => setView('swaps')}
+                        style={{
+                            padding: '8px 20px',
+                            borderRadius: '8px',
+                            border: 'none',
+                            background: view === 'swaps' ? 'white' : 'transparent',
+                            color: view === 'swaps' ? '#0f172a' : '#64748b',
+                            fontSize: '13px',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            boxShadow: view === 'swaps' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                            transition: 'all 0.2s'
+                        }}
+                    >
+                        Swap Requests
                     </button>
                 </div>
 
@@ -721,6 +739,10 @@ const ExecutiveDashboard = () => {
                 ) : view === 'leaves' ? (
                     <div style={{ animation: 'fadeIn 0.5s ease-out' }}>
                         <LeaveManagement />
+                    </div>
+                ) : view === 'swaps' ? (
+                    <div style={{ animation: 'fadeIn 0.5s ease-out' }}>
+                        <SwapRequests />
                     </div>
                 ) : (
                     <div style={{ animation: 'fadeIn 0.5s ease-out' }}>

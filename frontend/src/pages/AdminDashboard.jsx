@@ -25,6 +25,7 @@ import ClassroomManagement from '../BLEDetection/ClassroomManagement';
 import StaffLocations from '../BLEDetection/StaffLocations';
 import AttendanceReports from '../AttendanceAndAlerts/AttendanceReports';
 import SystemAlerts from '../AttendanceAndAlerts/SystemAlerts';
+import SwapRequests from '../StaffAdministration/SwapRequests';
 
 const AdminDashboard = () => {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
@@ -183,6 +184,7 @@ const AdminDashboard = () => {
         { label: 'Timetable', path: '/admin/timetable', icon: <Calendar size={20} /> },
         { label: 'Attendance', path: '/admin/attendance', icon: <Clipboard size={20} /> },
         { label: 'Leave Requests', path: '/admin/leaves', icon: <Plane size={20} />, badge: pendingLeaves },
+        { label: 'Swap Requests', path: '/admin/swaps', icon: <Bell size={20} /> },
         { label: 'Alerts', path: '/admin/alerts', icon: <AlertCircle size={20} /> },
     ];
 
@@ -204,6 +206,7 @@ const AdminDashboard = () => {
                 <Route path="timetable" element={<TimetableManagement />} />
                 <Route path="attendance" element={<AttendanceReports />} />
                 <Route path="leaves" element={<LeaveManagement />} />
+                <Route path="swaps" element={<SwapRequests />} />
                 <Route path="alerts" element={<SystemAlerts />} />
                 <Route path="*" element={<Navigate to="/admin" />} />
             </Routes>
