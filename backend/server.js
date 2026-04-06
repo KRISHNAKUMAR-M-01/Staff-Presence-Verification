@@ -35,6 +35,27 @@ const { sendEmail } = require('./utils/emailService');
 // Connect to MongoDB
 connectDB();
 
+// --- TIMEZONE HELPER for Asia/Kolkata (IST) ---
+// This is critical for Render deployment as servers default to UTC.
+const getISTDateInfo = (date = new Date()) => {
+    const options = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+    const formatter = new Intl.DateTimeFormat('en-CA', options); // 'en-CA' gives YYYY-MM-DD
+    const parts = formatter.formatToParts(date);
+    const mapped = {};
+    parts.forEach(({ type, value }) => mapped[type] = value);
+    
+    const todayStr = `${mapped.year}-${mapped.month}-${mapped.day}`;
+    const currentTime = `${mapped.hour}:${mapped.minute}`;
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const currentDay = dayNames[date.getUTCDay()]; // This is actually tricky. Let's do it safer.
+    
+    // Safer Day Name for IST
+    const istDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    const currentDayName = dayNames[istDate.getDay()];
+
+    return { todayStr, currentTime, currentDay: currentDayName, istDate };
+};
+
 // ── CORS ─────────────────────────────────────────────────────────────────────
 const allowedOrigins = [
     'http://localhost:5173',
@@ -1384,11 +1405,9 @@ app.post('/api/staff/soft-beacon', authenticateToken, requireStaff, async (req, 
             return res.status(404).json({ error: 'Classroom not found.' });
         }
 
-        const now = new Date();
-        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const currentDay = days[now.getDay()];
-        const currentTime = now.toTimeString().split(' ')[0].substring(0, 5);
-        const todayStr = now.toISOString().split('T')[0];
+        const { todayStr, currentTime, currentDay, istDate } = getISTDateInfo();
+        const now = istDate; 
+
 
         console.log(`[Soft Beacon] ${staff.name} → ${classroom.room_name} at ${currentTime}`);
 
@@ -2169,8 +2188,8 @@ app.get('/api/classrooms', async (req, res) => {
 // Real-time Dashboard Stats
 app.get(['/api/admin/dashboard-stats', '/api/dashboard-stats'], authenticateToken, async (req, res) => {
     try {
-        const today = new Date().toISOString().split('T')[0];
-        const todayDate = new Date(today);
+        const { todayStr } = getISTDateInfo();
+        const todayDate = new Date(todayStr);
 
         const stats = {
             totalStaff: await Staff.countDocuments(),
@@ -2203,11 +2222,9 @@ app.get('/', (req, res) => {
 // Job 1: Notify staff 5 minutes before class
 cron.schedule('* * * * *', async () => {
     try {
-        const now = new Date();
-        const notificationTime = new Date(now.getTime() + 5 * 60000); // 5 mins from now
-        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const currentDay = days[notificationTime.getDay()];
-        const targetTime = notificationTime.toTimeString().substring(0, 5);
+        const { istDate } = getISTDateInfo();
+        const notificationTime = new Date(istDate.getTime() + 5 * 60000); // 5 mins from now IST
+        const { currentDay, currentTime: targetTime } = getISTDateInfo(notificationTime);
 
         // Find classes starting in 5 minutes
         const upcomingClasses = await Timetable.find({

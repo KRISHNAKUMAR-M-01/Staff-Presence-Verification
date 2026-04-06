@@ -37,7 +37,10 @@ const Login = () => {
             const response = await api.post('/auth/login', { email, password });
             const { token, user } = response.data;
             login(user, token);
-            navigate(user.role === 'admin' ? '/admin' : '/staff');
+            const targetPath = user.role === 'admin' ? '/admin' : 
+                               ['principal', 'secretary', 'director'].includes(user.role) ? '/executive' : 
+                               '/staff';
+            navigate(targetPath);
         } catch (err) {
             setError(err.response?.data?.error || 'Connection error.');
         } finally {
@@ -53,7 +56,10 @@ const Login = () => {
                 const response = await api.post('/auth/google-login', { access_token: tokenResponse.access_token });
                 const { token, user } = response.data;
                 login(user, token);
-                navigate(user.role === 'admin' ? '/admin' : '/staff');
+                const targetPath = user.role === 'admin' ? '/admin' : 
+                                   ['principal', 'secretary', 'director'].includes(user.role) ? '/executive' : 
+                                   '/staff';
+                navigate(targetPath);
             } catch (err) {
                 setError(err.response?.data?.error || 'Google login failed.');
             } finally {
