@@ -166,14 +166,14 @@ const AttendanceReports = () => {
 
     return (
         <div className="section">
-            <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div className="responsive-title-row">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: 0, overflow: 'hidden' }}>
                     {(selectedDept || selectedStaff || selectedRoom) && (
                         <button
                             onClick={handleBack}
                             className="back-btn"
                             style={{
-                                width: '36px', height: '36px', background: 'white',
+                                width: '36px', height: '36px', background: 'white', flexShrink: 0,
                                 border: '1px solid #e2e8f0', borderRadius: '10px',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 cursor: 'pointer', color: '#64748b'
@@ -182,21 +182,21 @@ const AttendanceReports = () => {
                             <ChevronLeft size={20} />
                         </button>
                     )}
-                    <div>
-                        <h2 className="section-title" style={{ margin: 0 }}>
+                    <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                        <h2 className="section-title" style={{ margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontSize: '20px' }}>
                             {selectedRoom ? `${selectedStaff.name} in ${selectedRoom.name}` :
                                 (selectedStaff ? selectedStaff.name : (selectedDept ? selectedDept : 'Attendance Reports'))}
                         </h2>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: '4px 0 0 0' }}>
-                            {selectedRoom ? `Class-wise logs for this location.` :
-                                (selectedStaff ? `View attendance by classroom for this staff member.` :
-                                    (selectedDept ? `Select a staff member from ${selectedDept}.` : 'Select a department to view detailed reports.'))}
+                        <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '2px 0 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {selectedRoom ? `Class-wise logs.` :
+                                (selectedStaff ? `View by classroom.` :
+                                    (selectedDept ? `Staff in ${selectedDept}.` : 'Select a department.'))}
                         </p>
                     </div>
                 </div>
 
                 {(selectedDept || selectedStaff || selectedRoom) && (
-                    <div style={{ display: 'flex', gap: '12px' }}>
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                         {!selectedStaff && !selectedRoom && (
                             <div className="search-wrapper" style={{ maxWidth: '250px' }}>
                                 <span className="icon"><Search size={18} /></span>
@@ -209,7 +209,7 @@ const AttendanceReports = () => {
                                 />
                             </div>
                         )}
-                        <button className="btn-primary" onClick={fetchAttendance} style={{ padding: '0 20px', height: '44px' }}>
+                        <button className="btn-primary" onClick={fetchAttendance} style={{ padding: '0 16px', height: '40px', fontSize: '13px' }}>
                             Refresh
                         </button>
                     </div>
@@ -261,7 +261,7 @@ const AttendanceReports = () => {
 
             {/* LEVEL 0: DEPARTMENT CARDS */}
             {!selectedDept && !selectedStaff && !selectedRoom && (
-                <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px' }}>
+                <div className="grid-adaptive-340">
                     {filteredDepts.map(dept => {
                         const records = getDeptAttendance(dept);
                         const presentCount = records.filter(r => ['Present', 'Tracking', 'Late'].includes(r.status)).length;
@@ -311,7 +311,7 @@ const AttendanceReports = () => {
 
             {/* LEVEL 1: STAFF CARDS (Inside Department) */}
             {selectedDept && !selectedStaff && !selectedRoom && (
-                <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
+                <div className="grid-adaptive-300">
                     {getStaffList().map(staff => (
                         <div
                             key={staff.id}
@@ -360,7 +360,7 @@ const AttendanceReports = () => {
 
             {/* LEVEL 2: CLASSROOM CARDS (Inside Staff) */}
             {selectedStaff && !selectedRoom && (
-                <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
+                <div className="grid-adaptive-300">
                     {getStaffClassrooms().map(room => (
                         <div
                             key={room.name}

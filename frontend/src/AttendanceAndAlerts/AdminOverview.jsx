@@ -111,7 +111,7 @@ const AdminOverview = () => {
             </div>
 
             {/* Recent Activity Header with Navigation */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', marginTop: '40px', flexWrap: 'wrap', gap: '16px' }}>
+            <div className="responsive-title-row" style={{ marginTop: '40px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     {(selectedDept || selectedStaff) && (
                         <button
@@ -169,7 +169,7 @@ const AdminOverview = () => {
 
                 {/* 1. Department List */}
                 {!selectedDept && !selectedStaff && (
-                    <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(340px, 100%), 1fr))', gap: '24px' }}>
+                    <div className="grid-adaptive-340">
                         {getDeptsMatchingSearch().map(dept => (
                             <div
                                 key={dept}
@@ -201,7 +201,7 @@ const AdminOverview = () => {
 
                 {/* 2. Staff List in Department */}
                 {selectedDept && !selectedStaff && (
-                    <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(340px, 100%), 1fr))', gap: '24px' }}>
+                    <div className="grid-adaptive-340">
                         {getStaffInDept(selectedDept).map(staff => (
                             <div
                                 key={staff._id}
@@ -239,7 +239,7 @@ const AdminOverview = () => {
 
                 {/* 3. Staff Activity History */}
                 {selectedStaff && (
-                    <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(340px, 100%), 1fr))', gap: '24px' }}>
+                    <div className="grid-adaptive-340">
                         {staffHistory.length > 0 ? (
                             staffHistory.map((item, i) => {
                                 const isPresent = item.status === 'Present';

@@ -63,9 +63,9 @@ const getISTDateInfo = (date = new Date()) => {
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
 const allowedOrigins = [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-    process.env.FRONTEND_URL, // e.g. https://staff-presence.vercel.app
+    'https://staff-presence-backend.onrender.com',
+    'https://staff-presence-verification.vercel.app',
+    process.env.FRONTEND_URL, 
 ].filter(Boolean);
 
 app.use(cors({
@@ -2639,6 +2639,6 @@ app.listen(PORT, '0.0.0.0', () => {
 
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`🔗 Local API:      http://localhost:${PORT}`);
-    console.log(`🌐 Network API:    http://${localIp}:${PORT}`);
-    console.log(`📂 React Frontend: http://localhost:5173`);
+    console.log(`🔗 API Endpoint:   https://staff-presence-backend.onrender.com/api`);
+    console.log(`📂 Live Frontend:  https://staff-presence-verification.vercel.app`);
 });

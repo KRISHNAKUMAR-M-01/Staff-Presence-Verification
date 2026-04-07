@@ -1,6 +1,6 @@
 import React from 'react';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'https://staff-presence-backend.onrender.com';
 
 /**
  * Reusable Avatar component.

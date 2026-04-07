@@ -218,14 +218,14 @@ const StaffManagement = () => {
                 onCancel={() => setConfirmConfig({ isOpen: false, id: null, name: '' })}
             />
 
-            <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div className="responsive-title-row">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1, minWidth: 0, overflow: 'hidden' }}>
                     {selectedDept && (
                         <button
                             onClick={() => { setSelectedDept(null); setSearchQuery(''); resetForm(); }}
                             className="back-btn"
                             style={{
-                                width: '36px', height: '36px', background: 'white',
+                                width: '36px', height: '36px', background: 'white', flexShrink: 0,
                                 border: '1px solid #e2e8f0', borderRadius: '10px',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 cursor: 'pointer', color: '#64748b'
@@ -234,12 +234,12 @@ const StaffManagement = () => {
                             <ChevronLeft size={20} />
                         </button>
                     )}
-                    <div>
-                        <h2 className="section-title" style={{ margin: 0 }}>
+                    <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                        <h2 className="section-title" style={{ margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {selectedDept ? selectedDept : 'Staff Management'}
                         </h2>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '14px', margin: '4px 0 0 0' }}>
-                            {selectedDept ? `Managing ${filteredStaff.length} staff members in this department.` : 'Select a department to manage its staff members.'}
+                        <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '2px 0 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {selectedDept ? `Managing ${filteredStaff.length} staff members.` : 'Select a department.'}
                         </p>
                     </div>
                 </div>
@@ -247,7 +247,7 @@ const StaffManagement = () => {
                     <span className="icon"><Search size={18} /></span>
                     <input
                         type="text"
-                        placeholder={selectedDept ? "Search within department..." : "Search staff or department..."}
+                        placeholder={selectedDept ? "Search within..." : "Search staff or dept..."}
                         className="form-input"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -258,8 +258,8 @@ const StaffManagement = () => {
             {/* Registration/Edit Form - Only visible on Root OR when explicitly editing */}
             {(editingStaff || !selectedDept) && (
                 <div className="form-card" style={{ marginBottom: '40px', borderLeft: editingStaff ? '4px solid var(--primary)' : 'none' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                        <h3 className="card-title" style={{ margin: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+                        <h3 className="card-title" style={{ margin: 0, fontSize: '18px' }}>
                             {editingStaff ? 'Edit Staff Member' : 'Register New Staff'}
                         </h3>
                         {editingStaff && (
@@ -270,9 +270,9 @@ const StaffManagement = () => {
                     </div>
 
                     <form onSubmit={handleSubmit}>
-                        <div className="form-group" style={{ marginBottom: '28px', background: '#f8fafc', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-                            <label className="form-label" style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b', marginBottom: '12px', display: 'block' }}>Staff Photo (Cloudinary)</label>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                        <div className="form-group" style={{ marginBottom: '28px', background: '#f8fafc', padding: '16px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                            <label className="form-label" style={{ fontSize: '12px', fontWeight: '800', color: '#64748b', marginBottom: '16px', display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Staff Photo (Cloudinary)</label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
                                 {previewUrl ? (
                                     <img src={previewUrl} style={{ width: '80px', height: '80px', borderRadius: '16px', objectFit: 'cover', border: '3px solid white', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
                                 ) : (
@@ -280,7 +280,7 @@ const StaffManagement = () => {
                                         {formData.name.charAt(0) || '?'}
                                     </div>
                                 )}
-                                <div style={{ flex: 1 }}>
+                                <div style={{ flex: 1, minWidth: '150px' }}>
                                     <input 
                                         type="file" 
                                         accept="image/*" 
@@ -294,10 +294,10 @@ const StaffManagement = () => {
                                         }}
                                         style={{ display: 'none' }}
                                     />
-                                    <label htmlFor="staff-photo-upload" style={{ display: 'inline-block', padding: '10px 18px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '10px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }} onMouseOver={e=>e.target.style.background='#f1f5f9'} onMouseOut={e=>e.target.style.background='#ffffff'}>
+                                    <label htmlFor="staff-photo-upload" style={{ display: 'inline-block', padding: '10px 18px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '10px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s', width: '100%', textAlign: 'center' }} onMouseOver={e=>e.target.style.background='#f1f5f9'} onMouseOut={e=>e.target.style.background='#ffffff'}>
                                         Select Photo
                                     </label>
-                                    <p style={{ fontSize: '11px', color: '#64748b', marginTop: '8px', margin: 0 }}>Upload will be permanent on Cloudinary.</p>
+                                    <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '10px', margin: 0, textAlign: 'center' }}>Upload to Cloudinary.</p>
                                 </div>
                             </div>
                         </div>
@@ -429,7 +429,7 @@ const StaffManagement = () => {
 
             {/* LEVEL 1: DEPARTMENT CARDS */}
             {!selectedDept && (
-                <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px' }}>
+                <div className="grid-adaptive-340">
                     {filteredDepts.map(dept => (
                         <div
                             key={dept}

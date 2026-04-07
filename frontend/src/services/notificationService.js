@@ -50,7 +50,7 @@ function urlBase64ToUint8Array(base64String) {
 
 export const saveSubscription = async (subscription, token) => {
     try {
-        await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000'}/api/auth/subscribe`, {
+        await fetch(`${import.meta.env.VITE_API_BASE_URL || 'https://staff-presence-backend.onrender.com'}/api/auth/subscribe`, {
             method: 'POST',
             body: JSON.stringify(subscription),
             headers: {

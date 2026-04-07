@@ -121,7 +121,7 @@ const StaffOverview = () => {
         <div className="section section-fade">
             <div className="section-header-flex" style={{ alignItems: 'flex-start', gap: '24px' }}>
                 {/* Profile Picture + Info */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                <div className="staff-profile-header">
                     <ProfilePictureUploader
                         staffName={user.name}
                         currentPicture={profilePicture}
@@ -196,7 +196,7 @@ const StaffOverview = () => {
             </div>
 
             {/* Swap & Search Panel */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+            <div className="grid-adaptive-300" style={{ marginBottom: '32px' }}>
                 {/* Virtual Beacon Panel */}
                 <div style={{ background: 'white', padding: '24px', borderRadius: '24px', border: '1px solid #f1f5f9' }}>
                     <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '800', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -341,9 +341,9 @@ const StaffOverview = () => {
 
             {/* Swap Request Modal */}
             {showSwapModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, padding: '20px' }}>
-                    <div style={{ background: 'white', borderRadius: '28px', maxWidth: '440px', width: '100%', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.2)' }}>
-                        <div style={{ padding: '32px' }}>
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, padding: '16px' }}>
+                    <div style={{ background: 'white', borderRadius: '28px', maxWidth: 'min(440px, 100%)', width: '100%', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.2)' }}>
+                        <div className="modal-compact">
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                                 <h3 style={{ fontSize: '22px', fontWeight: '800', margin: 0 }}>Urgent Swap Request</h3>
                                 <button onClick={() => setShowSwapModal(false)} style={{ border: 'none', background: '#f1f5f9', padding: '8px', borderRadius: '10px', cursor: 'pointer' }}><X size={20}/></button>

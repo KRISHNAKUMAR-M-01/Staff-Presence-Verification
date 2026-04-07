@@ -69,14 +69,16 @@ const DashboardLayout = ({ children, title, navItems, userName, themeClass, bran
             {/* Header */}
             <header className="header">
                 <div className="header-content">
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0, overflow: 'hidden' }}>
                         <button className="menu-toggle" onClick={toggleSidebar}>
                             <Menu size={20} />
                         </button>
                         <h1>{title}</h1>
                     </div>
                     <div className="header-right">
+                        <div className="header-actions">
                         {headerActions}
+                        </div>
                         <div className="user-profile">
                             <Avatar 
                                 name={userName} 

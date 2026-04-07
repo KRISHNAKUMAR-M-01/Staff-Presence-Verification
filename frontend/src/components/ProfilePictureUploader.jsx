@@ -3,7 +3,7 @@ import { Camera, Upload, Trash2, CheckCircle } from 'lucide-react';
 import api from '../services/api';
 import Avatar from './Avatar';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'http://localhost:5000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'https://staff-presence-backend.onrender.com';
 
 /**
  * ProfilePictureUploader — lets staff upload/change their own profile picture.
