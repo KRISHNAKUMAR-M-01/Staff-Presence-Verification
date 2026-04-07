@@ -112,7 +112,7 @@ const MobileVerify = () => {
             await sendHeartbeat();
             
             // Refresh every 20s (ESP32 BLE write + direct API call)
-            heartbeatRef.current = setInterval(sendHeartbeat, 12000); // 12 seconds for faster responsiveness
+            heartbeatRef.current = setInterval(sendHeartbeat, 5000); // 5 seconds for faster responsiveness
 
             setIsConnected(true);
             setIsConnecting(false);
