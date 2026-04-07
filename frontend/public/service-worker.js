@@ -154,13 +154,36 @@ self.addEventListener('fetch', event => {
         return;
     }
 
-    // 3. Network-First for App Components (Dynamic updates)
-    // Avoid caching /api/ or dev-server specific files
-    if (url.pathname.startsWith('/api/') || url.pathname.includes('chrome-extension')) {
+    // 3. Network / API Exclusions (Never cache these)
+    if (url.pathname.startsWith('/api/') || 
+        url.pathname.includes('chrome-extension') ||
+        url.origin !== self.location.origin) {
+        return; // Let the browser handle these normally (No SW interference)
+    }
+
+    // 4. Network-First for App Components (HTML, JS, CSS)
+    // This prevents "Blank Screen" issues because we always try to get the 
+    // latest index.html and JS bundles before falling back to cache.
+    if (url.origin === self.location.origin) {
+        event.respondWith(
+            fetch(event.request)
+                .then(networkResponse => {
+                    // Only cache if response is valid (e.g. 200 OK)
+                    if (networkResponse.ok) {
+                        const cacheCopy = networkResponse.clone();
+                        caches.open(CACHE_NAME).then(cache => cache.put(event.request, cacheCopy));
+                    }
+                    return networkResponse;
+                })
+                .catch(() => {
+                    // Failover to cache if network is unavailable
+                    return caches.match(event.request);
+                })
+        );
         return;
     }
 
-    // Default Cache Strategy for Images/Statics
+    // Default Cache Strategy for remaining assets (Icons, etc)
     event.respondWith(
         caches.match(event.request).then(response => {
             return response || fetch(event.request);

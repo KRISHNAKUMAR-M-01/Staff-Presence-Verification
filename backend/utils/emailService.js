@@ -1,20 +1,30 @@
 const nodemailer = require('nodemailer');
 
 // Configure the transporter
-const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
+// Configure the transporter
+const transporterOptions = {
+    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.EMAIL_PORT || 587),
-    secure: process.env.EMAIL_PORT == 465, // true for 465, false for 587 (STARTTLS)
+    secure: process.env.EMAIL_PORT == 465,
     auth: {
         user: process.env.EMAIL_USER,
-        // Automatically remove spaces from the Gmail App Password if they exist
         pass: process.env.EMAIL_PASS ? process.env.EMAIL_PASS.replace(/\s+/g, '') : ''
     },
     tls: {
-        // Essential for some cloud environments (Render) to prevent certificate handshake issues
         rejectUnauthorized: false
     }
-});
+};
+
+// If using Gmail, 'service' property is more reliable
+if (transporterOptions.host.includes('gmail.com')) {
+    transporterOptions.service = 'gmail';
+}
+
+const transporter = nodemailer.createTransport(transporterOptions);
+
+// Log configuration status (without secrets)
+console.log(`[Email] Initialized with Service: ${transporterOptions.service || 'Custom'}, Host: ${transporterOptions.host}, User: ${process.env.EMAIL_USER ? 'Present' : 'MISSING'}`);
+
 
 /**
  * Send an email

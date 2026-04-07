@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LogOut, Menu, X } from 'lucide-react';
+// Wake Lock feature to prevent phone from sleeping
+import { LogOut, Menu, X, Sun, Moon } from 'lucide-react';
 import Avatar from './Avatar';
 import '../styles/Dashboard.css';
 
@@ -9,8 +10,41 @@ const DashboardLayout = ({ children, title, navItems, userName, themeClass, bran
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isAwake, setIsAwake] = useState(false);
+    const [wakeLock, setWakeLock] = useState(null);
+
+    // Toggle Screen Wake Lock
+    const toggleWakeLock = async () => {
+        if (!isAwake) {
+            try {
+                if ('wakeLock' in navigator) {
+                    const lock = await navigator.wakeLock.request('screen');
+                    setWakeLock(lock);
+                    setIsAwake(true);
+                    
+                    lock.addEventListener('release', () => {
+                        console.log('Wake Lock was released');
+                        setIsAwake(false);
+                        setWakeLock(null);
+                    });
+                } else {
+                    alert("Your browser doesn't support the 'Stay Awake' feature.");
+                }
+            } catch (err) {
+                console.error(`${err.name}, ${err.message}`);
+                setIsAwake(false);
+            }
+        } else {
+            if (wakeLock) {
+                await wakeLock.release();
+                setWakeLock(null);
+            }
+            setIsAwake(false);
+        }
+    };
 
     const handleLogout = () => {
+        if (wakeLock) wakeLock.release();
         logout();
         navigate('/login');
     };
@@ -31,6 +65,30 @@ const DashboardLayout = ({ children, title, navItems, userName, themeClass, bran
                     </button>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {/* Stay Awake Toggle (Crucial for Mobile/BLE) */}
+                    <button 
+                        onClick={toggleWakeLock}
+                        className={`nav-link ${isAwake ? 'active' : ''}`}
+                        style={{ 
+                            border: 'none', 
+                            background: 'none', 
+                            cursor: 'pointer', 
+                            width: '100%', 
+                            textAlign: 'left',
+                            color: isAwake ? '#fff' : 'rgba(255,255,255,0.7)',
+                            backgroundColor: isAwake ? '#4ade80' : 'transparent',
+                            marginBottom: '10px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '12px 16px',
+                            borderRadius: '8px'
+                        }}
+                    >
+                        {isAwake ? <Sun size={20} color="#fff" /> : <Moon size={20} />}
+                        <span style={{ fontWeight: '600' }}>{isAwake ? 'Screen Awake: ON' : 'Keep Screen On'}</span>
+                    </button>
+
                     {navItems.map((item, index) => (
                         <NavLink
                             key={index}

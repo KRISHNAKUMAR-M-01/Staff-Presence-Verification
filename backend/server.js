@@ -40,25 +40,31 @@ connectDB();
 // --- TIMEZONE HELPER for Asia/Kolkata (IST) ---
 // This is critical for Render deployment as servers default to UTC.
 const getISTDateInfo = (date = new Date()) => {
-    // Robust way to get IST components regardless of environment locale
-    const istString = date.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
-    const istDate = new Date(istString);
+    // Force 24-hour format and specific locale for reliable parsing
+    const istOptions = { 
+        timeZone: 'Asia/Kolkata', 
+        hour12: false,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+    };
     
-    // YYYY-MM-DD
-    const y = istDate.getFullYear();
-    const m = String(istDate.getMonth() + 1).padStart(2, '0');
-    const d = String(istDate.getDate()).padStart(2, '0');
+    const formatter = new Intl.DateTimeFormat('en-US', istOptions);
+    const parts = formatter.formatToParts(date);
+    const getPart = (type) => parts.find(p => p.type === type).value;
+    
+    const y = getPart('year');
+    const m = getPart('month');
+    const d = getPart('day');
+    const hh = getPart('hour');
+    const mm = getPart('minute');
+    
     const todayStr = `${y}-${m}-${d}`;
-
-    // HH:MM
-    const hh = String(istDate.getHours()).padStart(2, '0');
-    const mm = String(istDate.getMinutes()).padStart(2, '0');
     const currentTime = `${hh}:${mm}`;
+    
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const currentDay = days[new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })).getDay()];
 
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const currentDayName = dayNames[istDate.getDay()];
-
-    return { todayStr, currentTime, currentDay: currentDayName, istDate };
+    return { todayStr, currentTime, currentDay, istDate: date };
 };
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
@@ -2283,7 +2289,7 @@ cron.schedule('* * * * *', async () => {
         const upcomingClasses = await Timetable.find({
             day_of_week: currentDay,
             start_time: targetTime
-        }).populate('staff_id', 'name phone_number').populate('classroom_id', 'room_name');
+        }).populate('staff_id', 'name department phone_number').populate('classroom_id', 'room_name');
 
         for (const cls of upcomingClasses) {
             const user = await User.findOne({ staff_id: cls.staff_id._id });
