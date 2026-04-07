@@ -21,8 +21,8 @@
 #include <numeric>
 
 // ── CONFIGURATION ──────────────────────────────────────────────────────────
-const char* ssid        = "TEC_MECH 1";
-const char* password    = "12345678";
+const char* ssid        = "Thorfinn";
+const char* password    = "12345677";
 const char* serverUrl = "https://staff-presence-backend.onrender.com/api/ble-data";
 
 const char* classroomId = "COMPUTERLAB";

@@ -910,7 +910,9 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
             const nowMs = Date.now();
             const lastSeenMs = s.last_seen_time ? new Date(s.last_seen_time).getTime() : 0;
             const signalThreshold = 75000;
-            const isLive = s.last_seen_time && (nowMs - lastSeenMs < signalThreshold);
+            
+            // Fix: Staff is ONLY live if signal was seen in the last 75s AND NOT in the future
+            const isLive = s.last_seen_time && (nowMs - lastSeenMs < signalThreshold) && (nowMs - lastSeenMs > -5000);
 
             let liveStatus = 'Scanning'; // Default status
             if (onLeave) {
