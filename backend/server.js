@@ -40,19 +40,22 @@ connectDB();
 // --- TIMEZONE HELPER for Asia/Kolkata (IST) ---
 // This is critical for Render deployment as servers default to UTC.
 const getISTDateInfo = (date = new Date()) => {
-    const options = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
-    const formatter = new Intl.DateTimeFormat('en-CA', options); // 'en-CA' gives YYYY-MM-DD
-    const parts = formatter.formatToParts(date);
-    const mapped = {};
-    parts.forEach(({ type, value }) => mapped[type] = value);
+    // Robust way to get IST components regardless of environment locale
+    const istString = date.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
+    const istDate = new Date(istString);
+    
+    // YYYY-MM-DD
+    const y = istDate.getFullYear();
+    const m = String(istDate.getMonth() + 1).padStart(2, '0');
+    const d = String(istDate.getDate()).padStart(2, '0');
+    const todayStr = `${y}-${m}-${d}`;
 
-    const todayStr = `${mapped.year}-${mapped.month}-${mapped.day}`;
-    const currentTime = `${mapped.hour}:${mapped.minute}`;
+    // HH:MM
+    const hh = String(istDate.getHours()).padStart(2, '0');
+    const mm = String(istDate.getMinutes()).padStart(2, '0');
+    const currentTime = `${hh}:${mm}`;
+
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const currentDay = dayNames[date.getUTCDay()]; // This is actually tricky. Let's do it safer.
-
-    // Safer Day Name for IST
-    const istDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
     const currentDayName = dayNames[istDate.getDay()];
 
     return { todayStr, currentTime, currentDay: currentDayName, istDate };
@@ -883,10 +886,17 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
         // 1. Get today's attendance records
         const attendanceToday = await Attendance.find({ date: todayDate }).lean();
 
+        // Get ALL of today's timetable entries (not just current slot)
+        // This lets us show the next/upcoming class even if staff is between periods
+        const allTodaySchedule = await Timetable.find({
+            day_of_week: currentDay
+        }).populate('classroom_id', 'room_name').lean();
+
+        // Also find the currently ACTIVE slot for status logic (is staff where they should be NOW)
         const currentSchedule = await Timetable.find({
             day_of_week: currentDay,
             start_time: { $lte: currentTime },
-            end_time: { $gte: currentTime }
+            end_time:   { $gte: currentTime }
         }).populate('classroom_id', 'room_name').lean();
 
         // 3. Get ALL staff members with their LIVE location
@@ -905,8 +915,25 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
 
         const staffLocations = allStaff.map(s => {
             const sid = s._id.toString();
+
+            // Current active slot (for status & location mismatch logic)
             const schedule = currentSchedule.find(t => t.staff_id.toString() === sid);
-            const onLeave = activeLeaves.find(l => l.staff_id.toString() === sid);
+            const onLeave  = activeLeaves.find(l  => l.staff_id.toString()  === sid);
+
+            // Find today's class to show: current → next upcoming → last ended
+            const todaySlots = allTodaySchedule
+                .filter(t => t.staff_id.toString() === sid)
+                .sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+            let displayClass = null;
+            if (todaySlots.length > 0) {
+                // Prefer the current active slot
+                displayClass = schedule ||
+                    // Otherwise, the next upcoming slot
+                    todaySlots.find(t => t.start_time > currentTime) ||
+                    // Otherwise, the last slot of the day
+                    todaySlots[todaySlots.length - 1];
+            }
 
             // Find if there's an active attendance tracking right now
             const staffAttendance = attendanceToday.find(a => a.staff_id.toString() === sid);
@@ -914,7 +941,7 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
             const nowMs = Date.now();
             const lastSeenMs = s.last_seen_time ? new Date(s.last_seen_time).getTime() : 0;
             const diffMs = nowMs - lastSeenMs;
-            const signalThreshold = 12000; // 120s — resilient to cloud latency
+            const signalThreshold = 10000; // 10s — resilient to cloud latency
 
             // Staff is LIVE if last_seen_time is within the threshold window
             // Note: allow small negative diff (-10s) to handle clock skew between client/server
@@ -944,7 +971,9 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
                 department: s.department,
                 is_hod: s.is_hod,
                 profile_picture: s.profile_picture,
-                expected_location: schedule ? schedule.classroom_id?.room_name : 'No Class Assigned',
+                expected_location: displayClass
+                    ? `${displayClass.classroom_id?.room_name} (${displayClass.start_time}–${displayClass.end_time})`
+                    : 'No Class Today',
                 actual_location: isLive ?
                     (s.last_seen_room?.room_name || 'Classroom') :
                     'Not in Range',
@@ -2212,7 +2241,7 @@ app.get(['/api/admin/dashboard-stats', '/api/dashboard-stats'], authenticateToke
                 status: 'Late'
             }),
             liveTrackingStaff: await Staff.countDocuments({
-                last_seen_time: { $gte: new Date(Date.now() - 12000) } // 120s — matches staff-locations threshold
+                last_seen_time: { $gte: new Date(Date.now() - 10000) } // 10s — matches staff-locations threshold
             }),
             absentOnLeave: await Leave.countDocuments({
                 status: 'approved',
@@ -2347,17 +2376,19 @@ cron.schedule('* * * * *', async () => {
 cron.schedule('* * * * *', async () => {
     try {
         const now = new Date();
+        // Use IST time to correctly match timetable start_time (stored as IST HH:MM strings)
         const checkTime = new Date(now.getTime() - 15 * 60000); // 15 mins ago
-        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const currentDay = days[checkTime.getDay()];
-        const targetTime = checkTime.toTimeString().substring(0, 5);
-        const todayStr = now.toISOString().split('T')[0];
+        const { currentDay, currentTime: targetTime, todayStr } = getISTDateInfo(checkTime);
 
-        // Find classes that started 15 minutes ago
+        // Find classes that started 15 minutes ago in IST
         const startedClasses = await Timetable.find({
             day_of_week: currentDay,
             start_time: targetTime
         }).populate('staff_id', 'name department phone_number').populate('classroom_id', 'room_name');
+
+        if (startedClasses.length > 0) {
+            console.log(`[Alert Cron] Found ${startedClasses.length} classes started at ${targetTime} IST on ${currentDay}. Checking attendance...`);
+        }
 
         for (const cls of startedClasses) {
             // Check if attendance exists
