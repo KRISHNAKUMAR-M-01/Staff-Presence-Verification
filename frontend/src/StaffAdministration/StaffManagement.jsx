@@ -9,6 +9,8 @@ const StaffManagement = () => {
     const [staff, setStaff] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [formData, setFormData] = useState({ name: '', beacon_uuid: '', department: '', email: '', password: '', is_hod: false, phone_number: '' });
+    const [profileFile, setProfileFile] = useState(null);
+    const [previewUrl, setPreviewUrl] = useState(null);
     const [editingStaff, setEditingStaff] = useState(null);
     const [selectedDept, setSelectedDept] = useState(null); // Controls drill-down
     const [showPassword, setShowPassword] = useState(false);
@@ -71,6 +73,8 @@ const StaffManagement = () => {
     const resetForm = () => {
         setFormData({ name: '', beacon_uuid: '', department: '', email: '', password: '', is_hod: false, phone_number: '' });
         setEditingStaff(null);
+        setProfileFile(null);
+        setPreviewUrl(null);
         setShowPassword(false);
     };
 
@@ -85,6 +89,8 @@ const StaffManagement = () => {
             is_hod: s.is_hod || false,
             phone_number: s.phone_number || ''
         });
+        setPreviewUrl(s.profile_picture ? (s.profile_picture.startsWith('http') ? s.profile_picture : `${import.meta.env.VITE_API_BASE_URL.replace('/api', '')}${s.profile_picture}`) : null);
+        setProfileFile(null);
         // Ensure form is visible if we're in drill-down
         if (!selectedDept) {
             setSelectedDept(s.department);
@@ -104,53 +110,32 @@ const StaffManagement = () => {
             return;
         }
 
+        const data = new FormData();
+        Object.keys(formData).forEach(key => {
+            if (key !== 'password' || formData[key]) {
+                data.append(key, formData[key]);
+            }
+        });
+        if (profileFile) data.append('profile_picture', profileFile);
+
         try {
             if (editingStaff) {
-                const updatePayload = {
-                    name: formData.name,
-                    beacon_uuid: formData.beacon_uuid,
-                    department: formData.department,
-                    is_hod: formData.is_hod,
-                    phone_number: formData.phone_number
-                };
-
-                if (formData.password) {
-                    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/;
-                    if (!passwordRegex.test(formData.password)) {
-                        setModalConfig({ isOpen: true, type: 'error', title: 'Weak Password', message: 'New password must meet complexity requirements.' });
-                        return;
-                    }
-                    updatePayload.password = formData.password;
-                }
-
-                await api.put(`/admin/staff/${editingStaff._id}`, updatePayload);
+                await api.put(`/admin/staff/${editingStaff._id}`, data);
 
                 setModalConfig({
                     isOpen: true,
                     type: 'success',
                     title: 'Staff Updated',
-                    message: `Successfully updated details for ${formData.name}${formData.password ? ' and reset their password' : ''}.`
+                    message: `Successfully updated details for ${formData.name}.`
                 });
             } else {
                 const emailRegex = /^[a-zA-Z][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
                 if (!emailRegex.test(formData.email.trim())) {
-                    setModalConfig({ isOpen: true, type: 'error', title: 'Invalid Email', message: 'Please enter a valid email address (e.g. user@domain.com). It must not start with a number and must contain a proper domain.' });
+                    setModalConfig({ isOpen: true, type: 'error', title: 'Invalid Email', message: 'Please enter a valid email address.' });
                     return;
                 }
 
-                const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])[A-Za-z\d@$!%*?&#]{8,}$/;
-                if (!passwordRegex.test(formData.password)) {
-                    setModalConfig({ isOpen: true, type: 'error', title: 'Weak Password', message: 'Password must meet complexity requirements.' });
-                    return;
-                }
-
-                const res = await api.post('/admin/staff', {
-                    name: formData.name,
-                    beacon_uuid: formData.beacon_uuid,
-                    department: formData.department,
-                    is_hod: formData.is_hod,
-                    phone_number: formData.phone_number
-                });
+                const res = await api.post('/admin/staff', data);
 
                 if (res.data.id) {
                     await api.post('/admin/register-user', {
@@ -161,7 +146,7 @@ const StaffManagement = () => {
                         name: formData.name
                     });
                 }
-
+                
                 setModalConfig({
                     isOpen: true,
                     type: 'success',
@@ -169,7 +154,6 @@ const StaffManagement = () => {
                     message: `Account for ${formData.name} has been created successfully.`
                 });
             }
-
             resetForm();
             loadStaff();
         } catch (err) {
@@ -286,6 +270,38 @@ const StaffManagement = () => {
                     </div>
 
                     <form onSubmit={handleSubmit}>
+                        <div className="form-group" style={{ marginBottom: '28px', background: '#f8fafc', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                            <label className="form-label" style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b', marginBottom: '12px', display: 'block' }}>Staff Photo (Cloudinary)</label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                                {previewUrl ? (
+                                    <img src={previewUrl} style={{ width: '80px', height: '80px', borderRadius: '16px', objectFit: 'cover', border: '3px solid white', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                                ) : (
+                                    <div style={{ width: '80px', height: '80px', borderRadius: '16px', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: '24px', fontWeight: '800' }}>
+                                        {formData.name.charAt(0) || '?'}
+                                    </div>
+                                )}
+                                <div style={{ flex: 1 }}>
+                                    <input 
+                                        type="file" 
+                                        accept="image/*" 
+                                        id="staff-photo-upload" 
+                                        onChange={(e) => {
+                                            const file = e.target.files[0];
+                                            if (file) {
+                                                setProfileFile(file);
+                                                setPreviewUrl(URL.createObjectURL(file));
+                                            }
+                                        }}
+                                        style={{ display: 'none' }}
+                                    />
+                                    <label htmlFor="staff-photo-upload" style={{ display: 'inline-block', padding: '10px 18px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '10px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }} onMouseOver={e=>e.target.style.background='#f1f5f9'} onMouseOut={e=>e.target.style.background='#ffffff'}>
+                                        Select Photo
+                                    </label>
+                                    <p style={{ fontSize: '11px', color: '#64748b', marginTop: '8px', margin: 0 }}>Upload will be permanent on Cloudinary.</p>
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="responsive-grid" style={{ marginBottom: '24px' }}>
                             <div className="form-group">
                                 <label className="form-label required-label-asterisk">Full Name</label>

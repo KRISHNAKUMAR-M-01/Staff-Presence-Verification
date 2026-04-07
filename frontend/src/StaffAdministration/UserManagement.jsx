@@ -233,6 +233,33 @@ const UserManagement = () => {
                         </div>
                     </div>
 
+                    {/* Profile Picture Upload Section */}
+                    <div className="form-group" style={{ marginBottom: '28px', background: '#f8fafc', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                        <label className="form-label" style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b', marginBottom: '12px', display: 'block' }}>Profile Picture (Cloudinary)</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                            {previewUrl ? (
+                                <img src={previewUrl} style={{ width: '80px', height: '80px', borderRadius: '16px', objectFit: 'cover', border: '3px solid white', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                            ) : (
+                                <div style={{ width: '80px', height: '80px', borderRadius: '16px', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: '24px', fontWeight: '800' }}>
+                                    {formData.name.charAt(0) || '?'}
+                                </div>
+                            )}
+                            <div style={{ flex: 1 }}>
+                                <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    id="profile-upload" 
+                                    onChange={handleFileChange}
+                                    style={{ display: 'none' }}
+                                />
+                                <label htmlFor="profile-upload" style={{ display: 'inline-block', padding: '10px 18px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '10px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }} onMouseOver={e=>e.target.style.background='#f1f5f9'} onMouseOut={e=>e.target.style.background='#ffffff'}>
+                                    Choose Photo
+                                </label>
+                                <p style={{ fontSize: '11px', color: '#64748b', marginTop: '8px', margin: 0 }}>PNG, JPG or WebP. Max 5MB.</p>
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="form-group" style={{ marginBottom: '28px' }}>
                         <label className="form-label" style={{ fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '8px', display: 'block' }}>
                             Initial Password <span style={{ color: '#dc2626' }}>*</span>
