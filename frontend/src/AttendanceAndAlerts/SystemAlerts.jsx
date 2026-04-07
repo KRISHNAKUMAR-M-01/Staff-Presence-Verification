@@ -71,6 +71,8 @@ const SystemAlerts = () => {
 
     useEffect(() => {
         fetchAlerts();
+        const interval = setInterval(fetchAlerts, 15000); // Live update every 15s
+        return () => clearInterval(interval);
     }, [fetchAlerts]);
 
     const handleCustomChange = (name, value) => {

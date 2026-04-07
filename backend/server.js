@@ -2410,8 +2410,8 @@ cron.schedule('* * * * *', async () => {
                 });
 
                 // 2. Notify Admins
-                const admins = await User.find({ role: { $in: ['admin', 'principal', 'secretary', 'director'] } });
-                for (const admin of admins) {
+                const adminsList = await User.find({ role: { $in: ['admin', 'principal', 'secretary', 'director'] } });
+                for (const admin of adminsList) {
                     const adminNotifData = {
                         recipient_id: admin._id,
                         title: 'Staff Absence Warning',
@@ -2419,8 +2419,16 @@ cron.schedule('* * * * *', async () => {
                         type: 'absence_warning'
                     };
                     await Notification.create(adminNotifData);
+                    console.log(`[Alert Cron] Created system notification for Admin: ${admin.email}`);
+
+                    // Send Email to Principal/Secretary/Director (only these high roles to avoid spam)
+                    if (['principal', 'secretary', 'director'].includes(admin.role)) {
+                        console.log(`[Alert Cron] Attempting to send absence email to executive: ${admin.email}...`);
+                        await sendEmail(admin.email, 'Staff Absence Urgent Alert', alertMessage);
+                    }
 
                     if (admin.pushSubscription) {
+                        console.log(`[Alert Cron] Sending Push to admin: ${admin.email}`);
                         await sendPushNotification(admin.pushSubscription, {
                             title: adminNotifData.title,
                             body: adminNotifData.message,
@@ -2437,8 +2445,10 @@ cron.schedule('* * * * *', async () => {
                     // Find User account for this HOD
                     const hodUser = await User.findOne({ staff_id: hod._id });
                     if (hodUser) {
+                        console.log(`[Alert Cron] Attempting to send absence email to HOD: ${hodUser.email}...`);
                         // Send Email to HOD
                         await sendEmail(hodUser.email, 'Department Absence Warning', `HOD Alert: Staff ${cls.staff_id.name} is absent for class in ${cls.classroom_id.room_name}.`);
+                        console.log(`[Alert Cron] HOD email processed for ${hodUser.email}`);
 
                         const hodNotifData = {
                             recipient_id: hodUser._id,
