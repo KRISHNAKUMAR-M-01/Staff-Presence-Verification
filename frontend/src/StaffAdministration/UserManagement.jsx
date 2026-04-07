@@ -227,7 +227,6 @@ const UserManagement = () => {
                                 title="Enter a valid email address (e.g. user@domain.com)"
                                 value={formData.email}
                                 onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                onKeyDown={(e) => { if (/^\d$/.test(e.key)) e.preventDefault(); }}
                                 style={{ fontSize: '14px' }}
                                 required
                             />

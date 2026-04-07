@@ -362,7 +362,6 @@ const StaffManagement = () => {
                                             type="email"
                                             value={formData.email}
                                             onChange={e => setFormData({ ...formData, email: e.target.value })}
-                                            onKeyDown={(e) => { if (/^\d$/.test(e.key)) e.preventDefault(); }}
                                             pattern="^[a-zA-Z][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
                                             title="Enter a valid email address (e.g. user@domain.com)"
                                             required
