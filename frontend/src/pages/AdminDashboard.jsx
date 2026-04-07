@@ -25,13 +25,12 @@ import ClassroomManagement from '../BLEDetection/ClassroomManagement';
 import StaffLocations from '../BLEDetection/StaffLocations';
 import AttendanceReports from '../AttendanceAndAlerts/AttendanceReports';
 import SystemAlerts from '../AttendanceAndAlerts/SystemAlerts';
-import SwapRequests from '../StaffAdministration/SwapRequests';
+
 
 const AdminDashboard = () => {
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const [unreadCount, setUnreadCount] = useState(0);
     const [pendingLeaves, setPendingLeaves] = useState(0);
-    const [pendingSwapsCount, setPendingSwapsCount] = useState(0);
     const [notifs, setNotifs] = useState([]);
     const [showNotifs, setShowNotifs] = useState(false);
 
@@ -48,14 +47,6 @@ const AdminDashboard = () => {
             // For Admin (Step 2), pending means approved by Principal/Executive but not yet finalized
             const pending = res.data.filter(l => l.status === 'approved_by_principal').length;
             setPendingLeaves(pending);
-        } catch (err) { console.error(err); }
-    };
-
-    const loadPendingSwaps = async () => {
-        try {
-            const res = await api.get('/admin/swap-requests');
-            const pending = res.data.filter(s => s.status === 'pending').length;
-            setPendingSwapsCount(pending);
         } catch (err) { console.error(err); }
     };
 
@@ -81,11 +72,9 @@ const AdminDashboard = () => {
     useEffect(() => {
         loadUnreadCount();
         loadPendingLeaves();
-        loadPendingSwaps();
         const interval = setInterval(() => {
             loadUnreadCount();
             loadPendingLeaves();
-            loadPendingSwaps();
         }, 30000);
         return () => clearInterval(interval);
     }, []);
@@ -160,24 +149,6 @@ const AdminDashboard = () => {
                                 <div style={{ fontSize: '13px', fontWeight: '600' }}>{n.title}</div>
                                 <div style={{ fontSize: '12px', color: '#64748b' }}>{n.message}</div>
                                 <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '4px' }}>{new Date(n.createdAt).toLocaleString()}</div>
-                                
-                                {n.type === 'swap_request' && n.title.includes('Urgent') && !n.is_read && (
-                                    <button 
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            api.put(`/admin/swap-request/${n.related_data.swapRequestId}/approve`)
-                                                .then(res => {
-                                                    alert(res.data.message);
-                                                    markAsRead(n._id);
-                                                }).catch(err => {
-                                                    alert(err.response?.data?.error || 'Failed to approve swap request');
-                                                });
-                                        }}
-                                        style={{ marginTop: '8px', padding: '6px 12px', background: '#097969', color: 'white', border: 'none', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer' }}
-                                    >
-                                        Approve Swap
-                                    </button>
-                                )}
                             </div>
                         )) : <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8' }}>No alerts</div>}
                     </div>
@@ -195,7 +166,6 @@ const AdminDashboard = () => {
         { label: 'Timetable', path: '/admin/timetable', icon: <Calendar size={20} /> },
         { label: 'Attendance', path: '/admin/attendance', icon: <Clipboard size={20} /> },
         { label: 'Leave Requests', path: '/admin/leaves', icon: <Plane size={20} />, badge: pendingLeaves },
-        { label: 'Swap Requests', path: '/admin/swaps', icon: <Bell size={20} />, badge: pendingSwapsCount },
         { label: 'Alerts', path: '/admin/alerts', icon: <AlertCircle size={20} /> },
     ];
 
@@ -217,7 +187,6 @@ const AdminDashboard = () => {
                 <Route path="timetable" element={<TimetableManagement />} />
                 <Route path="attendance" element={<AttendanceReports />} />
                 <Route path="leaves" element={<LeaveManagement />} />
-                <Route path="swaps" element={<SwapRequests />} />
                 <Route path="alerts" element={<SystemAlerts />} />
                 <Route path="*" element={<Navigate to="/admin" />} />
             </Routes>

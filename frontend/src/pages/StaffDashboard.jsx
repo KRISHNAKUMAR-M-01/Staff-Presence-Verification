@@ -31,6 +31,9 @@ const StaffDashboard = () => {
     const [swapReason, setSwapReason] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
+    const [freeStaff, setFreeStaff] = useState([]);
+    const [searching, setSearching] = useState(false);
+
     const loadUnreadCount = async () => {
         try {
             const res = await api.get('/staff/notifications/unread-count');
@@ -38,30 +41,30 @@ const StaffDashboard = () => {
         } catch (e) { console.error(e); }
     };
 
-    const toggleNotifs = async () => {
-        if (!showNotifs) {
-            try {
-                const res = await api.get('/staff/notifications');
-                setNotifs(res.data);
-            } catch (e) { console.error(e); }
-        }
-        setShowNotifs(!showNotifs);
-    };
-
-    const markAsRead = async (id) => {
+    const findFreeStaff = async (roomId) => {
+        if (!roomId) return;
+        setSearching(true);
         try {
-            await api.put(`/staff/notifications/${id}/read`);
-            loadUnreadCount();
-            const res = await api.get('/staff/notifications');
-            setNotifs(res.data);
-        } catch (e) { console.error(e); }
+            const res = await api.get('/staff/find-free-staff');
+            setFreeStaff(res.data);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setSearching(false);
+        }
     };
 
-    const handleSwapRequest = async () => {
-        if (!selectedRoomId || !swapReason) return alert('Please select a room and provide a reason.');
+    const handleRoomChange = (roomId) => {
+        setSelectedRoomId(roomId);
+        findFreeStaff(roomId);
+    };
+
+    const handlePeerRequest = async (targetStaffId) => {
+        if (!swapReason) return alert('Please provide a reason for the substitution.');
         setSubmitting(true);
         try {
-            const res = await api.post('/staff/swap-request', {
+            const res = await api.post('/api/staff/request-substitution', {
+                target_staff_id: targetStaffId,
                 classroom_id: selectedRoomId,
                 reason: swapReason
             });
@@ -69,6 +72,7 @@ const StaffDashboard = () => {
             setShowSwapModal(false);
             setSwapReason('');
             setSelectedRoomId('');
+            setFreeStaff([]);
         } catch (err) {
             alert(err.response?.data?.error || 'Failed to send request.');
         } finally {
@@ -108,7 +112,7 @@ const StaffDashboard = () => {
                     transition: 'all 0.2s'
                 }}
             >
-                Swap Class
+                Assign Substitute
             </button>
 
             <div style={{ position: 'relative' }}>
@@ -232,42 +236,68 @@ const StaffDashboard = () => {
 
             {showSwapModal && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-                    <div style={{ background: 'white', borderRadius: '28px', maxWidth: 'min(440px, 100%)', width: '100%', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
-                        <div className="modal-compact">
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                <h3 style={{ fontSize: '22px', fontWeight: '800', margin: 0 }}>Urgent Swap Request</h3>
-                                <button onClick={() => setShowSwapModal(false)} style={{ border: 'none', background: '#f1f5f9', padding: '8px', borderRadius: '10px', cursor: 'pointer' }}><X size={20}/></button>
+                    <div style={{ background: 'white', borderRadius: '28px', maxWidth: 'min(500px, 100%)', width: '100%', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
+                        <div className="modal-compact" style={{ padding: '32px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                                <div>
+                                    <h3 style={{ fontSize: '24px', fontWeight: '800', margin: 0 }}>Find Substitute</h3>
+                                    <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '14px' }}>Search for free colleagues to cover your class</p>
+                                </div>
+                                <button onClick={() => setShowSwapModal(false)} style={{ border: 'none', background: '#f1f5f9', padding: '10px', borderRadius: '12px', cursor: 'pointer' }}><X size={20}/></button>
                             </div>
-                            <p style={{ fontSize: '15px', color: '#64748b', lineHeight: '1.6', marginBottom: '24px' }}>Request permission for an urgent swap. On approval, you can search for substitutes.</p>
-                            
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                                 <CustomSelect 
-                                    label="Select Classroom"
+                                    label="Select Your Classroom"
                                     options={classrooms.map(c => ({ label: c.room_name, value: c._id }))}
                                     value={selectedRoomId}
-                                    onChange={setSelectedRoomId}
-                                    placeholder="Choose room..."
+                                    onChange={handleRoomChange}
+                                    placeholder="Which class needs cover?"
                                     required
                                 />
 
-                            <div style={{ marginTop: '20px' }}>
-                                <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '8px' }}>Reason for Urgency</label>
-                                <textarea 
-                                    placeholder="E.g. Medical emergency, urgent family matter..."
-                                    value={swapReason}
-                                    onChange={(e) => setSwapReason(e.target.value)}
-                                    style={{ width: '100%', padding: '16px', borderRadius: '16px', border: '1.5px solid #e2e8f0', minHeight: '100px', outline: 'none', fontSize: '14px', fontWeight: '500' }}
-                                />
+                                <div>
+                                    <label style={{ fontSize: '13px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '8px' }}>Reason for Urgency</label>
+                                    <textarea 
+                                        placeholder="Reason for requesting substitution..."
+                                        value={swapReason}
+                                        onChange={(e) => setSwapReason(e.target.value)}
+                                        style={{ width: '100%', padding: '16px', borderRadius: '16px', border: '1.5px solid #e2e8f0', minHeight: '80px', outline: 'none', fontSize: '14px', fontWeight: '500', resize: 'none' }}
+                                    />
+                                </div>
+
+                                {selectedRoomId && (
+                                    <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '20px', border: '1px solid #e2e8f0' }}>
+                                        <h4 style={{ margin: '0 0 16px 0', fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>Available Staff (Free Now)</h4>
+                                        
+                                        {searching ? (
+                                            <div style={{ textAlign: 'center', padding: '10px', color: '#64748b', fontSize: '14px' }}>Searching...</div>
+                                        ) : freeStaff.length > 0 ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '200px', overflowY: 'auto' }}>
+                                                {freeStaff.map(s => (
+                                                    <div key={s._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: '12px 16px', borderRadius: '12px', border: '1px solid #f1f5f9' }}>
+                                                        <div>
+                                                            <div style={{ fontWeight: '700', fontSize: '14px' }}>{s.name}</div>
+                                                            <div style={{ fontSize: '11px', color: '#64748b' }}>{s.department}</div>
+                                                        </div>
+                                                        <button 
+                                                            disabled={submitting}
+                                                            onClick={() => handlePeerRequest(s._id)}
+                                                            style={{ padding: '8px 16px', background: '#097969', color: 'white', border: 'none', borderRadius: '10px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
+                                                        >
+                                                            Request
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div style={{ textAlign: 'center', padding: '10px', color: '#ef4444', fontSize: '13px', fontWeight: '600' }}>No free staff found for this slot.</div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
-                            <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
-                                <button onClick={() => setShowSwapModal(false)} style={{ flex: 1, padding: '14px', borderRadius: '14px', border: 'none', background: '#f1f5f9', fontWeight: '700', cursor: 'pointer', color: '#475569' }}>Cancel</button>
-                                <button 
-                                    onClick={handleSwapRequest}
-                                    style={{ flex: 2, padding: '14px', borderRadius: '14px', border: 'none', background: '#097969', color: 'white', fontWeight: '700', cursor: 'pointer', boxShadow: '0 10px 15px -3px rgba(9, 121, 105, 0.3)' }}
-                                >
-                                    {submitting ? 'Sending...' : 'Send Request'}
-                                </button>
-                            </div>
+                            <button onClick={() => setShowSwapModal(false)} style={{ width: '100%', marginTop: '24px', padding: '16px', borderRadius: '16px', border: 'none', background: '#f1f5f9', fontWeight: '700', cursor: 'pointer', color: '#475569' }}>Close</button>
                         </div>
                     </div>
                 </div>
