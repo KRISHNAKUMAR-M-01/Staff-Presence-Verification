@@ -12,7 +12,17 @@ const UserManagement = () => {
     });
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [profileFile, setProfileFile] = useState(null);
+    const [previewUrl, setPreviewUrl] = useState(null);
     const [modalConfig, setModalConfig] = useState({ isOpen: false, type: 'success', title: '', message: '' });
+
+    const handleFileChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setProfileFile(file);
+            setPreviewUrl(URL.createObjectURL(file));
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -41,12 +51,16 @@ const UserManagement = () => {
 
         setLoading(true);
         try {
-            await api.post('/admin/register-user', {
-                email: formData.email,
-                password: formData.password,
-                role: formData.role,
-                name: formData.name
-            });
+            const data = new FormData();
+            data.append('email', formData.email.trim());
+            data.append('password', formData.password);
+            data.append('role', formData.role);
+            data.append('name', formData.name);
+            if (profileFile) {
+                data.append('profile_picture', profileFile);
+            }
+
+            await api.post('/admin/register-user', data);
             setModalConfig({
                 isOpen: true,
                 type: 'success',
@@ -54,6 +68,8 @@ const UserManagement = () => {
                 message: `The ${formData.role} account for ${formData.name} has been successfully provisioned.`
             });
             setFormData({ name: '', email: '', password: '', role: 'admin' });
+            setProfileFile(null);
+            setPreviewUrl(null);
         } catch (err) {
             setModalConfig({
                 isOpen: true,

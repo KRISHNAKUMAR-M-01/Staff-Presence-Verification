@@ -547,9 +547,10 @@ app.get('/api/staff/me', authenticateToken, requireStaff, async (req, res) => {
 
 
 // Register new user (Admin only)
-app.post('/api/admin/register-user', authenticateToken, requireAdmin, async (req, res) => {
+app.post('/api/admin/register-user', authenticateToken, requireAdmin, uploadProfile.single('profile_picture'), async (req, res) => {
     try {
         const { email, password, role, staff_id, name } = req.body;
+        const profile_picture = req.file ? req.file.path : null;
 
         // Validation: must be a valid email format
         const emailRegex = /^[a-zA-Z][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
@@ -577,7 +578,7 @@ app.post('/api/admin/register-user', authenticateToken, requireAdmin, async (req
             }
         }
 
-        const user = new User({ email, password, role, staff_id, name });
+        const user = new User({ email, password, role, staff_id, name, profile_picture });
         await user.save();
 
         res.json({
@@ -605,10 +606,11 @@ app.get('/api/admin/staff', authenticateToken, requireAdmin, async (req, res) =>
 });
 
 // Register new staff (Admin only)
-app.post('/api/admin/staff', authenticateToken, requireAdmin, async (req, res) => {
+app.post('/api/admin/staff', authenticateToken, requireAdmin, uploadProfile.single('profile_picture'), async (req, res) => {
     try {
         const { name, beacon_uuid, department, is_hod, phone_number } = req.body;
-        const staff = new Staff({ name, beacon_uuid, department, is_hod, phone_number });
+        const profile_picture = req.file ? req.file.path : null;
+        const staff = new Staff({ name, beacon_uuid, department, is_hod, phone_number, profile_picture });
         await staff.save();
         res.json({ id: staff._id, message: 'Staff registered successfully' });
     } catch (err) {
@@ -634,14 +636,16 @@ app.delete('/api/admin/staff/:id', authenticateToken, requireAdmin, async (req, 
 });
 
 // Update staff (Admin only)
-app.put('/api/admin/staff/:id', authenticateToken, requireAdmin, async (req, res) => {
+app.put('/api/admin/staff/:id', authenticateToken, requireAdmin, uploadProfile.single('profile_picture'), async (req, res) => {
     try {
         const { name, beacon_uuid, department, is_hod, phone_number, password } = req.body;
+        const updateData = { name, beacon_uuid, department, is_hod, phone_number };
+        if (req.file) updateData.profile_picture = req.file.path;
 
         // 1. Update Staff metadata
         const staff = await Staff.findByIdAndUpdate(
             req.params.id,
-            { name, beacon_uuid, department, is_hod, phone_number },
+            updateData,
             { new: true }
         );
         if (!staff) {
