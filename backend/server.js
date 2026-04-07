@@ -45,12 +45,12 @@ const getISTDateInfo = (date = new Date()) => {
     const parts = formatter.formatToParts(date);
     const mapped = {};
     parts.forEach(({ type, value }) => mapped[type] = value);
-    
+
     const todayStr = `${mapped.year}-${mapped.month}-${mapped.day}`;
     const currentTime = `${mapped.hour}:${mapped.minute}`;
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const currentDay = dayNames[date.getUTCDay()]; // This is actually tricky. Let's do it safer.
-    
+
     // Safer Day Name for IST
     const istDate = new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
     const currentDayName = dayNames[istDate.getDay()];
@@ -159,7 +159,7 @@ async function isStaffPermitted(staffId, classroomId) {
 
     if (scheduledSlot) {
         const scheduledStaffId = scheduledSlot.staff_id;
-        
+
         // Is the scheduled staff on Leave?
         const onLeave = await Leave.findOne({
             staff_id: scheduledStaffId,
@@ -319,14 +319,14 @@ app.post('/api/auth/google-login', async (req, res) => {
 
         // Handle possible email formats (normalized)
         const normalizedEmail = email.trim().toLowerCase();
-        
+
         // Find user by normalized Google email
         const user = await User.findOne({ email: normalizedEmail }).populate('staff_id');
 
         if (!user) {
             console.log('❌ Google email not registered in local system');
-            return res.status(401).json({ 
-                error: 'Your Google email is not registered. Please contact the administrator.' 
+            return res.status(401).json({
+                error: 'Your Google email is not registered. Please contact the administrator.'
             });
         }
 
@@ -410,7 +410,7 @@ app.post('/api/auth/verify-otp', async (req, res) => {
         const { email, otp } = req.body;
         if (!email || !otp) return res.status(400).json({ error: 'Email and OTP are required' });
 
-        const user = await User.findOne({ 
+        const user = await User.findOne({
             email: email.trim().toLowerCase(),
             resetPasswordOTP: otp,
             resetPasswordExpires: { $gt: Date.now() }
@@ -440,7 +440,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
             return res.status(400).json({ error: 'New password must be at least 8 characters long and include uppercase, lowercase, a number, and a special character.' });
         }
 
-        const user = await User.findOne({ 
+        const user = await User.findOne({
             email: email.trim().toLowerCase(),
             resetPasswordOTP: otp,
             resetPasswordExpires: { $gt: Date.now() }
@@ -454,7 +454,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
         user.password = newPassword;
         user.resetPasswordOTP = null;
         user.resetPasswordExpires = null;
-        
+
         await user.save();
 
         res.json({ message: 'Password reset successfully. You can now log in with your new password.' });
@@ -820,11 +820,11 @@ app.post('/api/admin/timetable/bulk', authenticateToken, requireAdmin, async (re
         // ONLY delete the days that are present in the new schedule payload.
         // This allows Incremental Saving (e.g. saving just Monday without wiping Tuesday).
         const daysToReset = [...new Set(schedule.map(item => item.day_of_week))];
-        
+
         if (daysToReset.length > 0) {
-            await Timetable.deleteMany({ 
-                classroom_id: classroom_id, 
-                day_of_week: { $in: daysToReset } 
+            await Timetable.deleteMany({
+                classroom_id: classroom_id,
+                day_of_week: { $in: daysToReset }
             });
         }
 
@@ -849,9 +849,9 @@ app.post('/api/admin/timetable/bulk', authenticateToken, requireAdmin, async (re
         }
 
         console.log(`📡 [Bulk Timetable] Room: ${classroom_id}, Items: ${schedule.length}, Days Reset: ${daysToReset.join(', ')}`);
-        res.json({ 
-            message: `Successfully updated ${insertedDocs.length} entries for ${daysToReset.join(', ')}`, 
-            count: insertedDocs.length 
+        res.json({
+            message: `Successfully updated ${insertedDocs.length} entries for ${daysToReset.join(', ')}`,
+            count: insertedDocs.length
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -907,22 +907,22 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
             const sid = s._id.toString();
             const schedule = currentSchedule.find(t => t.staff_id.toString() === sid);
             const onLeave = activeLeaves.find(l => l.staff_id.toString() === sid);
-            
+
             // Find if there's an active attendance tracking right now
             const staffAttendance = attendanceToday.find(a => a.staff_id.toString() === sid);
 
             const nowMs = Date.now();
             const lastSeenMs = s.last_seen_time ? new Date(s.last_seen_time).getTime() : 0;
             const diffMs = nowMs - lastSeenMs;
-            const signalThreshold = 120000; // 120s — resilient to cloud latency
-            
+            const signalThreshold = 12000; // 120s — resilient to cloud latency
+
             // Staff is LIVE if last_seen_time is within the threshold window
             // Note: allow small negative diff (-10s) to handle clock skew between client/server
             const isLive = s.last_seen_time && diffMs < signalThreshold && diffMs > -10000;
-            
+
             // Debug log for troubleshooting (prints only when recently seen)
             if (lastSeenMs > 0) {
-                console.log(`[Locations] ${s.name}: lastSeen=${new Date(lastSeenMs).toISOString()}, diff=${Math.round(diffMs/1000)}s, isLive=${isLive}`);
+                console.log(`[Locations] ${s.name}: lastSeen=${new Date(lastSeenMs).toISOString()}, diff=${Math.round(diffMs / 1000)}s, isLive=${isLive}`);
             }
 
             let liveStatus = 'Scanning'; // Default status
@@ -945,15 +945,15 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
                 is_hod: s.is_hod,
                 profile_picture: s.profile_picture,
                 expected_location: schedule ? schedule.classroom_id?.room_name : 'No Class Assigned',
-                actual_location: isLive ? 
-                                 (s.last_seen_room?.room_name || 'Classroom') : 
-                                 'Not in Range',
+                actual_location: isLive ?
+                    (s.last_seen_room?.room_name || 'Classroom') :
+                    'Not in Range',
                 status: liveStatus,
                 check_in_time: s.last_seen_time || null,
                 last_seen_location: s.last_seen_room?.room_name || 'Not in Range',
-                is_correct_location: schedule ? 
-                                     (isLive && s.last_seen_room?._id?.toString() === schedule.classroom_id?._id?.toString()) : 
-                                     true
+                is_correct_location: schedule ?
+                    (isLive && s.last_seen_room?._id?.toString() === schedule.classroom_id?._id?.toString()) :
+                    true
             };
         });
 
@@ -1120,7 +1120,7 @@ app.get('/api/admin/dashboard-stats', authenticateToken, requireAdmin, async (re
         // Calculate live tracking staffs
         const attendance = await Attendance.find({ date: todayDate }).sort({ check_in_time: -1 });
         const allStaff = await Staff.find().select('_id');
-        
+
         const now = new Date();
         const signalThreshold = 5 * 60 * 1000; // 5 minutes in ms
         let liveTrackingCount = 0;
@@ -1156,7 +1156,7 @@ app.get('/api/admin/dashboard-stats', authenticateToken, requireAdmin, async (re
                 status: 'Late'
             }),
             pendingLeaves: await Leave.countDocuments({ status: 'pending' }),
-            
+
             // New fields
             liveTrackingStaff: liveTrackingCount,
             absentOnLeave: absentStaff
@@ -1217,7 +1217,7 @@ app.put('/api/admin/leaves/:id', authenticateToken, (req, res, next) => {
     try {
         const { status, admin_notes, principal_notes } = req.body;
         const userRole = req.user.role;
-        
+
         const leave = await Leave.findById(req.params.id).populate('staff_id', 'name');
         if (!leave) {
             return res.status(404).json({ error: 'Leave request not found' });
@@ -1234,7 +1234,7 @@ app.put('/api/admin/leaves/:id', authenticateToken, (req, res, next) => {
             leave.status = newStatus;
             if (principal_notes) leave.principal_notes = principal_notes;
             leave.approved_by = req.user._id; // Track who last acted on it
-        } 
+        }
         // Admin Approval Step (Final)
         else if (userRole === 'admin') {
             if (status === 'approved') {
@@ -1258,7 +1258,7 @@ app.put('/api/admin/leaves/:id', authenticateToken, (req, res, next) => {
         if (user) {
             let title = 'Leave Request Update';
             let message = `Your leave request status is now: ${newStatus.replace(/_/g, ' ')}`;
-            
+
             if (newStatus === 'approved_by_principal') {
                 title = 'Leave Approved by Executive';
                 message = `Your leave request has been approved by the Executive and is now pending final Admin approval.`;
@@ -1443,9 +1443,9 @@ app.post('/api/staff/soft-beacon', authenticateToken, requireStaff, async (req, 
 
         // 5. Find or create today's attendance record for this staff+classroom
         let attendance = await Attendance.findOne({
-            staff_id:     staff._id,
+            staff_id: staff._id,
             classroom_id: classroom._id,
-            date:         new Date(todayStr)
+            date: new Date(todayStr)
         });
 
         if (attendance) {
@@ -1453,7 +1453,7 @@ app.post('/api/staff/soft-beacon', authenticateToken, requireStaff, async (req, 
             if (attendance.status === 'Absent') attendance.status = 'Tracking';
             await attendance.save();
 
-            const durationMs      = attendance.last_seen_time - attendance.check_in_time;
+            const durationMs = attendance.last_seen_time - attendance.check_in_time;
             const durationMinutes = durationMs / (1000 * 60);
 
             if (durationMinutes >= 25 && attendance.status === 'Tracking') {
@@ -1461,7 +1461,7 @@ app.post('/api/staff/soft-beacon', authenticateToken, requireStaff, async (req, 
 
                 if (slot) {
                     const startTimeDate = new Date(`${todayStr}T${slot.start_time}:00`);
-                    const arrivalDiff   = (attendance.check_in_time - startTimeDate) / (1000 * 60);
+                    const arrivalDiff = (attendance.check_in_time - startTimeDate) / (1000 * 60);
                     if (arrivalDiff > parseInt(process.env.TIME_WINDOW_MINUTES || 15)) {
                         newStatus = 'Late';
                     }
@@ -1484,29 +1484,29 @@ app.post('/api/staff/soft-beacon', authenticateToken, requireStaff, async (req, 
             }
 
             return res.json({
-                status:             'updated',
-                message:            `Soft beacon heartbeat recorded. Duration: ${Math.round(durationMinutes)}m`,
-                attendance_status:  attendance.status,
-                duration_minutes:   Math.round(durationMinutes)
+                status: 'updated',
+                message: `Soft beacon heartbeat recorded. Duration: ${Math.round(durationMinutes)}m`,
+                attendance_status: attendance.status,
+                duration_minutes: Math.round(durationMinutes)
             });
 
         } else {
             // First heartbeat of the day — start tracking
             attendance = new Attendance({
-                staff_id:       staff._id,
-                classroom_id:   classroom._id,
-                check_in_time:  now,
+                staff_id: staff._id,
+                classroom_id: classroom._id,
+                check_in_time: now,
                 last_seen_time: now,
-                status:         'Tracking',
-                date:           new Date(todayStr)
+                status: 'Tracking',
+                date: new Date(todayStr)
             });
             await attendance.save();
 
             return res.json({
-                status:            'started',
-                message:           'Soft beacon: Attendance tracking started.',
+                status: 'started',
+                message: 'Soft beacon: Attendance tracking started.',
                 attendance_status: 'Tracking',
-                duration_minutes:  0
+                duration_minutes: 0
             });
         }
 
@@ -1540,8 +1540,8 @@ app.post('/api/staff/verify-location', authenticateToken, requireStaffOrExecutiv
         // 1b. Verify permission
         const permission = await isStaffPermitted(req.user.staff_id, classroom._id);
         if (!permission.permitted) {
-            return res.status(403).json({ 
-                error: `Not permitted: You have no scheduled class in ${classroom.room_name} and have not been authorized for substitution.` 
+            return res.status(403).json({
+                error: `Not permitted: You have no scheduled class in ${classroom.room_name} and have not been authorized for substitution.`
             });
         }
 
@@ -1569,9 +1569,9 @@ app.post('/api/staff/verify-location', authenticateToken, requireStaffOrExecutiv
         staffCache.delete(staff._id.toString());
 
         let attendance = await Attendance.findOne({
-            staff_id:     staff._id,
+            staff_id: staff._id,
             classroom_id: classroom._id,
-            date:         new Date(todayStr)
+            date: new Date(todayStr)
         });
 
         if (attendance) {
@@ -1675,7 +1675,7 @@ app.post('/api/staff/leave', authenticateToken, requireStaff, async (req, res) =
         const principals = await User.find({ role: 'principal' });
         const staff = await Staff.findById(req.user.staff_id);
         const staffName = staff ? staff.name : req.user.name;
-        
+
         // Also notify admins but they shouldn't act yet? User said "first sent to the principal"
         // Let's notify both but maybe emphasize Principal
         const recipients = await User.find({ role: { $in: ['admin', 'principal'] } });
@@ -1818,7 +1818,7 @@ app.put('/api/admin/swap-request/:id/approve', authenticateToken, (req, res, nex
     try {
         const swapReq = await SwapRequest.findById(req.params.id);
         if (!swapReq) return res.status(404).json({ error: 'Swap request not found.' });
-        
+
         swapReq.status = 'approved';
         await swapReq.save();
 
@@ -1833,7 +1833,7 @@ app.put('/api/admin/swap-request/:id/approve', authenticateToken, (req, res, nex
                 related_data: { swapRequestId: swapReq._id }
             };
             Notification.create(notifData);
-            
+
             if (staffUser.pushSubscription) {
                 sendPushNotification(staffUser.pushSubscription, {
                     title: notifData.title,
@@ -1860,7 +1860,7 @@ app.put('/api/admin/swap-request/:id/reject', authenticateToken, (req, res, next
     try {
         const swapReq = await SwapRequest.findById(req.params.id);
         if (!swapReq) return res.status(404).json({ error: 'Swap request not found.' });
-        
+
         swapReq.status = 'rejected';
         await swapReq.save();
 
@@ -1896,7 +1896,7 @@ app.get('/api/admin/swap-requests', authenticateToken, (req, res, next) => {
             .populate('substitute_staff_id', 'name')
             .sort({ createdAt: -1 }); // Better to sort by createdAt for most recent first
         res.json(swaps);
-    } catch(err) {
+    } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
@@ -2212,7 +2212,7 @@ app.get(['/api/admin/dashboard-stats', '/api/dashboard-stats'], authenticateToke
                 status: 'Late'
             }),
             liveTrackingStaff: await Staff.countDocuments({
-                last_seen_time: { $gte: new Date(Date.now() - 120000) } // 120s — matches staff-locations threshold
+                last_seen_time: { $gte: new Date(Date.now() - 12000) } // 120s — matches staff-locations threshold
             }),
             absentOnLeave: await Leave.countDocuments({
                 status: 'approved',
@@ -2587,7 +2587,7 @@ app.listen(PORT, '0.0.0.0', () => {
     const os = require('os');
     const nets = os.networkInterfaces();
     let localIp = 'localhost';
-    
+
     for (const name of Object.keys(nets)) {
         for (const net of nets[name]) {
             if (net.family === 'IPv4' && !net.internal) {
