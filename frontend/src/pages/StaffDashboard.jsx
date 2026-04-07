@@ -41,6 +41,25 @@ const StaffDashboard = () => {
         } catch (e) { console.error(e); }
     };
 
+    const toggleNotifs = async () => {
+        if (!showNotifs) {
+            try {
+                const res = await api.get('/staff/notifications');
+                setNotifs(res.data);
+            } catch (e) { console.error(e); }
+        }
+        setShowNotifs(!showNotifs);
+    };
+
+    const markAsRead = async (id) => {
+        try {
+            await api.put(`/staff/notifications/${id}/read`);
+            loadUnreadCount();
+            const res = await api.get('/staff/notifications');
+            setNotifs(res.data);
+        } catch (e) { console.error(e); }
+    };
+
     const findFreeStaff = async (roomId) => {
         if (!roomId) return;
         setSearching(true);
