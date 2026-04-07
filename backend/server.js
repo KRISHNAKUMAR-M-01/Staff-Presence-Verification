@@ -1510,7 +1510,7 @@ app.post('/api/staff/soft-beacon', authenticateToken, requireStaff, async (req, 
 });
 
 // Get list of classrooms (for staff soft-beacon room selector)
-app.get('/api/staff/classrooms', authenticateToken, requireStaff, async (req, res) => {
+app.get('/api/staff/classrooms', authenticateToken, requireStaffOrExecutive, async (req, res) => {
     try {
         const classrooms = await Classroom.find({}, 'room_name esp32_id room_uuid').lean();
         res.json(classrooms);
@@ -1521,7 +1521,7 @@ app.get('/api/staff/classrooms', authenticateToken, requireStaff, async (req, re
 
 // Verify Location via Mobile BLE Scan (Reversed Detection)
 // This is used when the phone detects an ESP32 room beacon.
-app.post('/api/staff/verify-location', authenticateToken, requireStaff, async (req, res) => {
+app.post('/api/staff/verify-location', authenticateToken, requireStaffOrExecutive, async (req, res) => {
     try {
         const { room_uuid, rssi } = req.body;
         console.log(`[Mobile BLE] Staff ${req.user.name} detected Room UUID: ${room_uuid} with RSSI: ${rssi}`);

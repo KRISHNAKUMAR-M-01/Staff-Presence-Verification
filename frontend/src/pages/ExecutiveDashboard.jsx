@@ -497,7 +497,7 @@ const ExecutiveDashboard = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <div className="user-info" style={{ textAlign: 'right' }}>
                             <div style={{ fontSize: '12px', fontWeight: '900', color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.01em' }}>{user?.name}</div>
-                            <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '600' }}>Admin Access</div>
+                            <div style={{ fontSize: '10px', color: '#64748b', fontWeight: '600' }}>{getRoleName(user?.role)} Access</div>
                         </div>
                         <Avatar 
                             name={user?.name} 
