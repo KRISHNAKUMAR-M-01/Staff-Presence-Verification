@@ -5,7 +5,9 @@ const API_URL = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:5000') +
 const api = axios.create({
     baseURL: API_URL,
     headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
     }
 });
 

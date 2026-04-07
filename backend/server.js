@@ -872,6 +872,10 @@ app.delete('/api/admin/timetable/:id', authenticateToken, requireAdmin, async (r
 
 // Get real-time staff locations (Admin only)
 app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (req, res) => {
+    // Prevent browser/CDN caching so the live dashboard always gets fresh data
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     try {
         const { todayStr, currentDay, currentTime } = getISTDateInfo();
         const todayDate = new Date(todayStr);
@@ -909,10 +913,17 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
 
             const nowMs = Date.now();
             const lastSeenMs = s.last_seen_time ? new Date(s.last_seen_time).getTime() : 0;
-            const signalThreshold = 75000;
+            const diffMs = nowMs - lastSeenMs;
+            const signalThreshold = 120000; // 120s — resilient to cloud latency
             
-            // Fix: Staff is ONLY live if signal was seen in the last 75s AND NOT in the future
-            const isLive = s.last_seen_time && (nowMs - lastSeenMs < signalThreshold) && (nowMs - lastSeenMs > -5000);
+            // Staff is LIVE if last_seen_time is within the threshold window
+            // Note: allow small negative diff (-10s) to handle clock skew between client/server
+            const isLive = s.last_seen_time && diffMs < signalThreshold && diffMs > -10000;
+            
+            // Debug log for troubleshooting (prints only when recently seen)
+            if (lastSeenMs > 0) {
+                console.log(`[Locations] ${s.name}: lastSeen=${new Date(lastSeenMs).toISOString()}, diff=${Math.round(diffMs/1000)}s, isLive=${isLive}`);
+            }
 
             let liveStatus = 'Scanning'; // Default status
             if (onLeave) {
@@ -1404,11 +1415,10 @@ app.post('/api/staff/soft-beacon', authenticateToken, requireStaff, async (req, 
             return res.status(404).json({ error: 'Classroom not found.' });
         }
 
-        const { todayStr, currentTime, currentDay, istDate } = getISTDateInfo();
-        const now = istDate; 
+        const { todayStr, currentTime, currentDay } = getISTDateInfo();
+        const now = new Date(); // Always store as UTC — avoids timezone drift on Render
 
-
-        console.log(`[Soft Beacon] ${staff.name} → ${classroom.room_name} at ${currentTime}`);
+        console.log(`[Soft Beacon] ${staff.name} → ${classroom.room_name} at ${currentTime} | UTC: ${now.toISOString()}`);
 
         // 3. ALWAYS update live-location (so admin sees staff as "Live" regardless of timetable)
         await Staff.findByIdAndUpdate(staff._id, {
@@ -2202,7 +2212,7 @@ app.get(['/api/admin/dashboard-stats', '/api/dashboard-stats'], authenticateToke
                 status: 'Late'
             }),
             liveTrackingStaff: await Staff.countDocuments({
-                last_seen_time: { $gte: new Date(Date.now() - 75000) }
+                last_seen_time: { $gte: new Date(Date.now() - 120000) } // 120s — matches staff-locations threshold
             }),
             absentOnLeave: await Leave.countDocuments({
                 status: 'approved',
@@ -2232,11 +2242,11 @@ app.get('/', (req, res) => {
 // Job 1: Notify staff 5 minutes before class
 cron.schedule('* * * * *', async () => {
     try {
-        const { istDate } = getISTDateInfo();
-        const notificationTime = new Date(istDate.getTime() + 5 * 60000); // 5 mins from now IST
+        const now = new Date(); // Plain UTC — safe on Render
+        const notificationTime = new Date(now.getTime() + 5 * 60000); // 5 mins from now (UTC)
         const { currentDay, currentTime: targetTime } = getISTDateInfo(notificationTime);
 
-        // Find classes starting in 5 minutes
+        // Find classes starting in 5 minutes (timetable uses IST wall-clock HH:MM strings)
         const upcomingClasses = await Timetable.find({
             day_of_week: currentDay,
             start_time: targetTime
@@ -2245,11 +2255,11 @@ cron.schedule('* * * * *', async () => {
         for (const cls of upcomingClasses) {
             const user = await User.findOne({ staff_id: cls.staff_id._id });
             if (user) {
-                // Check if notification already sent to avoid duplicates (optional, but good practice)
+                // Check if notification already sent in the last 2 minutes to avoid duplicates
                 const exists = await Notification.findOne({
                     recipient_id: user._id,
                     type: 'upcoming_class',
-                    createdAt: { $gte: new Date(now.getTime() - 60000) } // Created in last minute
+                    createdAt: { $gte: new Date(now.getTime() - 120000) }
                 });
 
                 if (!exists) {
