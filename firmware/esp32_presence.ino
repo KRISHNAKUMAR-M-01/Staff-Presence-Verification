@@ -119,9 +119,10 @@ void reportToBackend(String staffUuid, int rssi, String method) {
 // ── CALLBACK: Phone writes its Staff UUID to the ESP32 characteristic ──────────
 class MobileMailbox : public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic *pChar) override {
-        std::string val = pChar->getValue();
+        // ESP32 BLE lib v3.x: getValue() returns Arduino String (not std::string)
+        String val = pChar->getValue();
         if (val.length() > 0) {
-            String staffUuid = String(val.c_str());
+            String staffUuid = val;
             staffUuid.trim();
             staffUuid.toUpperCase();
 
