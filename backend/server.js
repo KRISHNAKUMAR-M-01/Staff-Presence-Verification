@@ -447,57 +447,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
         user.password = newPassword;
         user.resetPasswordOTP = null;
         user.resetPasswordExpires = null;
-        await user.save();
-
-        res.json({ message: 'Password reset successfully. You can now log in with your new password.' });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Get current user info
-app.get('/api/auth/me', authenticateToken, async (req, res) => {
-    try {
-        const user = await User.findById(req.user._id)
-            .select('-password')
-            .populate('staff_id');
-        res.json(user);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Import Routes
-const specialRoutes = require('./routes/specialRoutes');
-
-// ============================================
-// EXECUTIVE ENDPOINTS (Protected)
-// ============================================
-app.use('/api/executive', specialRoutes);
-
-// ============================================
-// ADMIN ENDPOINTS (Protected)
-// ============================================
-
-// ---- PROFILE PICTURE: Staff self-upload ----
-app.post('/api/staff/upload-profile-picture',
-    authenticateToken, requireStaff,
-    uploadProfile.single('profile_picture'),
-    async (req, res) => {
-        try {
-            if (!req.file) return res.status(400).json({ error: 'No image file provided.' });
-
-            const user = await User.findById(req.user._id).populate('staff_id');
-            if (!user?.staff_id) return res.status(404).json({ error: 'Staff profile not found.' });
-
-            // Delete old picture if it exists
-            if (user.staff_id.profile_picture) {
-                const oldPath = path.join(__dirname, user.staff_id.profile_picture.replace('/uploads', 'uploads'));
-                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-            }
-
-            const picturePath = `/uploads/profiles/${req.file.filename}`;
-            await Staff.findByIdAndUpdate(user.staff_id._id, { profile_picture: picturePath });
+2            await Staff.findByIdAndUpdate(user.staff_id._id, { profile_picture: picturePath });
 
             res.json({ message: 'Profile picture updated!', profile_picture: picturePath });
         } catch (err) {
