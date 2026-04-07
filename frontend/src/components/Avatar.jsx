@@ -57,7 +57,9 @@ const Avatar = ({ name = '', picturePath, size = 40, borderRadius = '50%', style
             fontWeight: '800',
             fontSize: size * 0.4,
             boxShadow: `0 4px 10px ${bgColor}40`,
-            userSelect: 'none'
+            userSelect: 'none',
+            minWidth: size,
+            minHeight: size
         }}>
             {initial}
         </div>

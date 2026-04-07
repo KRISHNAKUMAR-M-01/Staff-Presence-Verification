@@ -907,8 +907,10 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
             // Find if there's an active attendance tracking right now
             const staffAttendance = attendanceToday.find(a => a.staff_id.toString() === sid);
 
-            const signalThreshold = 75 * 1000; // 75 seconds — slightly faster "Not in Range" (15s scanner heartbeat * 5)
-            const isLive = s.last_seen_time && (now - new Date(s.last_seen_time) < signalThreshold);
+            const nowMs = Date.now();
+            const lastSeenMs = s.last_seen_time ? new Date(s.last_seen_time).getTime() : 0;
+            const signalThreshold = 75000;
+            const isLive = s.last_seen_time && (nowMs - lastSeenMs < signalThreshold);
 
             let liveStatus = 'Scanning'; // Default status
             if (onLeave) {

@@ -241,8 +241,11 @@ exports.getAllStaffStatus = async (req, res) => {
             const activeClass = activeClassMap.get(sid);
             const approvedLeave = leaveMap.get(sid);
 
-            const isLive = staff.last_seen_time && (now - new Date(staff.last_seen_time) < signalThreshold);
-            const attendanceStale = attendanceToday && (now - new Date(attendanceToday.last_seen_time || attendanceToday.check_in_time) > signalThreshold);
+            const nowMs = Date.now();
+            const lastSeenMs = staff.last_seen_time ? new Date(staff.last_seen_time).getTime() : 0;
+            const liveThreshold = 75000;
+            const isLive = staff.last_seen_time && (nowMs - lastSeenMs < liveThreshold);
+            const attendanceStale = attendanceToday && (nowMs - (attendanceToday.last_seen_time || attendanceToday.check_in_time ? new Date(attendanceToday.last_seen_time || attendanceToday.check_in_time).getTime() : 0) > signalThreshold);
 
             let liveStatus = 'Scanning';
             if (approvedLeave) {
