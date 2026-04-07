@@ -4,6 +4,7 @@ const Notification = require('../models/Notification');
 const Attendance = require('../models/Attendance');
 const User = require('../models/User');
 const Leave = require('../models/Leave');
+const SwapRequest = require('../models/SwapRequest');
 const { sendEmail } = require('../utils/emailService');
 
 // Helper to get current day name
@@ -178,13 +179,13 @@ exports.getAllStaffStatus = async (req, res) => {
         // 1. Bulk Fetch all relevant data in just mapping queries
         // - Fetch only TODAY's attendance for live tracking
         // - Fetch EVERY staff's latest attendance overall for "Last Seen" data
-        const [allAttendanceToday, allActiveClasses, allApprovedLeaves, allLatestAttendance] = await Promise.all([
+        const [allAttendanceToday, allActiveClasses, allApprovedLeaves, allLatestAttendance, allAcceptedSwaps] = await Promise.all([
             Attendance.find({ date: { $gte: startOfToday, $lte: endOfToday } })
                 .populate('classroom_id', 'room_name').lean(),
             Timetable.find({ 
                 day_of_week: currentDay, 
                 start_time: { $lte: currentTime }, 
-                end_time: { $gte: currentTime } 
+                end_time: { $gt: currentTime }  // STRICTLY LESS THAN end_time, so AT 10:30 it's NO LONGER shown
             }).populate('classroom_id', 'room_name').lean(),
             Leave.find({ 
                 status: 'approved', 
@@ -205,7 +206,11 @@ exports.getAllStaffStatus = async (req, res) => {
                     as: 'room'
                 }},
                 { $unwind: { path: '$room', preserveNullAndEmptyArrays: true } }
-            ])
+            ]),
+            SwapRequest.find({
+                status: 'accepted',
+                date: { $gte: startOfToday, $lte: endOfToday }
+            }).lean()
         ]);
 
         // 2. Map data for O(1) lookup
@@ -230,6 +235,13 @@ exports.getAllStaffStatus = async (req, res) => {
         const leaveMap = new Map();
         allApprovedLeaves.forEach(l => leaveMap.set((l.staff_id || '').toString(), l));
 
+        const swapGiverMap = new Map(); // requesting_staff_id -> SwapRequest
+        const swapSubstituteMap = new Map(); // substitute_staff_id -> SwapRequest
+        allAcceptedSwaps.forEach(s => {
+            if (s.requesting_staff_id) swapGiverMap.set(s.requesting_staff_id.toString(), s);
+            if (s.substitute_staff_id) swapSubstituteMap.set(s.substitute_staff_id.toString(), s);
+        });
+
         const now = new Date();
         const signalThreshold = 90 * 1000; // 90 seconds — matches Admin Dashboard for responsiveness
 
@@ -238,8 +250,26 @@ exports.getAllStaffStatus = async (req, res) => {
             const sid = staff._id.toString();
             const attendanceToday = attendanceTodayMap.get(sid);
             const latestHistory = latestAttendanceMap.get(sid);
-            const activeClass = activeClassMap.get(sid);
             const approvedLeave = leaveMap.get(sid);
+
+            // DETEMINE ACTIVE CLASS (Considering Swaps)
+            let activeClass = activeClassMap.get(sid);
+
+            // Handle Swap: Giver (The original teacher gave it away)
+            const giverSwap = swapGiverMap.get(sid);
+            if (giverSwap && activeClass && activeClass.classroom_id?._id?.toString() === giverSwap.classroom_id?.toString()) {
+                activeClass = null; // No longer expected for this class
+            }
+
+            // Handle Swap: Substitute (The new teacher is covering it)
+            const substituteSwap = swapSubstituteMap.get(sid);
+            if (substituteSwap) {
+                // Find what class they are covering (it belongs to the original requester)
+                const originalRequesterClass = activeClassMap.get(substituteSwap.requesting_staff_id.toString());
+                if (originalRequesterClass && originalRequesterClass.classroom_id?._id?.toString() === substituteSwap.classroom_id?.toString()) {
+                    activeClass = { ...originalRequesterClass, substitution: true };
+                }
+            }
 
             const nowMs = Date.now();
             const lastSeenMs = staff.last_seen_time ? new Date(staff.last_seen_time).getTime() : 0;
