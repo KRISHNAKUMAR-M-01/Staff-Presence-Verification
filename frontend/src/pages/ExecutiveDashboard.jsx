@@ -776,7 +776,7 @@ const ExecutiveDashboard = () => {
                                                                 <div style={{ fontSize: '14px', color: staff.currentStatus === 'On Leave' ? '#0369a1' : (staff.isCorrectLocation ? '#065f46' : (isAbsent || isLeft ? '#92400e' : '#991b1b')), fontWeight: '800' }}>
                                                                     {staff.currentStatus === 'On Leave' 
                                                                         ? 'Not on Campus' 
-                                                                        : (isAbsent || isLeft 
+                                                                        : (['Absent', 'Left', 'Scanning'].includes(staff.currentStatus)
                                                                             ? 'Not in Range' 
                                                                             : `Currently in ${staff.currentLocation}`)}
                                                                 </div>

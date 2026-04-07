@@ -31,9 +31,10 @@ const Avatar = ({ name = '', picturePath, size = 40, borderRadius = '50%', style
     };
 
     if (picturePath) {
+        const imageUrl = picturePath.startsWith('http') ? picturePath : `${API_BASE}${picturePath}`;
         return (
             <img
-                src={`${API_BASE}${picturePath}`}
+                src={imageUrl}
                 alt={`${name} profile`}
                 style={baseStyle}
                 onError={(e) => {

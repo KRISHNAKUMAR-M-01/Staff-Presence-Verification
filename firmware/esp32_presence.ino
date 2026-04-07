@@ -32,9 +32,9 @@ const char* classroomId = "COMPUTERLAB";
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 
 // Scanner settings
-const int scanTime = 5; // seconds
-const int MIN_READINGS_TO_SEND = 1;
-const int RSSI_THRESHOLD = -120; // Lowered to include all signals for debugging
+#define SCAN_TIME 4               // Reduced for faster updates
+#define READINGS_WINDOW 1         // Report immediately for live tracking
+#define RSSI_THRESHOLD -100       // Filter extremely weak noise
 
 // ── Globals ─────────────────────────────────────────────────────────────────
 BLEScan* pBLEScan;
@@ -182,7 +182,7 @@ void loop() {
     tagAccumulator.clear();
     
     // Start scanning for hardware tags
-    BLEScanResults* results = pBLEScan->start(scanTime, false);
+    BLEScanResults* results = pBLEScan->start(SCAN_TIME, false);
     pBLEScan->clearResults();
 
     // Process found tags
@@ -190,12 +190,12 @@ void loop() {
         const std::string& uuid = entry.first;
         std::vector<int>&  readings = entry.second;
 
-        if ((int)readings.size() >= MIN_READINGS_TO_SEND) {
+        if ((int)readings.size() >= READINGS_WINDOW) {
             int sum = std::accumulate(readings.begin(), readings.end(), 0);
             int avgRssi = sum / (int)readings.size();
             reportToBackend(String(uuid.c_str()), avgRssi, "hardware_tag");
         }
     }
 
-    delay(2000); // Wait between cycles
+    delay(1000); // reduced delay
 }

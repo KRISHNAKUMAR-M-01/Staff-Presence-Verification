@@ -274,13 +274,14 @@ const StaffLocations = () => {
                                                     }}>
                                                         <Clock size={12} />
                                                         Last seen: {(() => {
+                                                            if (!loc.check_in_time) return 'No Signal Recorded';
                                                             const d = new Date(loc.check_in_time);
                                                             const today = new Date();
                                                             const isToday = d.toDateString() === today.toDateString();
                                                             const timeStr = isToday 
                                                                 ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                                                                 : `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} at ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-                                                            return `${timeStr} in ${loc.last_seen_location}`;
+                                                            return `${timeStr} in ${loc.last_seen_location || 'unknown'}`;
                                                         })()}
                                                     </div>
                                                 )}

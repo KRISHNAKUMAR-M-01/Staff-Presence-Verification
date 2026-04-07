@@ -9,6 +9,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const connectDB = require('./config/database');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
 // Import Models
 const Staff = require('./models/Staff');
@@ -78,26 +80,31 @@ app.use(compression());
 app.use(morgan('dev'));
 app.use(bodyParser.json());
 
-// Serve uploaded profile pictures as static files
-const uploadsDir = path.join(__dirname, 'uploads', 'profiles');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Multer config — store to disk, accept only images
-const profileStorage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, uploadsDir),
-    filename: (req, file, cb) => {
-        const ext = path.extname(file.originalname).toLowerCase();
-        cb(null, `staff_${Date.now()}${ext}`);
-    }
+// Cloudinary Configuration
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
 });
+
+// Backward compatibility: serve local uploads folder if it exists
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+app.use('/uploads', express.static(uploadsDir));
+
+// Configure Multer with Cloudinary Storage
+const profileStorage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+        folder: 'profiles',
+        allowed_formats: ['jpg', 'png', 'webp'],
+        transformation: [{ width: 150, height: 150, crop: 'limit' }]
+    },
+});
+
 const uploadProfile = multer({
     storage: profileStorage,
     limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
-    fileFilter: (req, file, cb) => {
-        if (['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) cb(null, true);
-        else cb(new Error('Only JPEG, PNG and WebP images are allowed'));
-    }
 });
 
 const { sendPushNotification } = require('./utils/pushService');
@@ -492,13 +499,8 @@ app.post('/api/staff/upload-profile-picture',
             const user = await User.findById(req.user._id).populate('staff_id');
             if (!user?.staff_id) return res.status(404).json({ error: 'Staff profile not found.' });
 
-            // Delete old picture if it exists
-            if (user.staff_id.profile_picture) {
-                const oldPath = path.join(__dirname, user.staff_id.profile_picture.replace('/uploads', 'uploads'));
-                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-            }
-
-            const picturePath = `/uploads/profiles/${req.file.filename}`;
+            // Cloudinary manages file storage, so we don't need fs.unlinkSync anymore
+            const picturePath = req.file.path; // Cloudinary returns the full URL in file.path
             await Staff.findByIdAndUpdate(user.staff_id._id, { profile_picture: picturePath });
 
             res.json({ message: 'Profile picture updated!', profile_picture: picturePath });
@@ -519,12 +521,8 @@ app.put('/api/admin/staff/:id/upload-picture',
             const staff = await Staff.findById(req.params.id);
             if (!staff) return res.status(404).json({ error: 'Staff not found.' });
 
-            if (staff.profile_picture) {
-                const oldPath = path.join(__dirname, staff.profile_picture.replace('/uploads', 'uploads'));
-                if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
-            }
-
-            const picturePath = `/uploads/profiles/${req.file.filename}`;
+            // Cloudinary manages file storage, so we don't need fs.unlinkSync anymore
+            const picturePath = req.file.path; // Cloudinary returns the full URL in file.path
             await Staff.findByIdAndUpdate(req.params.id, { profile_picture: picturePath });
 
             res.json({ message: 'Staff profile picture updated!', profile_picture: picturePath });
@@ -875,16 +873,11 @@ app.delete('/api/admin/timetable/:id', authenticateToken, requireAdmin, async (r
 // Get real-time staff locations (Admin only)
 app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (req, res) => {
     try {
-        const today = new Date().toISOString().split('T')[0];
-        const todayDate = new Date(today);
+        const { todayStr, currentDay, currentTime } = getISTDateInfo();
+        const todayDate = new Date(todayStr);
 
-        // 1. Get today's attendance records (for attendance status)
+        // 1. Get today's attendance records
         const attendanceToday = await Attendance.find({ date: todayDate }).lean();
-
-        // 2. Get current timetable (for expected location)
-        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const currentDay = days[new Date().getDay()];
-        const currentTime = new Date().toTimeString().split(' ')[0].substring(0, 5);
 
         const currentSchedule = await Timetable.find({
             day_of_week: currentDay,
@@ -914,7 +907,7 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
             // Find if there's an active attendance tracking right now
             const staffAttendance = attendanceToday.find(a => a.staff_id.toString() === sid);
 
-            const signalThreshold = 90 * 1000; // 90 seconds — covers BLE heartbeat (15s) + Render latency
+            const signalThreshold = 75 * 1000; // 75 seconds — slightly faster "Not in Range" (15s scanner heartbeat * 5)
             const isLive = s.last_seen_time && (now - new Date(s.last_seen_time) < signalThreshold);
 
             let liveStatus = 'Scanning'; // Default status
@@ -2203,6 +2196,17 @@ app.get(['/api/admin/dashboard-stats', '/api/dashboard-stats'], authenticateToke
             lateToday: await Attendance.countDocuments({
                 date: todayDate,
                 status: 'Late'
+            }),
+            liveTrackingStaff: await Staff.countDocuments({
+                last_seen_time: { $gte: new Date(Date.now() - 75000) }
+            }),
+            absentOnLeave: await Leave.countDocuments({
+                status: 'approved',
+                start_date: { $lte: new Date() },
+                end_date: { $gte: new Date() }
+            }),
+            pendingLeaves: await Leave.countDocuments({
+                status: { $in: ['pending', 'approved_by_principal'] }
             })
         };
 
