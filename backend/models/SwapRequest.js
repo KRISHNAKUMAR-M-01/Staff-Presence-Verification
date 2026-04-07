@@ -17,7 +17,7 @@ const swapRequestSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['pending', 'accepted', 'rejected', 'completed'],
+        enum: ['pending', 'approved', 'accepted', 'rejected', 'completed'],
         default: 'pending'
     },
     admin_response: String,

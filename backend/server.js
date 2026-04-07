@@ -1823,8 +1823,8 @@ app.get('/api/staff/notifications/unread-count', authenticateToken, async (req, 
 // SWAP & SUBSTITUTION ENDPOINTS (Proposed Feature)
 // ============================================
 
-// 1. Staff/Executive: Direct Peer-to-Peer Swap Request
-app.post('/api/staff/request-substitution', authenticateToken, requireStaffOrExecutive, async (req, res) => {
+// 1. Staff/Executive: Direct Swap Request (Admin approval needed first)
+app.post('/api/staff/swap-request', authenticateToken, requireStaffOrExecutive, async (req, res) => {
     try {
         if (!req.user.staff_id) {
             return res.status(403).json({ error: 'Your account is not linked to a Staff profile. Contact Admin.' });
@@ -1834,7 +1834,7 @@ app.post('/api/staff/request-substitution', authenticateToken, requireStaffOrExe
         // Find existing request or create new
         const swapReq = new SwapRequest({
             requesting_staff_id: req.user.staff_id,
-            substitute_staff_id: target_staff_id,
+            substitute_staff_id: target_staff_id || null,
             classroom_id,
             reason,
             status: 'pending'
@@ -1842,28 +1842,53 @@ app.post('/api/staff/request-substitution', authenticateToken, requireStaffOrExe
         await swapReq.save();
 
         const requester = await Staff.findById(req.user.staff_id);
-        const targetUser = await User.findOne({ staff_id: target_staff_id });
         const classroom = await Classroom.findById(classroom_id);
         
-        if (targetUser) {
-            await Notification.create({
-                recipient_id: targetUser._id,
-                title: 'Substitution Request',
-                message: `Staff ${requester.name} has requested you to cover their class in ${classroom?.room_name || 'unknown'}. Reason: ${reason}`,
-                type: 'substitution_request',
+        // Notify Admins and Special roles
+        const admins = await User.find({ role: { $in: ['admin', 'principal', 'secretary', 'director'] } });
+        for (const admin of admins) {
+            const notifData = {
+                recipient_id: admin._id,
+                title: 'Urgent Swap Request',
+                message: `Staff ${requester.name} has requested a swap for class in ${classroom?.room_name || 'unknown'}. Reason: ${reason}`,
+                type: 'swap_request',
                 related_data: { swapRequestId: swapReq._id, classroomId: classroom_id.toString() }
-            });
+            };
+            await Notification.create(notifData);
 
-            if (targetUser.pushSubscription) {
-                sendPushNotification(targetUser.pushSubscription, {
-                    title: 'Substitution Request',
-                    body: `Staff ${requester.name} has requested you to cover their class in ${classroom?.room_name}.`,
-                    data: { url: '/staff' }
-                }).catch(e => console.error("Peer Push Error:", e));
+            if (admin.pushSubscription) {
+                sendPushNotification(admin.pushSubscription, {
+                    title: notifData.title,
+                    body: notifData.message,
+                    icon: '/logo192.png',
+                    data: { url: '/admin/swap-requests' }
+                }).catch(e => console.error("Admin Swap Push Error:", e));
             }
         }
 
-        res.json({ message: 'Substitution request sent directly to staff.', swapReq });
+        // If a target staff was specified directly, notify them too
+        if (target_staff_id) {
+            const targetUser = await User.findOne({ staff_id: target_staff_id });
+            if (targetUser) {
+                await Notification.create({
+                    recipient_id: targetUser._id,
+                    title: 'Substitution Request',
+                    message: `Staff ${requester.name} has requested you to cover their class in ${classroom?.room_name || 'unknown'}. Reason: ${reason}`,
+                    type: 'substitution_request',
+                    related_data: { swapRequestId: swapReq._id, classroomId: classroom_id.toString() }
+                });
+
+                if (targetUser.pushSubscription) {
+                    sendPushNotification(targetUser.pushSubscription, {
+                        title: 'Substitution Request',
+                        body: `Staff ${requester.name} has requested you to cover their class in ${classroom?.room_name}.`,
+                        data: { url: '/staff' }
+                    }).catch(e => console.error("Peer Push Error:", e));
+                }
+            }
+        }
+
+        res.json({ message: 'Swap request submitted to administration portal.', swapReq });
     } catch (err) {
         console.error('Peer Swap Request Error:', err);
         res.status(500).json({ error: err.message });
@@ -2043,6 +2068,7 @@ app.post('/api/staff/accept-substitution', authenticateToken, requireStaffOrExec
         if (!swapReq) return res.status(404).json({ error: 'Request no longer exists.' });
 
         swapReq.status = 'accepted';
+        swapReq.substitute_staff_id = req.user.staff_id;
         await swapReq.save();
 
         // Notify Original Staff
