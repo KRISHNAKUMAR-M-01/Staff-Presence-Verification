@@ -64,7 +64,11 @@ const getISTDateInfo = (date = new Date()) => {
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const currentDay = days[new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })).getDay()];
 
-    return { todayStr, currentTime, currentDay, istDate: date };
+    // START OF DAY in IST, represented as a UTC Date object
+    // This is the moment 00:00:00 happened in India.
+    const startOfToday = new Date(`${todayStr}T00:00:00.000+05:30`);
+
+    return { todayStr, currentTime, currentDay, startOfToday, istDate: date };
 };
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
@@ -141,12 +145,7 @@ setInterval(() => {
 
 // ---- PERMISSION HELPER: CHECK IF STAFF IS ALLOWED TO ATTEND ----
 async function isStaffPermitted(staffId, classroomId) {
-    const now = new Date();
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const currentDay = days[now.getDay()];
-    const currentTime = now.toTimeString().split(' ')[0].substring(0, 5);
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+    const { currentDay, currentTime, startOfToday } = getISTDateInfo();
 
     // 1. Direct match in timetable
     const directSlot = await Timetable.findOne({
@@ -187,8 +186,8 @@ async function isStaffPermitted(staffId, classroomId) {
         const onLeave = await Leave.findOne({
             staff_id: scheduledStaffId,
             status: 'approved',
-            start_date: { $lte: now },
-            end_date: { $gte: now }
+            start_date: { $lte: startOfToday },
+            end_date: { $gte: startOfToday }
         });
 
         // Is the scheduled staff Absent from work today?
@@ -940,11 +939,10 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
             .lean();
 
         // 4. Check for approved leaves today
-        const now = new Date();
         const activeLeaves = await Leave.find({
             status: 'approved',
-            start_date: { $lte: now },
-            end_date: { $gte: now }
+            start_date: { $lte: startOfToday },
+            end_date: { $gte: startOfToday }
         }).lean();
 
         const staffLocations = allStaff.map(s => {
@@ -1177,8 +1175,8 @@ app.put('/api/admin/alerts/read-by-dept', authenticateToken, requireAdmin, async
 // Dashboard Stats (Admin only)
 app.get('/api/admin/dashboard-stats', authenticateToken, requireAdmin, async (req, res) => {
     try {
-        const todayStr = new Date().toISOString().split('T')[0];
-        const todayDate = new Date(todayStr); // Midnight UTC for today's date
+        const { todayStr } = getISTDateInfo();
+        const todayDate = new Date(todayStr); // Midnight IST stored as UTC
 
         // Calculate live tracking staffs
         const attendance = await Attendance.find({ date: todayDate }).sort({ check_in_time: -1 });
@@ -1561,7 +1559,7 @@ app.post('/api/staff/soft-beacon', authenticateToken, requireStaff, async (req, 
                 check_in_time: now,
                 last_seen_time: now,
                 status: 'Tracking',
-                date: new Date(todayStr)
+                date: startOfToday
             });
             await attendance.save();
 
@@ -1616,10 +1614,7 @@ app.post('/api/staff/verify-location', authenticateToken, requireStaffOrExecutiv
         if (!staff) return res.status(404).json({ error: 'Staff record not found.' });
 
         const now = new Date();
-        const todayStr = now.toISOString().split('T')[0];
-        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const currentDay = days[now.getDay()];
-        const currentTime = now.toTimeString().split(' ')[0].substring(0, 5);
+        const { todayStr, currentDay, currentTime } = getISTDateInfo();
 
         // Permission is already checked in step 1b above via isStaffPermitted
         const subType = permission.type;
@@ -1667,7 +1662,7 @@ app.post('/api/staff/verify-location', authenticateToken, requireStaffOrExecutiv
                 check_in_time: now,
                 last_seen_time: now,
                 status: 'Tracking',
-                date: new Date(todayStr)
+                date: startOfToday
             });
             await attendance.save();
             return res.json({ status: 'started', attendance_status: 'Tracking' });
@@ -2105,10 +2100,13 @@ app.post('/api/staff/accept-substitution', authenticateToken, requireStaffOrExec
 app.post('/api/ble-data', async (req, res) => {
     console.log(`[BLE DEBUG] Room: ${req.body.esp32_id}, ID: ${req.body.beacon_uuid}, RSSI: ${req.body.rssi}`);
     try {
-        const { esp32_id, beacon_uuid, rssi } = req.body;
+        let { esp32_id, beacon_uuid, rssi } = req.body;
         if (!esp32_id || !beacon_uuid || rssi === undefined) {
             return res.status(400).json({ error: 'Missing required fields: esp32_id, beacon_uuid, rssi' });
         }
+
+        // Normalize UUID: remove dashes, colons, and spaces for resilient matching
+        const cleanUuid = beacon_uuid.replace(/[-:\s]/g, '').toUpperCase();
 
         // ── STEP 1: RSSI Rolling Average Filter ─────────────────────────────
         const bufferKey = `${beacon_uuid.toUpperCase()}-${esp32_id.toUpperCase()}`;
@@ -2133,10 +2131,16 @@ app.post('/api/ble-data', async (req, res) => {
         bleThrottle.set(throttleKey, now.getTime());
 
         // ── STEP 3: Lookup Staff (cached) ────────────────────────────────────
-        let staff = staffCache.get(beacon_uuid.toUpperCase());
+        let staff = staffCache.get(cleanUuid);
         if (!staff) {
-            staff = await Staff.findOne({ beacon_uuid: beacon_uuid.toUpperCase() });
-            if (staff) staffCache.set(beacon_uuid.toUpperCase(), staff);
+            // Flexible query: find exact or normalized match
+            staff = await Staff.findOne({ 
+                $or: [
+                    { beacon_uuid: cleanUuid },
+                    { beacon_uuid: beacon_uuid.toUpperCase() }
+                ]
+            });
+            if (staff) staffCache.set(cleanUuid, staff);
         }
         if (!staff) {
             console.log(`[BLE] Unknown beacon UUID: "${beacon_uuid.toUpperCase()}"`);
@@ -2162,13 +2166,13 @@ app.post('/api/ble-data', async (req, res) => {
             last_seen_time: now,
             last_seen_rssi: avgRssi
         });
-        // Invalidate cache so fresh location is returned on next lookup
-        staffCache.delete(beacon_uuid.toUpperCase());
+        // Invalidate cache
+        staffCache.delete(cleanUuid);
         console.log(`[BLE] 📍 ${staff.name} → ${classroom.room_name} | RSSI: ${avgRssi} dBm`);
 
         // ── STEP 6: Check Timetable Permission for Attendance ────────────────
         // Attendance is only marked when there is a scheduled class right now.
-        const todayStr = now.toISOString().split('T')[0];
+        const { todayStr } = getISTDateInfo();
         const permission = await isStaffPermitted(staff._id, classroom._id);
 
         if (!permission.permitted) {
@@ -2189,7 +2193,7 @@ app.post('/api/ble-data', async (req, res) => {
         let attendance = await Attendance.findOne({
             staff_id: staff._id,
             classroom_id: classroom._id,
-            date: new Date(todayStr)
+            date: startOfToday
         });
 
         if (attendance) {
@@ -2254,7 +2258,7 @@ app.post('/api/ble-data', async (req, res) => {
                 check_in_time: now,
                 last_seen_time: now,
                 status: 'Tracking',
-                date: new Date(todayStr)
+                date: startOfToday
             });
             await attendance.save();
             console.log(`[BLE] ✅ Attendance started: ${staff.name} in ${classroom.room_name}`);
@@ -2312,8 +2316,8 @@ app.get(['/api/admin/dashboard-stats', '/api/dashboard-stats'], authenticateToke
             }),
             absentOnLeave: await Leave.countDocuments({
                 status: 'approved',
-                start_date: { $lte: new Date() },
-                end_date: { $gte: new Date() }
+                start_date: { $lte: startOfToday },
+                end_date: { $gte: startOfToday }
             }),
             pendingLeaves: await Leave.countDocuments({
                 status: { $in: ['pending', 'approved_by_principal'] }
@@ -2462,7 +2466,7 @@ cron.schedule('* * * * *', async () => {
             const attendance = await Attendance.findOne({
                 staff_id: cls.staff_id._id,
                 classroom_id: cls.classroom_id._id,
-                date: new Date(todayStr)
+                date: startOfToday
             });
 
             if (!attendance) {
@@ -2570,18 +2574,13 @@ cron.schedule('* * * * *', async () => {
 // Runs every 15 minutes to finalize sessions where the class has ended or day has passed
 cron.schedule('*/15 * * * *', async () => {
     try {
-        const now = new Date();
-        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const currentDay = days[now.getDay()];
-        const currentTime = now.toTimeString().substring(0, 5);
-        const todayStr = now.toISOString().split('T')[0];
+        const { currentDay, todayStr, startOfToday, istDate: now } = getISTDateInfo();
 
         // Find all records still in "Tracking" status
         const stagnantRecords = await Attendance.find({ status: 'Tracking' });
 
         for (const record of stagnantRecords) {
-            const recordDateStr = record.date.toISOString().split('T')[0];
-            const isToday = recordDateStr === todayStr;
+            const isToday = record.date.getTime() === startOfToday.getTime();
 
             // 1. If it's a previous day, finalize it immediately
             if (!isToday) {
@@ -2606,7 +2605,7 @@ cron.schedule('*/15 * * * *', async () => {
             if (slot) {
                 // If now is past slot end_time + 15 mins buffer, finalize
                 const [endH, endM] = slot.end_time.split(':');
-                const slotEndTime = new Date(record.date);
+                const slotEndTime = new Date(startOfToday);
                 slotEndTime.setHours(parseInt(endH), parseInt(endM) + 15, 0);
 
                 if (now > slotEndTime) {
@@ -2616,7 +2615,7 @@ cron.schedule('*/15 * * * *', async () => {
                         record.status = 'Absent';
                     } else {
                         // Check for lateness as well
-                        const startTimeDate = new Date(`${recordDateStr}T${slot.start_time}:00`);
+                        const startTimeDate = new Date(`${todayStr}T${slot.start_time}:00`);
                         const arrivalDiffMinutes = (record.check_in_time - startTimeDate) / (1000 * 60);
                         const lateWindow = parseInt(process.env.TIME_WINDOW_MINUTES || 15);
 
@@ -2646,12 +2645,11 @@ cron.schedule('*/15 * * * *', async () => {
 // but the end_date has already passed, mark it 'expired' so it disappears from queues.
 cron.schedule('0 0 * * *', async () => {
     try {
-        const now = new Date();
-        now.setHours(0, 0, 0, 0); // Start of today
+        const { startOfToday } = getISTDateInfo();
 
         const expiredLeaves = await Leave.find({
             status: { $in: ['pending', 'approved_by_principal'] },
-            end_date: { $lt: now }
+            end_date: { $lt: startOfToday }
         }).populate('staff_id', 'name');
 
         if (expiredLeaves.length === 0) return;

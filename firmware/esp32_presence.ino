@@ -39,7 +39,7 @@ const char* classroomId = "COMPUTERLAB";
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 
 // Scanner / reporting settings
-#define SCAN_TIME        4      // BLE scan window in seconds
+#define SCAN_TIME        2      // BLE scan window reduced to 2s to allow more pairing window
 #define READINGS_WINDOW  1     // Report after 1+ readings (instant live tracking)
 #define RSSI_THRESHOLD   -90   // Ignore signals weaker than -90 dBm (reduce noise)
 #define HTTP_TIMEOUT_MS  8000  // Max time to wait for backend response
@@ -128,7 +128,13 @@ class MobileMailbox : public BLECharacteristicCallbacks {
 
             // Read RSSI immediately before reporting
             esp_ble_gap_read_rssi(current_remote_bda);
-            delay(50); // Brief wait for GAP callback to fire
+            delay(100); // Brief wait for GAP callback
+
+            // FIX: Only report if phone is within the room range
+            if (lastMobileRssi < RSSI_THRESHOLD) {
+                Serial.printf("📱 [Mobile] Blocked: Signal too weak (%d dBm)\n", lastMobileRssi);
+                return;
+            }
 
             Serial.printf("\n📱 [Mobile] Staff UUID: %s | RSSI: %d dBm\n",
                           staffUuid.c_str(), lastMobileRssi);
@@ -208,6 +214,9 @@ void setup() {
     // --- BLE Stack ---
     BLEDevice::init(classroomId); // Device name = classroomId (shown in BLE scanner)
     BLEDevice::setCustomGapHandler(my_gap_event_handler);
+    
+    // REDUCE RANGE: Set antenna power to the lowest level (-12 dBm)
+    BLEDevice::setPower(ESP_PWR_LVL_N12); 
 
     // --- GATT Server (Mobile Verification) ---
     pServer = BLEDevice::createServer();
@@ -247,9 +256,14 @@ void loop() {
     Serial.println("\n─── BLE Scan Cycle ─────────────────────────────");
     tagAccumulator.clear();
 
-    // Run BLE scan (this temporarily pauses advertising — reconnected phones just re-auto-connect)
+    // Run BLE scan (this pauses advertising while listening for tags)
     BLEScanResults* results = pBLEScan->start(SCAN_TIME, false);
     pBLEScan->clearResults();
+
+    // FIX: Restart advertising after scan finishes, so others can pair/connect
+    if (!mobileConnected) {
+        BLEDevice::getAdvertising()->start();
+    }
 
     // Report any iBeacon tags found in this window
     for (auto& entry : tagAccumulator) {
