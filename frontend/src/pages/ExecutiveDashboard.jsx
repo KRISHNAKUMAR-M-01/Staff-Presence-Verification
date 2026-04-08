@@ -463,8 +463,8 @@ const ExecutiveDashboard = () => {
                             <div className="notifs-dropdown" style={{
                                 position: window.innerWidth <= 768 ? 'fixed' : 'absolute',
                                 top: window.innerWidth <= 768 ? '70px' : '40px',
-                                right: window.innerWidth <= 768 ? '16px' : '-120px', // Shifted to prevent clipping
-                                left: window.innerWidth <= 768 ? '16px' : 'auto',
+                                right: window.innerWidth <= 768 ? '16px' : 'auto', 
+                                left: window.innerWidth <= 768 ? '16px' : '0px',
                                 width: window.innerWidth <= 768 ? 'auto' : '320px',
                                 background: 'white',
                                 borderRadius: '20px',
