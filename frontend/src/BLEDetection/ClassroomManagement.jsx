@@ -37,6 +37,9 @@ const ClassroomManagement = () => {
         setEsp32Id(room.esp32_id);
     };
 
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+
         // --- FRONTEND VALIDATION ---
         if (!/^[A-Za-z0-9]+$/.test(roomName)) {
             setModalConfig({ isOpen: true, type: 'error', title: 'Invalid Room Name', message: 'Room Name must be alphanumeric (no spaces or special characters).' });
