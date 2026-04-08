@@ -15,6 +15,7 @@ const AdminOverview = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [detailModal, setDetailModal] = useState({ isOpen: false, title: '', data: [], type: '' });
     const [detailsLoading, setDetailsLoading] = useState(false);
+    const [detailSearch, setDetailSearch] = useState('');
 
     useEffect(() => {
         const fetchData = async () => {
@@ -419,47 +420,58 @@ const AdminOverview = () => {
                 @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
             `}} />
 
-            {/* Drilldown Modal */}
             {detailModal.isOpen && (
-                <div className="modal-overlay" onClick={() => setDetailModal({ ...detailModal, isOpen: false })}>
+                <div className="modal-overlay" onClick={() => { setDetailModal({ ...detailModal, isOpen: false }); setDetailSearch(''); }}>
                     <div className="drilldown-modal" onClick={e => e.stopPropagation()}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                             <div>
                                 <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>{detailModal.title}</h3>
                                 <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b' }}>
-                                    {detailModal.data.length} {detailModal.type === 'tracking' ? 'devices actively transmitting' : 'staff on approved leave'}
+                                    {detailModal.data.length} Total Records
                                 </p>
                             </div>
-                            <button onClick={() => setDetailModal({ ...detailModal, isOpen: false })} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748b' }}>
+                            <button onClick={() => { setDetailModal({ ...detailModal, isOpen: false }); setDetailSearch(''); }} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748b' }}>
                                 <X size={20} />
                             </button>
                         </div>
 
-                        <div style={{ overflowY: 'auto', flex: 1, paddingRight: '8px' }}>
+                        {/* Search Bar inside Modal */}
+                        <div className="search-wrapper" style={{ marginBottom: '20px', maxWidth: '100%' }}>
+                            <span className="icon"><Search size={16} /></span>
+                            <input
+                                type="text"
+                                placeholder={`Filter ${detailModal.type === 'tracking' ? 'live' : 'absent'} staff...`}
+                                className="form-input"
+                                style={{ padding: '12px 12px 12px 42px', height: '44px' }}
+                                value={detailSearch}
+                                onChange={(e) => setDetailSearch(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="custom-scrollbar" style={{ overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
                             {detailsLoading ? (
                                 <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
                                     <div className="premium-loader"></div>
                                 </div>
-                            ) : detailModal.data.length > 0 ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                    {detailModal.data.map(staff => (
-                                        <div key={staff._id} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', borderRadius: '16px', border: '1px solid #f1f5f9', background: '#f8fafc' }}>
-                                            <Avatar name={staff.name} picturePath={staff.profile_picture} size={48} borderRadius="12px" />
-                                            <div style={{ flex: 1 }}>
-                                                <div style={{ fontWeight: '700', color: '#0f172a' }}>{staff.name}</div>
-                                                <div style={{ fontSize: '12px', color: '#64748b' }}>{staff.department}</div>
+                            ) : detailModal.data.filter(s => s.name.toLowerCase().includes(detailSearch.toLowerCase()) || s.department.toLowerCase().includes(detailSearch.toLowerCase())).length > 0 ? (
+                                <div className="detail-grid-modal">
+                                    {detailModal.data
+                                        .filter(s => s.name.toLowerCase().includes(detailSearch.toLowerCase()) || s.department.toLowerCase().includes(detailSearch.toLowerCase()))
+                                        .map(staff => (
+                                        <div key={staff._id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', borderRadius: '16px', border: '1px solid #f1f5f9', background: '#f8fafc', transition: 'transform 0.2s' }}>
+                                            <Avatar name={staff.name} picturePath={staff.profile_picture} size={42} borderRadius="10px" />
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{staff.name}</div>
+                                                <div style={{ fontSize: '10px', color: '#64748b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{staff.department}</div>
                                             </div>
                                             {detailModal.type === 'tracking' ? (
-                                                <div style={{ textAlign: 'right' }}>
-                                                    <div style={{ fontSize: '12px', fontWeight: '800', color: '#097969', background: '#e6fcf9', padding: '4px 8px', borderRadius: '6px' }}>
+                                                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                                    <div style={{ fontSize: '10px', fontWeight: '800', color: '#097969', background: '#e6fcf9', padding: '2px 6px', borderRadius: '4px' }}>
                                                         {staff.last_seen_room?.room_name || 'N/A'}
-                                                    </div>
-                                                    <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '4px' }}>
-                                                        {new Date(staff.last_seen_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <div style={{ fontSize: '12px', fontWeight: '800', color: '#d97706', background: '#fffbeb', padding: '4px 8px', borderRadius: '6px' }}>
+                                                <div style={{ fontSize: '10px', fontWeight: '800', color: '#d97706', background: '#fffbeb', padding: '2px 6px', borderRadius: '4px', flexShrink: 0 }}>
                                                     On Leave
                                                 </div>
                                             )}
@@ -468,13 +480,40 @@ const AdminOverview = () => {
                                 </div>
                             ) : (
                                 <div style={{ textAlign: 'center', padding: '60px' }}>
-                                    <p style={{ color: '#94a3b8' }}>No records found for this category today.</p>
+                                    <p style={{ color: '#94a3b8' }}>No records match your search.</p>
                                 </div>
                             )}
                         </div>
                     </div>
                 </div>
             )}
+
+            <style dangerouslySetInnerHTML={{
+                __html: `
+                .detail-grid-modal {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+                    gap: 12px;
+                }
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 6px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: #e2e8f0;
+                    border-radius: 10px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: #cbd5e1;
+                }
+                @media (max-width: 600px) {
+                    .detail-grid-modal {
+                        grid-template-columns: 1fr;
+                    }
+                }
+            `}} />
         </div>
     );
 };
