@@ -5,9 +5,9 @@ const User = require('../models/User');
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 // Generate JWT token
-const generateToken = (userId, role) => {
+const generateToken = (userId, role, sessionId) => {
     return jwt.sign(
-        { userId, role },
+        { userId, role, sessionId },
         JWT_SECRET,
         { expiresIn: '7d' }
     );
@@ -29,6 +29,16 @@ const authenticateToken = async (req, res, next) => {
         if (!user || !user.isActive) {
             return res.status(401).json({ error: 'Invalid or inactive user' });
         }
+
+        // Single-session enforcement: check if token sessionId matches currentSessionId in DB
+        if (decoded.sessionId && user.currentSessionId && decoded.sessionId !== user.currentSessionId) {
+            console.log(`🚫 Auth: Session mismatch for ${user.email}. Token: ${decoded.sessionId}, DB: ${user.currentSessionId}`);
+            return res.status(401).json({ error: 'You have been logged out because another device logged in with your account.' });
+        }
+
+        // Update last activity check
+        user.lastActivity = new Date();
+        await user.save();
 
         req.user = user;
         next();

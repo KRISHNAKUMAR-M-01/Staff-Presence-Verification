@@ -305,8 +305,26 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        // Generate token
-        const token = generateToken(user._id, user.role);
+        // --- PREVENT SIMULTANEOUS LOGIN: BLOCK SECOND PERSON ---
+        const SESSION_TIMEOUT = 15 * 60 * 1000; // 15 minutes
+        if (user.currentSessionId && user.lastActivity) {
+            const timeSinceLastActivity = Date.now() - new Date(user.lastActivity).getTime();
+            if (timeSinceLastActivity < SESSION_TIMEOUT) {
+                console.log(`🚫 Login Blocked: Active session exists for ${user.email}`);
+                return res.status(403).json({ 
+                    error: 'This account is already logged in on another device. Please logout from the other device or wait for the session to expire (15 mins of inactivity).' 
+                });
+            }
+        }
+        // --- END BLOCK LOGIC ---
+
+        // Generate unique session ID for single-session enforcement
+        const sessionId = Date.now().toString() + Math.random().toString(36).substring(2);
+        user.currentSessionId = sessionId;
+        await user.save();
+
+        // Generate token with sessionId
+        const token = generateToken(user._id, user.role, sessionId);
 
         res.json({
             token,
@@ -366,14 +384,32 @@ app.post('/api/auth/google-login', async (req, res) => {
             return res.status(401).json({ error: 'Account is deactivated' });
         }
 
+        // --- PREVENT SIMULTANEOUS LOGIN: BLOCK SECOND PERSON ---
+        const SESSION_TIMEOUT = 15 * 60 * 1000; // 15 minutes
+        if (user.currentSessionId && user.lastActivity) {
+            const timeSinceLastActivity = Date.now() - new Date(user.lastActivity).getTime();
+            if (timeSinceLastActivity < SESSION_TIMEOUT) {
+                console.log(`🚫 Google Login Blocked: Active session exists for ${user.email}`);
+                return res.status(403).json({ 
+                    error: 'This account is already logged in on another device. Please logout from the other device or wait for the session to expire (15 mins of inactivity).' 
+                });
+            }
+        }
+        // --- END BLOCK LOGIC ---
+
         // Optional: Update name if missing from local DB
         if (!user.name) {
             user.name = name;
             await user.save();
         }
 
-        // Generate token
-        const authToken = generateToken(user._id, user.role);
+        // Generate unique session ID for single-session enforcement
+        const sessionId = Date.now().toString() + Math.random().toString(36).substring(2);
+        user.currentSessionId = sessionId;
+        await user.save();
+
+        // Generate token with sessionId
+        const authToken = generateToken(user._id, user.role, sessionId);
 
         res.json({
             token: authToken,
@@ -492,6 +528,22 @@ app.post('/api/auth/reset-password', async (req, res) => {
         res.json({ message: 'Password reset successfully. You can now log in with your new password.' });
     } catch (err) {
         console.error('❌ Reset Password Error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Logout
+app.post('/api/auth/logout', authenticateToken, async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id);
+        if (user) {
+            user.currentSessionId = null;
+            user.lastActivity = null;
+            await user.save();
+            console.log(`👋 User logged out: ${user.email}`);
+        }
+        res.json({ message: 'Logged out successfully' });
+    } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });

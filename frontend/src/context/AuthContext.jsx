@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import api from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -30,7 +31,13 @@ export const AuthProvider = ({ children }) => {
         setUser(userData);
     };
 
-    const logout = () => {
+    const logout = async () => {
+        try {
+            await api.post('/auth/logout');
+        } catch (err) {
+            console.error('Logout sync with server failed:', err);
+        }
+
         // Tell the Service Worker to stop the soft beacon before clearing session
         if (navigator.serviceWorker?.controller) {
             navigator.serviceWorker.controller.postMessage({ type: 'BEACON_STOP' });

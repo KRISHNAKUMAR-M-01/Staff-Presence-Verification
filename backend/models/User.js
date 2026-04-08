@@ -49,6 +49,14 @@ const userSchema = new mongoose.Schema({
     profile_picture: {
         type: String,
         default: null
+    },
+    currentSessionId: {
+        type: String,
+        default: null
+    },
+    lastActivity: {
+        type: Date,
+        default: null
     }
 }, {
     timestamps: true
