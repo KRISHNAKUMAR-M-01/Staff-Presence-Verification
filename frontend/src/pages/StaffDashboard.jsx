@@ -131,7 +131,7 @@ const StaffDashboard = () => {
                     transition: 'all 0.2s'
                 }}
             >
-                Assign Substitute
+                <span>Assign Substitute</span>
             </button>
 
             <div style={{ position: 'relative' }}>
@@ -173,15 +173,16 @@ const StaffDashboard = () => {
 
                 {showNotifs && (
                     <div style={{
-                        position: 'absolute',
-                        top: '50px',
-                        right: '0',
-                        width: 'min(320px, calc(100vw - 32px))',
+                        position: window.innerWidth <= 768 ? 'fixed' : 'absolute',
+                        top: window.innerWidth <= 768 ? '70px' : '50px',
+                        right: window.innerWidth <= 768 ? '16px' : '0',
+                        left: window.innerWidth <= 768 ? '16px' : 'auto',
+                        width: window.innerWidth <= 768 ? 'auto' : '320px',
                         background: 'white',
                         borderRadius: '16px',
                         boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
                         border: '1px solid #e2e8f0',
-                        zIndex: 1000,
+                        zIndex: 1001,
                         overflow: 'hidden'
                     }}>
                         <div style={{ padding: '16px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between' }}>

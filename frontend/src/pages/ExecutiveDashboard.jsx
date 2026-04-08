@@ -460,7 +460,19 @@ const ExecutiveDashboard = () => {
                             )}
                         </div>
                         {showNotifs && (
-                            <div className="notifs-dropdown" style={{ position: 'absolute', top: '40px', right: '0', width: '300px', background: 'white', borderRadius: '20px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)', border: '1px solid #f1f5f9', zIndex: 1000, overflow: 'hidden' }}>
+                            <div className="notifs-dropdown" style={{
+                                position: window.innerWidth <= 768 ? 'fixed' : 'absolute',
+                                top: window.innerWidth <= 768 ? '70px' : '40px',
+                                right: window.innerWidth <= 768 ? '16px' : '0',
+                                left: window.innerWidth <= 768 ? '16px' : 'auto',
+                                width: window.innerWidth <= 768 ? 'auto' : '300px',
+                                background: 'white',
+                                borderRadius: '20px',
+                                boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)',
+                                border: '1px solid #f1f5f9',
+                                zIndex: 1001,
+                                overflow: 'hidden'
+                            }}>
                                 <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', fontWeight: '800', fontSize: '14px' }}>Notifications</div>
                                 <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
                                     {notifications.length === 0 ? (
