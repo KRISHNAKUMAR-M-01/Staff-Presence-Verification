@@ -175,7 +175,7 @@ const StaffDashboard = () => {
                     <div style={{
                         position: window.innerWidth <= 768 ? 'fixed' : 'absolute',
                         top: window.innerWidth <= 768 ? '70px' : '50px',
-                        right: window.innerWidth <= 768 ? '16px' : '0',
+                        right: window.innerWidth <= 768 ? '16px' : '-80px',
                         left: window.innerWidth <= 768 ? '16px' : 'auto',
                         width: window.innerWidth <= 768 ? 'auto' : '320px',
                         background: 'white',

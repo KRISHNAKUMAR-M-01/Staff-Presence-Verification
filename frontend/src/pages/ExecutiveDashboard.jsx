@@ -463,9 +463,9 @@ const ExecutiveDashboard = () => {
                             <div className="notifs-dropdown" style={{
                                 position: window.innerWidth <= 768 ? 'fixed' : 'absolute',
                                 top: window.innerWidth <= 768 ? '70px' : '40px',
-                                right: window.innerWidth <= 768 ? '16px' : '0',
+                                right: window.innerWidth <= 768 ? '16px' : '-120px', // Shifted to prevent clipping
                                 left: window.innerWidth <= 768 ? '16px' : 'auto',
-                                width: window.innerWidth <= 768 ? 'auto' : '300px',
+                                width: window.innerWidth <= 768 ? 'auto' : '320px',
                                 background: 'white',
                                 borderRadius: '20px',
                                 boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)',
@@ -473,7 +473,10 @@ const ExecutiveDashboard = () => {
                                 zIndex: 1001,
                                 overflow: 'hidden'
                             }}>
-                                <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', fontWeight: '800', fontSize: '14px' }}>Notifications</div>
+                                <div style={{ padding: '16px 20px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <span style={{ fontWeight: '800', fontSize: '14px' }}>Notifications</span>
+                                    <button onClick={() => setShowNotifs(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '4px', display: 'flex' }}><X size={16} color="#64748b" /></button>
+                                </div>
                                 <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
                                     {notifications.length === 0 ? (
                                         <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '12px' }}>No new notifications</div>

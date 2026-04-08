@@ -10,7 +10,8 @@ import {
     Plane,
     AlertCircle,
     UserCog,
-    Bell
+    Bell,
+    X
 } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
 import api from '../services/api';
@@ -121,7 +122,7 @@ const AdminDashboard = () => {
                 <div style={{
                     position: window.innerWidth <= 768 ? 'fixed' : 'absolute',
                     top: window.innerWidth <= 768 ? '70px' : '50px',
-                    right: window.innerWidth <= 768 ? '16px' : '0',
+                    right: window.innerWidth <= 768 ? '16px' : '-80px',
                     left: window.innerWidth <= 768 ? '16px' : 'auto',
                     width: window.innerWidth <= 768 ? 'auto' : '320px',
                     background: 'white',
@@ -131,9 +132,9 @@ const AdminDashboard = () => {
                     zIndex: 1001,
                     overflow: 'hidden'
                 }}>
-                    <div style={{ padding: '16px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ fontWeight: '700' }}>Admin Alerts</span>
-                        <button onClick={() => setShowNotifs(false)} style={{ border: 'none', background: 'none', cursor: 'pointer' }}>×</button>
+                    <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: '700', fontSize: '14px' }}>Admin Alerts</span>
+                        <button onClick={() => setShowNotifs(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '4px', display: 'flex' }}><X size={16} color="#64748b" /></button>
                     </div>
                     <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
                         {notifs.length > 0 ? notifs.map(n => (
