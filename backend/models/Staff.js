@@ -7,9 +7,10 @@ const staffSchema = new mongoose.Schema({
         trim: true,
         validate: {
             validator: function (v) {
-                return /^[A-Za-z\s]+$/.test(v);
+                // Must contain at least one letter and only [A-Za-z_]
+                return /^(?=.*[A-Za-z])[A-Za-z_]+$/.test(v);
             },
-            message: 'Name should only contain letters and spaces'
+            message: 'Name must contain at least one letter and can only include underscores (no spaces)'
         }
     },
     beacon_uuid: {
@@ -17,7 +18,14 @@ const staffSchema = new mongoose.Schema({
         required: true,
         unique: true,
         uppercase: true,
-        trim: true
+        trim: true,
+        validate: {
+            validator: function (v) {
+                // Must be exactly 32 hex characters
+                return /^[0-9A-Fa-f]{32}$/.test(v);
+            },
+            message: 'Beacon UUID must be exactly 32 hexadecimal characters'
+        }
     },
     department: {
         type: String,
@@ -43,9 +51,10 @@ const staffSchema = new mongoose.Schema({
         trim: true,
         validate: {
             validator: function (v) {
-                return !v || /^\+?[\d\s-]{10,}$/.test(v);
+                // Indian format: Optional +91 followed by 10 digits starting with 6, 7, 8, or 9
+                return !v || /^(?:\+91[\-\s]?)?[6789]\d{9}$/.test(v);
             },
-            message: 'Invalid phone number format'
+            message: 'Invalid Indian phone number. Please use 10 digits starting with 6-9 (optionally with +91).'
         }
     },
     // Live Location Tracking (updated by every BLE scan, regardless of class schedule)
@@ -66,7 +75,5 @@ const staffSchema = new mongoose.Schema({
     timestamps: true
 });
 
-// Index for efficient beacon scans
-staffSchema.index({ beacon_uuid: 1 });
-
+// Export model
 module.exports = mongoose.model('Staff', staffSchema);

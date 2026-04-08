@@ -727,7 +727,7 @@ app.put('/api/admin/staff/:id', authenticateToken, requireAdmin, uploadProfile.s
         const staff = await Staff.findByIdAndUpdate(
             req.params.id,
             updateData,
-            { new: true }
+            { new: true, runValidators: true }
         );
         if (!staff) {
             return res.status(404).json({ error: 'Staff not found' });
@@ -795,7 +795,7 @@ app.put('/api/admin/classrooms/:id', authenticateToken, requireAdmin, async (req
         const classroom = await Classroom.findByIdAndUpdate(
             req.params.id,
             { room_name, esp32_id },
-            { new: true }
+            { new: true, runValidators: true }
         );
         if (!classroom) {
             return res.status(404).json({ error: 'Classroom not found' });
@@ -1230,24 +1230,16 @@ app.get('/api/admin/dashboard-stats', authenticateToken, requireAdmin, async (re
         const { todayStr } = getISTDateInfo();
         const todayDate = new Date(todayStr); // Midnight IST stored as UTC
 
-        // Calculate live tracking staffs
-        const attendance = await Attendance.find({ date: todayDate }).sort({ check_in_time: -1 });
-        const allStaff = await Staff.find().select('_id');
-
+        // --- Calculate live tracking staffs ---
+        // We look at the Staff model's last_seen_time directly.
+        // If they were seen within the last 15 seconds, they are "Live".
         const now = new Date();
-        const signalThreshold = 5 * 60 * 1000; // 5 minutes in ms
-        let liveTrackingCount = 0;
-
-        allStaff.forEach(s => {
-            const staffRecords = attendance.filter(a => a.staff_id.toString() === s._id.toString());
-            if (staffRecords.length > 0) {
-                const latest = staffRecords[0];
-                const lastSeen = new Date(latest.last_seen_time || latest.check_in_time);
-                if (now - lastSeen <= signalThreshold) {
-                    liveTrackingCount++;
-                }
-            }
+        const signalThreshold = 15 * 1000; // 15 seconds (slightly more lenient than 10s for dashboard)
+        
+        const liveTrackingCount = await Staff.countDocuments({
+            last_seen_time: { $gte: new Date(now.getTime() - signalThreshold) }
         });
+        // --- End live tracking count ---
 
         // Calculate absent staff based on approved leaves
         // Since start_date and end_date might be midnight UTC, we check if today is within range
@@ -1258,7 +1250,7 @@ app.get('/api/admin/dashboard-stats', authenticateToken, requireAdmin, async (re
         });
 
         const stats = {
-            totalStaff: allStaff.length,
+            totalStaff: await Staff.countDocuments(),
             totalClassrooms: await Classroom.countDocuments(),
             presentToday: await Attendance.countDocuments({
                 date: todayDate,
@@ -1276,6 +1268,48 @@ app.get('/api/admin/dashboard-stats', authenticateToken, requireAdmin, async (re
         };
 
         res.json(stats);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get detailed live tracking staff (Admin & Executive)
+app.get('/api/admin/live-tracking-details', authenticateToken, async (req, res) => {
+    try {
+        const fifteenSecondsAgo = new Date(Date.now() - 15000);
+        const liveStaff = await Staff.find({
+            last_seen_time: { $gte: fifteenSecondsAgo }
+        }).populate('last_seen_room', 'room_name');
+        res.json(liveStaff);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get staff on leave today (Admin & Executive)
+app.get('/api/admin/on-leave-today-details', authenticateToken, async (req, res) => {
+    try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const leaves = await Leave.find({
+            status: 'approved',
+            start_date: { $lte: today },
+            end_date: { $gte: today }
+        }).populate('staff_id', 'name department profile_picture');
+        
+        // Remove duplicates if any
+        const staffOnLeave = [];
+        const seenIds = new Set();
+        
+        leaves.forEach(l => {
+            if (l.staff_id && !seenIds.has(l.staff_id._id.toString())) {
+                staffOnLeave.push(l.staff_id);
+                seenIds.add(l.staff_id._id.toString());
+            }
+        });
+        
+        res.json(staffOnLeave);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

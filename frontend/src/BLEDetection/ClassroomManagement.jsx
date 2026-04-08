@@ -37,8 +37,17 @@ const ClassroomManagement = () => {
         setEsp32Id(room.esp32_id);
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+        // --- FRONTEND VALIDATION ---
+        if (!/^[A-Za-z0-9]+$/.test(roomName)) {
+            setModalConfig({ isOpen: true, type: 'error', title: 'Invalid Room Name', message: 'Room Name must be alphanumeric (no spaces or special characters).' });
+            return;
+        }
+        if (!/^[A-Za-z0-9_]+$/.test(esp32Id)) {
+            setModalConfig({ isOpen: true, type: 'error', title: 'Invalid Device ID', message: 'Device ID must be alphanumeric or underscores (no spaces).' });
+            return;
+        }
+        // --- END VALIDATION ---
+
         try {
             if (editingRoom) {
                 await api.put(`/admin/classrooms/${editingRoom._id}`, { room_name: roomName, esp32_id: esp32Id });
@@ -64,7 +73,7 @@ const ClassroomManagement = () => {
                 isOpen: true,
                 type: 'error',
                 title: 'Action Failed',
-                message: 'Something went wrong. Please check the inputs and try again.'
+                message: err.response?.data?.error || 'Something went wrong. Please check the inputs and try again.'
             });
         }
     };
@@ -113,9 +122,15 @@ const ClassroomManagement = () => {
                             <input
                                 className="form-input"
                                 style={{ paddingLeft: '44px' }}
-                                placeholder="e.g. Computer Science Lab"
+                                placeholder="e.g. ROOM104"
                                 value={roomName}
-                                onChange={e => setRoomName(e.target.value)}
+                                onChange={e => {
+                                    const val = e.target.value;
+                                    // Block special characters and spaces
+                                    if (!val || /^[A-Za-z0-9]*$/.test(val)) {
+                                        setRoomName(val);
+                                    }
+                                }}
                                 required
                             />
                         </div>
@@ -132,7 +147,13 @@ const ClassroomManagement = () => {
                                 style={{ paddingLeft: '44px' }}
                                 placeholder="e.g. ROOM_101_A"
                                 value={esp32Id}
-                                onChange={e => setEsp32Id(e.target.value)}
+                                onChange={e => {
+                                    const val = e.target.value;
+                                    // Block special characters and spaces (allow underscores)
+                                    if (!val || /^[A-Za-z0-9_]*$/.test(val)) {
+                                        setEsp32Id(val);
+                                    }
+                                }}
                                 required
                             />
                         </div>

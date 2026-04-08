@@ -13,6 +13,8 @@ const AdminOverview = () => {
     const [selectedStaff, setSelectedStaff] = useState(null);
     const [staffHistory, setStaffHistory] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
+    const [detailModal, setDetailModal] = useState({ isOpen: false, title: '', data: [], type: '' });
+    const [detailsLoading, setDetailsLoading] = useState(false);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -43,9 +45,29 @@ const AdminOverview = () => {
         }
     }, [selectedStaff]);
 
+    const handleStatClick = async (type) => {
+        setDetailsLoading(true);
+        setDetailModal({ isOpen: true, title: 'Loading...', data: [], type });
+        try {
+            const endpoint = type === 'tracking' ? '/admin/live-tracking-details' : '/admin/on-leave-today-details';
+            const res = await api.get(endpoint);
+            setDetailModal({
+                isOpen: true,
+                title: type === 'tracking' ? 'Staff Currently Tracked (Live)' : 'Staff Absent on Leave Today',
+                data: res.data,
+                type
+            });
+        } catch (err) {
+            console.error(err);
+            setDetailModal({ isOpen: false, title: '', data: [], type: '' });
+        } finally {
+            setDetailsLoading(false);
+        }
+    };
+
     const statItems = [
-        { label: 'Tracking ID Signal Found', value: stats.liveTrackingStaff || 0, icon: <Activity size={22} />, color: '#097969', accent: '#e6fcf9' },
-        { label: 'Absent on Leave', value: stats.absentOnLeave || 0, icon: <Plane size={22} />, color: '#d97706', accent: '#fffbeb' }
+        { label: 'Tracking ID Signal Found', value: stats.liveTrackingStaff || 0, icon: <Activity size={22} />, color: '#097969', accent: '#e6fcf9', type: 'tracking' },
+        { label: 'Absent on Leave', value: stats.absentOnLeave || 0, icon: <Plane size={22} />, color: '#d97706', accent: '#fffbeb', type: 'leave' }
     ];
 
     // Grouping logic
@@ -93,7 +115,14 @@ const AdminOverview = () => {
 
             <div className="stats-grid" style={{ marginBottom: '40px' }}>
                 {statItems.map((item, id) => (
-                    <div className="stat-card" key={id} style={{ borderLeft: `4px solid ${item.color}` }}>
+                    <div 
+                        className="stat-card" 
+                        key={id} 
+                        onClick={() => handleStatClick(item.type)}
+                        style={{ borderLeft: `4px solid ${item.color}`, cursor: 'pointer', transition: 'transform 0.2s' }}
+                        onMouseOver={e => e.currentTarget.style.transform = 'translateY(-5px)'}
+                        onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
+                    >
                         <div className="stat-card-top">
                             <div className="stat-icon-wrapper" style={{ color: item.color, backgroundColor: item.accent }}>
                                 {item.icon}
@@ -105,6 +134,7 @@ const AdminOverview = () => {
                         <div style={{ marginTop: '16px' }}>
                             <div className="stat-value" style={{ fontSize: '32px' }}>{item.value}</div>
                             <div className="stat-label" style={{ textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '11px', opacity: 0.8 }}>{item.label}</div>
+                            <div style={{ marginTop: '8px', fontSize: '10px', color: item.color, fontWeight: '700', textDecoration: 'underline' }}>View Details</div>
                         </div>
                     </div>
                 ))}
@@ -349,10 +379,100 @@ const AdminOverview = () => {
                 )}
             </div>
 
-            {/* Empty state for root level */}
-            {!selectedDept && !selectedStaff && getDeptsMatchingSearch().length === 0 && (
-                <div style={{ textAlign: 'center', padding: '60px', background: 'white', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>
-                    <p style={{ color: '#64748b' }}>No departments found.</p>
+            <style dangerouslySetInnerHTML={{
+                __html: `
+                .btn-primary-outline {
+                    background: transparent;
+                    border: 1px solid #e2e8f0;
+                    color: var(--primary);
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .btn-primary-outline:hover {
+                    background: #f0fdf4;
+                    border-color: var(--primary);
+                }
+                .modal-overlay {
+                    position: fixed;
+                    top: 0; left: 0; right: 0; bottom: 0;
+                    background: rgba(15, 23, 42, 0.4);
+                    backdrop-filter: blur(8px);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 2000;
+                    animation: fadeIn 0.3s ease;
+                }
+                .drilldown-modal {
+                    background: white;
+                    width: 95%;
+                    max-width: 600px;
+                    max-height: 80vh;
+                    border-radius: 24px;
+                    padding: 32px;
+                    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+                    display: flex;
+                    flex-direction: column;
+                    animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+                }
+                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+            `}} />
+
+            {/* Drilldown Modal */}
+            {detailModal.isOpen && (
+                <div className="modal-overlay" onClick={() => setDetailModal({ ...detailModal, isOpen: false })}>
+                    <div className="drilldown-modal" onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>{detailModal.title}</h3>
+                                <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#64748b' }}>
+                                    {detailModal.data.length} {detailModal.type === 'tracking' ? 'devices actively transmitting' : 'staff on approved leave'}
+                                </p>
+                            </div>
+                            <button onClick={() => setDetailModal({ ...detailModal, isOpen: false })} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#64748b' }}>
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div style={{ overflowY: 'auto', flex: 1, paddingRight: '8px' }}>
+                            {detailsLoading ? (
+                                <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
+                                    <div className="premium-loader"></div>
+                                </div>
+                            ) : detailModal.data.length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    {detailModal.data.map(staff => (
+                                        <div key={staff._id} style={{ display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', borderRadius: '16px', border: '1px solid #f1f5f9', background: '#f8fafc' }}>
+                                            <Avatar name={staff.name} picturePath={staff.profile_picture} size={48} borderRadius="12px" />
+                                            <div style={{ flex: 1 }}>
+                                                <div style={{ fontWeight: '700', color: '#0f172a' }}>{staff.name}</div>
+                                                <div style={{ fontSize: '12px', color: '#64748b' }}>{staff.department}</div>
+                                            </div>
+                                            {detailModal.type === 'tracking' ? (
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <div style={{ fontSize: '12px', fontWeight: '800', color: '#097969', background: '#e6fcf9', padding: '4px 8px', borderRadius: '6px' }}>
+                                                        {staff.last_seen_room?.room_name || 'N/A'}
+                                                    </div>
+                                                    <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '4px' }}>
+                                                        {new Date(staff.last_seen_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div style={{ fontSize: '12px', fontWeight: '800', color: '#d97706', background: '#fffbeb', padding: '4px 8px', borderRadius: '6px' }}>
+                                                    On Leave
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div style={{ textAlign: 'center', padding: '60px' }}>
+                                    <p style={{ color: '#94a3b8' }}>No records found for this category today.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
@@ -360,3 +480,4 @@ const AdminOverview = () => {
 };
 
 export default AdminOverview;
+

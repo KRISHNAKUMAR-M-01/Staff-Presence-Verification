@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import api from '../services/api';
-import { Eye, EyeOff, Shield, Info } from 'lucide-react';
+import { Eye, EyeOff, Shield, Info, Camera } from 'lucide-react';
 import StatusModal from '../components/StatusModal';
 
 const UserManagement = () => {
@@ -26,6 +26,17 @@ const UserManagement = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        // --- FULL NAME VALIDATION ---
+        if (!/^(?=.*[A-Za-z])[A-Za-z_]+$/.test(formData.name.trim())) {
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Invalid Name',
+                message: 'Name must contain at least one letter and can only include underscores (no spaces).'
+            });
+            return;
+        }
 
         const emailRegex = /^[a-zA-Z][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
         if (!emailRegex.test(formData.email.trim())) {
@@ -214,9 +225,48 @@ const UserManagement = () => {
                         </div>
                     </div>
 
+                    {/* Profile Picture Upload Section */}
+                    <div className="form-group" style={{ marginBottom: '28px', background: '#f8fafc', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                        <label className="form-label" style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b', marginBottom: '12px', display: 'block' }}>Profile Picture (Cloudinary)</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                            {previewUrl ? (
+                                <img src={previewUrl} style={{ width: '80px', height: '80px', borderRadius: '16px', objectFit: 'cover', border: '3px solid white', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                            ) : (
+                                <div style={{ width: '80px', height: '80px', borderRadius: '16px', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: '24px', fontWeight: '800' }}>
+                                    {formData.name.charAt(0) || '?'}
+                                </div>
+                            )}
+                             <div style={{ flex: 1 }}>
+                                <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    id="profile-upload" 
+                                    onChange={handleFileChange}
+                                    style={{ display: 'none' }}
+                                />
+                                <label htmlFor="profile-upload" style={{ 
+                                    display: 'inline-flex', 
+                                    alignItems: 'center',
+                                    gap: '8px', 
+                                    padding: '10px 20px', 
+                                    background: '#ffffff', 
+                                    border: '1px solid #cbd5e1', 
+                                    borderRadius: '10px', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600', 
+                                    cursor: 'pointer', 
+                                    transition: 'all 0.2s',
+                                    width: 'fit-content'
+                                }} onMouseOver={e=> { e.target.style.background='#f8fafc'; e.target.style.borderColor='var(--primary)'; }} onMouseOut={e=> { e.target.style.background='#ffffff'; e.target.style.borderColor='#cbd5e1'; }}>
+                                    <Camera size={16} /> Choose Photo
+                                </label>
+                                <p style={{ fontSize: '11px', color: '#64748b', marginTop: '8px', margin: 0 }}>PNG, JPG or WebP. Max 5MB.</p>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* User Details */}
                     <div className="responsive-grid" style={{ marginBottom: '24px' }}>
-
                         <div className="form-group">
                             <label className="form-label" style={{ fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '8px', display: 'block' }}>
                                 Full Name <span style={{ color: '#dc2626' }}>*</span>
@@ -225,7 +275,12 @@ const UserManagement = () => {
                                 className="form-input"
                                 placeholder="Enter full name"
                                 value={formData.name}
-                                onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                onChange={e => {
+                                    const val = e.target.value;
+                                    if (!val || /^[A-Za-z_]*$/.test(val)) {
+                                        setFormData({ ...formData, name: val });
+                                    }
+                                }}
                                 style={{ fontSize: '14px' }}
                                 required
                             />
@@ -246,33 +301,6 @@ const UserManagement = () => {
                                 style={{ fontSize: '14px' }}
                                 required
                             />
-                        </div>
-                    </div>
-
-                    {/* Profile Picture Upload Section */}
-                    <div className="form-group" style={{ marginBottom: '28px', background: '#f8fafc', padding: '20px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-                        <label className="form-label" style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b', marginBottom: '12px', display: 'block' }}>Profile Picture (Cloudinary)</label>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                            {previewUrl ? (
-                                <img src={previewUrl} style={{ width: '80px', height: '80px', borderRadius: '16px', objectFit: 'cover', border: '3px solid white', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
-                            ) : (
-                                <div style={{ width: '80px', height: '80px', borderRadius: '16px', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: '24px', fontWeight: '800' }}>
-                                    {formData.name.charAt(0) || '?'}
-                                </div>
-                            )}
-                            <div style={{ flex: 1 }}>
-                                <input 
-                                    type="file" 
-                                    accept="image/*" 
-                                    id="profile-upload" 
-                                    onChange={handleFileChange}
-                                    style={{ display: 'none' }}
-                                />
-                                <label htmlFor="profile-upload" style={{ display: 'inline-block', padding: '10px 18px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '10px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s' }} onMouseOver={e=>e.target.style.background='#f1f5f9'} onMouseOut={e=>e.target.style.background='#ffffff'}>
-                                    Choose Photo
-                                </label>
-                                <p style={{ fontSize: '11px', color: '#64748b', marginTop: '8px', margin: 0 }}>PNG, JPG or WebP. Max 5MB.</p>
-                            </div>
                         </div>
                     </div>
 

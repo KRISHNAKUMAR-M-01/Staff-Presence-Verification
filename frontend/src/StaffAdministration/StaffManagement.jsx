@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
-import { Eye, EyeOff, Search, Edit2, Trash2, X, Check, UserPlus, Save, ChevronLeft, Building2, Users, Plane, Sprout, Brain, Car, Activity, FlaskConical, Compass, Code, Monitor, Zap, Cpu, Globe, Settings, Bot } from 'lucide-react';
+import { Eye, EyeOff, Search, Edit2, Trash2, X, Check, UserPlus, Save, ChevronLeft, Building2, Users, Plane, Sprout, Brain, Car, Activity, FlaskConical, Compass, Code, Monitor, Zap, Cpu, Globe, Settings, Bot, Camera } from 'lucide-react';
 import StatusModal from '../components/StatusModal';
 import ConfirmModal from '../components/ConfirmModal';
 import CustomSelect from '../components/CustomSelect';
@@ -100,6 +100,17 @@ const StaffManagement = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        // --- FULL NAME VALIDATION ---
+        if (!/^(?=.*[A-Za-z])[A-Za-z_]+$/.test(formData.name.trim())) {
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Invalid Name',
+                message: 'Name must contain at least one letter and can only include underscores (no spaces).'
+            });
+            return;
+        }
+
         if (!formData.department) {
             setModalConfig({
                 isOpen: true,
@@ -110,7 +121,33 @@ const StaffManagement = () => {
             return;
         }
 
-        const data = new FormData();
+        // --- BEACON UUID VALIDATION ---
+        const uuidRegex = /^[0-9A-Fa-f]{32}$/;
+        if (!uuidRegex.test(formData.beacon_uuid.trim())) {
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Invalid Beacon UUID',
+                message: 'Beacon UUID must be exactly 32 hexadecimal characters (0-9, A-F).'
+            });
+            return;
+        }
+        // --- END VALIDATION ---
+
+        // --- PHONE NUMBER VALIDATION ---
+        if (formData.phone_number) {
+            const phoneRegex = /^(?:\+91[\-\s]?)?[6789]\d{9}$/;
+            if (!phoneRegex.test(formData.phone_number.trim())) {
+                setModalConfig({
+                    isOpen: true,
+                    type: 'error',
+                    title: 'Invalid Phone Number',
+                    message: 'Please enter a valid Indian mobile number (e.g., 9876543210 or +91 9876543210).'
+                });
+                return;
+            }
+        }
+        // --- END VALIDATION ---
         Object.keys(formData).forEach(key => {
             if (key !== 'password' || formData[key]) {
                 data.append(key, formData[key]);
@@ -129,7 +166,18 @@ const StaffManagement = () => {
                     message: `Successfully updated details for ${formData.name}.`
                 });
             } else {
-                const emailRegex = /^[a-zA-Z][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+                // --- FULL NAME VALIDATION ---
+        if (!/^[A-Za-z\s]+$/.test(formData.name.trim())) {
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Invalid Name',
+                message: 'User Name should only contain letters and spaces.'
+            });
+            return;
+        }
+
+        const emailRegex = /^[a-zA-Z][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
                 if (!emailRegex.test(formData.email.trim())) {
                     setModalConfig({ isOpen: true, type: 'error', title: 'Invalid Email', message: 'Please enter a valid email address.' });
                     return;
@@ -280,7 +328,7 @@ const StaffManagement = () => {
                                         {formData.name.charAt(0) || '?'}
                                     </div>
                                 )}
-                                <div style={{ flex: 1, minWidth: '150px' }}>
+                                <div style={{ flex: 1, minWidth: '150px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                                     <input 
                                         type="file" 
                                         accept="image/*" 
@@ -294,10 +342,24 @@ const StaffManagement = () => {
                                         }}
                                         style={{ display: 'none' }}
                                     />
-                                    <label htmlFor="staff-photo-upload" style={{ display: 'inline-block', padding: '10px 18px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '10px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', transition: 'all 0.2s', width: '100%', textAlign: 'center' }} onMouseOver={e=>e.target.style.background='#f1f5f9'} onMouseOut={e=>e.target.style.background='#ffffff'}>
-                                        Select Photo
+                                    <label htmlFor="staff-photo-upload" style={{ 
+                                        display: 'inline-flex', 
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        padding: '10px 20px', 
+                                        background: '#ffffff', 
+                                        border: '1px solid #cbd5e1', 
+                                        borderRadius: '10px', 
+                                        fontSize: '13px', 
+                                        fontWeight: '600', 
+                                        cursor: 'pointer', 
+                                        transition: 'all 0.2s', 
+                                        width: 'fit-content',
+                                        boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                                    }} onMouseOver={e=> { e.target.style.background='#f8fafc'; e.target.style.borderColor='var(--primary)'; }} onMouseOut={e=>{ e.target.style.background='#ffffff'; e.target.style.borderColor='#cbd5e1'; }}>
+                                        <Camera size={16} /> Select Photo
                                     </label>
-                                    <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '10px', margin: 0, textAlign: 'center' }}>Upload to Cloudinary.</p>
+                                    <p style={{ fontSize: '11px', color: '#94a3b8', marginTop: '8px', margin: 0 }}>Upload to Cloudinary.</p>
                                 </div>
                             </div>
                         </div>
@@ -311,7 +373,7 @@ const StaffManagement = () => {
                                     value={formData.name}
                                     onChange={e => {
                                         const val = e.target.value;
-                                        if (!val || /^[A-Za-z\s]*$/.test(val)) {
+                                        if (!val || /^[A-Za-z_]*$/.test(val)) {
                                             setFormData({ ...formData, name: val });
                                         }
                                     }}
@@ -322,11 +384,15 @@ const StaffManagement = () => {
                                 <label className="form-label required-label-asterisk">Beacon UUID</label>
                                 <input
                                     className="form-input"
-                                    placeholder="e.g. EB:06:55:05"
+                                    placeholder="32-Digit Hex (e.g. EB065505...)"
                                     value={formData.beacon_uuid}
-                                    onChange={e => setFormData({ ...formData, beacon_uuid: e.target.value })}
+                                    onChange={e => setFormData({ ...formData, beacon_uuid: e.target.value.toUpperCase() })}
+                                    maxLength="32"
                                     required
                                 />
+                                <p style={{ fontSize: '10px', color: '#94a3b8', marginTop: '4px' }}>
+                                    Current length: {formData.beacon_uuid.length}/32
+                                </p>
                             </div>
                             <CustomSelect
                                 label="Department"
@@ -337,13 +403,22 @@ const StaffManagement = () => {
                                 onChange={val => setFormData({ ...formData, department: val })}
                             />
                             <div className="form-group">
-                                <label className="form-label">Phone Number</label>
+                                <label className="form-label">Phone Number (Indian)</label>
                                 <input
                                     className="form-input"
-                                    placeholder="e.g. +91 9876543210"
+                                    placeholder="e.g. 9876543210"
                                     value={formData.phone_number}
-                                    onChange={e => setFormData({ ...formData, phone_number: e.target.value })}
+                                    onChange={e => {
+                                        const val = e.target.value;
+                                        // Allow only digits, space, plus, and hyphen in real-time typing
+                                        if (/^[\d\s+\-]*$/.test(val)) {
+                                            setFormData({ ...formData, phone_number: val });
+                                        }
+                                    }}
                                 />
+                                <p style={{ fontSize: '10px', color: '#94a3b8', marginTop: '4px' }}>
+                                    Formats: 9876543210 or +91 9876543210
+                                </p>
                             </div>
 
                             {editingStaff ? (
