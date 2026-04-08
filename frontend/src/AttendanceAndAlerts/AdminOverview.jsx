@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clipboard, AlertCircle, Plane, User, MapPin, Clock, ChevronLeft, Building2, History, Search, Sprout, Brain, Car, Activity, FlaskConical, Compass, Code, Monitor, Zap, Cpu, Globe, Settings, Bot } from 'lucide-react';
+import { Clipboard, AlertCircle, Plane, User, MapPin, Clock, ChevronLeft, Building2, History, Search, Sprout, Brain, Car, Activity, FlaskConical, Compass, Code, Monitor, Zap, Cpu, Globe, Settings, Bot, X } from 'lucide-react';
 import api from '../services/api';
 import Avatar from '../components/Avatar';
 
