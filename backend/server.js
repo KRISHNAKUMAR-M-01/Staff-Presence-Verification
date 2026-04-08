@@ -1476,7 +1476,7 @@ app.post('/api/staff/soft-beacon', authenticateToken, requireStaff, async (req, 
             return res.status(404).json({ error: 'Classroom not found.' });
         }
 
-        const { todayStr, currentTime, currentDay } = getISTDateInfo();
+        const { todayStr, currentTime, currentDay, startOfToday } = getISTDateInfo();
         const now = new Date(); // Always store as UTC — avoids timezone drift on Render
 
         console.log(`[Soft Beacon] ${staff.name} → ${classroom.room_name} at ${currentTime} | UTC: ${now.toISOString()}`);
@@ -1614,7 +1614,7 @@ app.post('/api/staff/verify-location', authenticateToken, requireStaffOrExecutiv
         if (!staff) return res.status(404).json({ error: 'Staff record not found.' });
 
         const now = new Date();
-        const { todayStr, currentDay, currentTime } = getISTDateInfo();
+        const { todayStr, currentDay, currentTime, startOfToday } = getISTDateInfo();
 
         // Permission is already checked in step 1b above via isStaffPermitted
         const subType = permission.type;
@@ -2172,7 +2172,7 @@ app.post('/api/ble-data', async (req, res) => {
 
         // ── STEP 6: Check Timetable Permission for Attendance ────────────────
         // Attendance is only marked when there is a scheduled class right now.
-        const { todayStr } = getISTDateInfo();
+        const { todayStr, currentDay, currentTime, startOfToday } = getISTDateInfo();
         const permission = await isStaffPermitted(staff._id, classroom._id);
 
         if (!permission.permitted) {
@@ -2297,7 +2297,7 @@ app.get('/api/classrooms', async (req, res) => {
 // Real-time Dashboard Stats
 app.get(['/api/admin/dashboard-stats', '/api/dashboard-stats'], authenticateToken, async (req, res) => {
     try {
-        const { todayStr } = getISTDateInfo();
+        const { todayStr, startOfToday } = getISTDateInfo();
         const todayDate = new Date(todayStr);
 
         const stats = {
@@ -2449,7 +2449,7 @@ cron.schedule('* * * * *', async () => {
         const now = new Date();
         // Use IST time to correctly match timetable start_time (stored as IST HH:MM strings)
         const checkTime = new Date(now.getTime() - 15 * 60000); // 15 mins ago
-        const { currentDay, currentTime: targetTime, todayStr } = getISTDateInfo(checkTime);
+        const { currentDay, currentTime: targetTime, todayStr, startOfToday } = getISTDateInfo(checkTime);
 
         // Find classes that started 15 minutes ago in IST
         const startedClasses = await Timetable.find({
