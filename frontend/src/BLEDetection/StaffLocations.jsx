@@ -31,17 +31,14 @@ const StaffLocations = () => {
     };
 
     const filteredLocations = locations.filter(loc => {
-        const staffMatchesSearch = loc.staff_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            loc.actual_location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            loc.expected_location.toLowerCase().includes(searchQuery.toLowerCase());
+        const staffMatchesSearch = (loc.staff_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (loc.actual_location || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (loc.expected_location || '').toLowerCase().includes(searchQuery.toLowerCase());
 
         if (selectedDept) {
-            // If a department is selected, only show staff from that department
-            // and apply search only to staff details
             return loc.department === selectedDept && staffMatchesSearch;
         } else {
-            // If no department is selected, apply search across all fields including department name
-            return staffMatchesSearch || loc.department.toLowerCase().includes(searchQuery.toLowerCase());
+            return staffMatchesSearch || (loc.department || '').toLowerCase().includes(searchQuery.toLowerCase());
         }
     });
 

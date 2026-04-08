@@ -913,7 +913,7 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
     try {
-        const { todayStr, currentDay, currentTime } = getISTDateInfo();
+        const { todayStr, currentDay, currentTime, startOfToday } = getISTDateInfo();
         const todayDate = new Date(todayStr);
 
         // 1. Get today's attendance records
