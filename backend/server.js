@@ -306,15 +306,11 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        // --- STRICT SIMULTANEOUS LOGIN BLOCK ---
-        // Prevent login if an active session exists. 
-        // We include a 12-hour timeout fallback in case the browser was closed without clicking logout.
+        // --- REFINED SIMULTANEOUS LOGIN LOGIC ---
+        // If there is an active session, we allow the new login to OVERRIDE it.
+        // This prevents the "30-minute lockout" if a user closes their tab without logging out.
         if (user.currentSessionId) {
-            const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
-            if (user.lastActivity && (Date.now() - new Date(user.lastActivity).getTime() < SESSION_TIMEOUT)) {
-                console.log(`❌ Login blocked: ${email} is already logged in elsewhere.`);
-                return res.status(403).json({ error: 'Account is already logged in on another device. Please log out from that device first.' });
-            }
+            console.log(`⚠️ User ${email} is already logged in. Overriding previous session.`);
         }
         // --- END ---
 
@@ -407,16 +403,10 @@ app.post('/api/auth/google-login', async (req, res) => {
             return res.status(401).json({ error: 'Account is deactivated' });
         }
 
-        // --- PREVENT SIMULTANEOUS LOGIN: BLOCK SECOND PERSON ---
-        const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
-        if (user.currentSessionId && user.lastActivity) {
-            const timeSinceLastActivity = Date.now() - new Date(user.lastActivity).getTime();
-            if (timeSinceLastActivity < SESSION_TIMEOUT) {
-                console.log(`🚫 Google Login Blocked: Active session exists for ${user.email}`);
-                return res.status(403).json({ 
-                    error: 'Account is already logged in on another device. Please log out from that device first.' 
-                });
-            }
+        // --- REFINED SIMULTANEOUS LOGIN LOGIC (Google) ---
+        // Overrides previous session to prevent 30-minute lockout
+        if (user.currentSessionId) {
+            console.log(`⚠️ Google User ${user.email} is already logged in. Overriding previous session.`);
         }
         // --- END BLOCK LOGIC ---
 
