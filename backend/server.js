@@ -306,15 +306,13 @@ app.post('/api/auth/login', async (req, res) => {
         }
 
         // --- PREVENT SIMULTANEOUS LOGIN: BLOCK SECOND PERSON ---
-        const { force } = req.body;
-        const SESSION_TIMEOUT = 10 * 60 * 1000; // Reduced to 10 minutes
-        if (!force && user.currentSessionId && user.lastActivity) {
+        const SESSION_TIMEOUT = 15 * 60 * 1000; // 15 minutes
+        if (user.currentSessionId && user.lastActivity) {
             const timeSinceLastActivity = Date.now() - new Date(user.lastActivity).getTime();
             if (timeSinceLastActivity < SESSION_TIMEOUT) {
                 console.log(`🚫 Login Blocked: Active session exists for ${user.email}`);
                 return res.status(403).json({ 
-                    error: 'ALREADY_LOGGED_IN',
-                    message: 'This account is already logged in on another device.' 
+                    error: 'This account is already logged in on another device. Please logout from the other device or wait for the session to expire (15 mins of inactivity).' 
                 });
             }
         }
@@ -387,15 +385,13 @@ app.post('/api/auth/google-login', async (req, res) => {
         }
 
         // --- PREVENT SIMULTANEOUS LOGIN: BLOCK SECOND PERSON ---
-        const { force } = req.body;
-        const SESSION_TIMEOUT = 10 * 60 * 1000; // 10 minutes
-        if (!force && user.currentSessionId && user.lastActivity) {
+        const SESSION_TIMEOUT = 15 * 60 * 1000; // 15 minutes
+        if (user.currentSessionId && user.lastActivity) {
             const timeSinceLastActivity = Date.now() - new Date(user.lastActivity).getTime();
             if (timeSinceLastActivity < SESSION_TIMEOUT) {
                 console.log(`🚫 Google Login Blocked: Active session exists for ${user.email}`);
                 return res.status(403).json({ 
-                    error: 'ALREADY_LOGGED_IN',
-                    message: 'This account is already logged in on another device.' 
+                    error: 'This account is already logged in on another device. Please logout from the other device or wait for the session to expire (15 mins of inactivity).' 
                 });
             }
         }

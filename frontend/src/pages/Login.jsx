@@ -43,26 +43,7 @@ const Login = () => {
                                '/staff';
             navigate(targetPath);
         } catch (err) {
-            if (err.response?.data?.error === 'ALREADY_LOGGED_IN') {
-                if (window.confirm('This account is already logged in on another device. Would you like to log out the other session and sign in here?')) {
-                    // Retry with force flag
-                    try {
-                        setLoading(true);
-                        const retryRes = await api.post('/auth/login', { email, password, force: true });
-                        const { token, user } = retryRes.data;
-                        login(user, token);
-                        const role = user.role?.toLowerCase();
-                        const targetPath = role === 'admin' ? '/admin' : 
-                                           ['principal', 'secretary', 'director'].includes(role) ? '/executive' : 
-                                           '/staff';
-                        navigate(targetPath);
-                    } catch (retryErr) {
-                        setError(retryErr.response?.data?.error || 'Login failed.');
-                    }
-                }
-            } else {
-                setError(err.response?.data?.error || 'Connection error.');
-            }
+            setError(err.response?.data?.error || 'Connection error.');
         } finally {
             setLoading(false);
         }
@@ -254,7 +235,7 @@ const Login = () => {
                             </form>
                         </>
                     )}
-                    <p className="login-terms">By signing in, you agree to our <a href="#">Terms and Conditions</a></p>
+                    <p className="login-terms">By registering you with our <a href="#">Terms and Conditions</a></p>
                 </div>
             </div>
         </div>

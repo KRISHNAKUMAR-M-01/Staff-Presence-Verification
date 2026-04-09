@@ -36,13 +36,9 @@ const authenticateToken = async (req, res, next) => {
             return res.status(401).json({ error: 'You have been logged out because another device logged in with your account.' });
         }
 
-        // Update last activity (rate limited to every 2 minutes to save DB performance)
-        const now = new Date();
-        const lastActive = user.lastActivity ? new Date(user.lastActivity) : new Date(0);
-        if (now - lastActive > 2 * 60 * 1000) {
-            user.lastActivity = now;
-            await user.save();
-        }
+        // Update last activity check
+        user.lastActivity = new Date();
+        await user.save();
 
         req.user = user;
         next();
