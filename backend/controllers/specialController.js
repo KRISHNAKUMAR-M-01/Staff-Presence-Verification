@@ -290,7 +290,7 @@ exports.getAllStaffStatus = async (req, res) => {
             }
 
             const lastSeenTime = staff.last_seen_time || (attendanceToday ? (attendanceToday.last_seen_time || attendanceToday.check_in_time) : null);
-            const lastSeenRoomName = staff.last_seen_room?.room_name || 'unknown';
+            const lastSeenRoomName = staff.last_seen_room ? (staff.last_seen_room.room_name || 'Deleted Room') : 'No Recent Activity';
 
             return {
                 ...staff,
@@ -300,13 +300,13 @@ exports.getAllStaffStatus = async (req, res) => {
                 currentLocation: isLive ? 
                                  (staff.last_seen_room?.room_name || 'Classroom') : 
                                  'Not in Range',
-                expectedLocation: activeClass ? (activeClass.classroom_id?.room_name || 'Unknown Room') : 'No Class Assigned',
+                expectedLocation: activeClass ? (activeClass.classroom_id?.room_name || 'Deleted Room') : 'No Class Assigned',
                 isCorrectLocation: activeClass && isLive ?
                     (activeClass.classroom_id?._id?.toString() === staff.last_seen_room?._id?.toString()) :
                     (activeClass ? false : true),
                 activeClass: activeClass ? {
                     subject: activeClass.subject,
-                    room: activeClass.classroom_id?.room_name,
+                    room: activeClass.classroom_id?.room_name || 'Deleted Room',
                     startTime: activeClass.start_time,
                     endTime: activeClass.end_time
                 } : null

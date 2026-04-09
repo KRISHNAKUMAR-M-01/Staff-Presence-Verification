@@ -489,14 +489,21 @@ const AttendanceReports = () => {
                 }
                 .form-card:hover {
                     border-color: var(--primary) !important;
-                    transform: translateY(-2px);
+                    transform: translateY(-2px) translateZ(0);
                     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+                    backface-visibility: hidden;
+                }
+                .form-card svg {
+                    backface-visibility: hidden;
+                    transform: translateZ(0);
                 }
                 .staff-card:hover {
                     border-left-color: var(--primary) !important;
+                    transform: translateY(-2px) translateZ(0);
                 }
                 .classroom-card:hover {
                     border-left-color: #0f172a !important;
+                    transform: translateY(-2px) translateZ(0);
                 }
             `}} />
         </div>

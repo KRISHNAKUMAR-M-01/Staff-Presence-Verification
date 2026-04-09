@@ -92,11 +92,18 @@ const CustomSelect = ({ label, options, value, onChange, placeholder, required }
                             filteredOptions.map((opt, i) => (
                                 <div
                                     key={i}
-                                    className={`custom-select-option ${value === opt.value ? 'selected' : ''}`}
+                                    className={`custom-select-option ${value === opt.value ? 'selected' : ''} ${opt.disabled ? 'disabled-option' : ''}`}
                                     onClick={() => {
+                                        if (opt.disabled) return;
                                         onChange(opt.value);
                                         setIsOpen(false);
                                         setSearchTerm('');
+                                    }}
+                                    style={{
+                                        opacity: opt.disabled ? 0.6 : 1,
+                                        cursor: opt.disabled ? 'not-allowed' : 'pointer',
+                                        backgroundColor: opt.disabled ? '#f8fafc' : 'transparent',
+                                        color: opt.disabled ? '#94a3b8' : 'inherit'
                                     }}
                                 >
                                     {opt.label}

@@ -112,7 +112,12 @@ const MobileVerify = () => {
             await sendHeartbeat();
             
             // Refresh every 20s (ESP32 BLE write + direct API call)
-            heartbeatRef.current = setInterval(sendHeartbeat, 5000); // 5 seconds for faster responsiveness
+            // Refresh every 5s (ESP32 BLE write + direct API call)
+            heartbeatRef.current = setInterval(async () => {
+                await sendHeartbeat();
+                // Optionally refresh room list labels in background
+                api.get('/staff/classrooms').then(res => setClassrooms(res.data)).catch(() => {});
+            }, 5000); 
 
             setIsConnected(true);
             setIsConnecting(false);
@@ -180,11 +185,20 @@ const MobileVerify = () => {
             <div style={{ marginBottom: '24px' }}>
                 <CustomSelect 
                     label="Select Your Classroom"
-                    options={classrooms.map(room => ({ label: room.room_name, value: room._id }))}
+                    options={classrooms.map(room => ({ 
+                        label: room.is_occupied ? `${room.room_name} (Occupied)` : room.room_name, 
+                        value: room._id,
+                        disabled: room.is_occupied
+                    }))}
                     value={selectedRoom?._id || ''}
                     onChange={(val) => {
                         const room = classrooms.find(r => r._id === val);
+                        if (room?.is_occupied) {
+                            setStatus({ type: 'error', msg: 'Already someone is there! Please choose another room.' });
+                            return;
+                        }
                         setSelectedRoom(room);
+                        setStatus(null);
                     }}
                     placeholder="Choose your current room..."
                     required

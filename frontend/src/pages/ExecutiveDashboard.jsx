@@ -6,7 +6,6 @@ import { Bell, Search, LogOut, MapPin, Clock, BookOpen, Phone, Users, CheckCircl
 import '../styles/Dashboard.css';
 import LeaveManagement from '../StaffAdministration/LeaveManagement';
 import AttendanceReports from '../AttendanceAndAlerts/AttendanceReports';
-import SwapRequests from '../StaffAdministration/SwapRequests';
 import Avatar from '../components/Avatar';
 import CustomSelect from '../components/CustomSelect';
 
@@ -27,35 +26,17 @@ const ExecutiveDashboard = () => {
     const [pendingLeavesCount, setPendingLeavesCount] = useState(0);
     const [approvedLeavesCount, setApprovedLeavesCount] = useState(0);
     const [rejectedLeavesCount, setRejectedLeavesCount] = useState(0);
-    const [pendingSwapsCount, setPendingSwapsCount] = useState(0);
-
-    // Swap Modal State
-    const [showSwapModal, setShowSwapModal] = useState(false);
-    const [classrooms, setClassrooms] = useState([]);
-    const [selectedRoomId, setSelectedRoomId] = useState('');
-    const [swapReason, setSwapReason] = useState('');
-    const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
         fetchStaffStatus();
         fetchNotifications();
         fetchUnreadCount();
         loadPendingLeaves();
-        loadPendingSwaps();
-
-        const loadClassrooms = async () => {
-            try {
-                const res = await api.get('/staff/classrooms');
-                setClassrooms(res.data);
-            } catch (e) { console.error(e); }
-        };
-        loadClassrooms();
 
         const interval = setInterval(() => {
             fetchStaffStatus();
             fetchUnreadCount();
             loadPendingLeaves();
-            loadPendingSwaps();
         }, 12000);
 
         return () => clearInterval(interval);
@@ -84,16 +65,6 @@ const ExecutiveDashboard = () => {
             setRejectedLeavesCount(rejected);
         } catch (error) {
             console.error('Error fetching leave stats:', error);
-        }
-    };
-
-    const loadPendingSwaps = async () => {
-        try {
-            const res = await api.get('/admin/swap-requests');
-            const pending = res.data.filter(s => s.status === 'pending').length;
-            setPendingSwapsCount(pending);
-        } catch (error) {
-            console.error('Error fetching swap stats:', error);
         }
     };
 
@@ -166,25 +137,6 @@ const ExecutiveDashboard = () => {
     const openMeetingModal = (staff) => {
         setSelectedStaff(staff);
         setShowMeetingModal(true);
-    };
-
-    const handleSwapRequest = async () => {
-        if (!selectedRoomId || !swapReason) return alert('Please select a room and provide a reason.');
-        setSubmitting(true);
-        try {
-            const res = await api.post('/staff/swap-request', {
-                classroom_id: selectedRoomId,
-                reason: swapReason
-            });
-            alert(res.data.message);
-            setShowSwapModal(false);
-            setSwapReason('');
-            setSelectedRoomId('');
-        } catch (err) {
-            alert(err.response?.data?.error || 'Failed to send request.');
-        } finally {
-            setSubmitting(false);
-        }
     };
 
     const handleLogout = () => {
@@ -300,26 +252,6 @@ const ExecutiveDashboard = () => {
                 </div>
 
                 <div style={{ display: 'flex', gap: '8px', background: '#f1f5f9', padding: '4px', borderRadius: '12px' }}>
-                    <button
-                        onClick={() => setShowSwapModal(true)}
-                        style={{
-                            background: '#e6fcf5',
-                            border: 'none',
-                            padding: '8px 16px',
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            color: '#097969',
-                            fontSize: '13px',
-                            fontWeight: '700',
-                            transition: 'all 0.2s',
-                            marginRight: '8px'
-                        }}
-                    >
-                        <Plane size={14} style={{ transform: 'rotate(-45deg)' }} /> Swap Class
-                    </button>
                     <button 
                         onClick={() => setView('status')}
                         style={{
@@ -393,45 +325,7 @@ const ExecutiveDashboard = () => {
                     >
                         Attendance Reports
                     </button>
-                    <button 
-                        onClick={() => setView('swaps')}
-                        style={{
-                            padding: '8px 20px',
-                            borderRadius: '8px',
-                            border: 'none',
-                            background: view === 'swaps' ? 'white' : 'transparent',
-                            color: view === 'swaps' ? '#0f172a' : '#64748b',
-                            fontSize: '13px',
-                            fontWeight: '700',
-                            cursor: 'pointer',
-                            boxShadow: view === 'swaps' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
-                            transition: 'all 0.2s',
-                            position: 'relative'
-                        }}
-                    >
-                        Swap Requests
-                        {pendingSwapsCount > 0 && (
-                            <span style={{
-                                position: 'absolute',
-                                top: '-6px',
-                                right: '-4px',
-                                background: '#097969',
-                                color: 'white',
-                                fontSize: '10px',
-                                fontWeight: '800',
-                                minWidth: '18px',
-                                height: '18px',
-                                borderRadius: '50%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                border: '2px solid white',
-                                boxShadow: '0 2px 4px rgba(9, 121, 105, 0.2)'
-                            }}>
-                                {pendingSwapsCount}
-                            </span>
-                        )}
-                    </button>
+
                 </div>
 
                 <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
@@ -772,7 +666,7 @@ const ExecutiveDashboard = () => {
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                                             <Clock size={16} color="#94a3b8" />
                                                             <div style={{ fontSize: '14px', color: '#64748b' }}>
-                                                                Expected: <span style={{ color: '#1e293b', fontWeight: '700' }}>{staff.expectedLocation || 'No Class Assigned'}</span>
+                                                                Expected: <span style={{ color: '#1e293b', fontWeight: '700' }}>{staff.expectedLocation || 'Schedule Missing'}</span>
                                                             </div>
                                                         </div>
 
@@ -791,9 +685,9 @@ const ExecutiveDashboard = () => {
                                                                 <div style={{ fontSize: '14px', color: staff.currentStatus === 'On Leave' ? '#0369a1' : (staff.isCorrectLocation ? '#065f46' : (isAbsent || isLeft ? '#92400e' : '#991b1b')), fontWeight: '800' }}>
                                                                     {staff.currentStatus === 'On Leave' 
                                                                         ? 'Not on Campus' 
-                                                                        : (['Absent', 'Left', 'Scanning'].includes(staff.currentStatus)
+                                                                        : (['Absent', 'Left', 'Scanning', 'Out of Sync'].includes(staff.currentStatus)
                                                                             ? 'Not in Range' 
-                                                                            : `Currently in ${staff.currentLocation}`)}
+                                                                            : `Currently in ${staff.currentLocation || 'Unknown Room'}`)}
                                                                 </div>
                                                             </div>
                                                             
@@ -819,7 +713,7 @@ const ExecutiveDashboard = () => {
                                                                             const timeStr = isToday 
                                                                                 ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                                                                                 : `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} at ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-                                                                            return `${timeStr} in ${staff.lastSeenLocation}`;
+                                                                            return `${timeStr} in ${staff.lastSeenLocation || 'Last Tracked Zone'}`;
                                                                         })()}
                                                                     </div>
                                                                 </div>
@@ -846,10 +740,6 @@ const ExecutiveDashboard = () => {
                 ) : view === 'leaves' ? (
                     <div style={{ animation: 'fadeIn 0.5s ease-out' }}>
                         <LeaveManagement />
-                    </div>
-                ) : view === 'swaps' ? (
-                    <div style={{ animation: 'fadeIn 0.5s ease-out' }}>
-                        <SwapRequests />
                     </div>
                 ) : (
                     <div style={{ animation: 'fadeIn 0.5s ease-out' }}>
@@ -885,50 +775,6 @@ const ExecutiveDashboard = () => {
                 </div>
             )}
 
-            {/* Swap Request Modal */}
-            {showSwapModal && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.4)', backdropFilter: 'blur(8px)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                    <div style={{ background: 'white', borderRadius: '28px', maxWidth: '440px', width: '100%', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.15)', overflow: 'hidden' }}>
-                        <div style={{ padding: '32px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                <h3 style={{ fontSize: '22px', fontWeight: '800', margin: 0 }}>Urgent Swap Request</h3>
-                                <button onClick={() => setShowSwapModal(false)} style={{ border: 'none', background: '#f1f5f9', padding: '8px', borderRadius: '10px', cursor: 'pointer' }}><X size={20}/></button>
-                            </div>
-                            <p style={{ fontSize: '15px', color: '#64748b', lineHeight: '1.6', marginBottom: '24px' }}>Request permission for an urgent swap. On approval, you can search for substitutes.</p>
-                            
-                                <CustomSelect 
-                                    label="Select Classroom"
-                                    options={classrooms.map(c => ({ label: c.room_name, value: c._id }))}
-                                    value={selectedRoomId}
-                                    onChange={setSelectedRoomId}
-                                    placeholder="Choose room..."
-                                    required
-                                />
-
-                            <div style={{ marginTop: '20px' }}>
-                                <label style={{ fontSize: '12px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '8px' }}>Reason for Urgency</label>
-                                <textarea 
-                                    placeholder="E.g. Medical emergency, urgent family matter..."
-                                    value={swapReason}
-                                    onChange={(e) => setSwapReason(e.target.value)}
-                                    style={{ width: '100%', padding: '16px', borderRadius: '16px', border: '1.5px solid #e2e8f0', minHeight: '100px', outline: 'none', fontSize: '14px', fontWeight: '500' }}
-                                />
-                            </div>
-
-                            <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
-                                <button onClick={() => setShowSwapModal(false)} style={{ flex: 1, padding: '14px', borderRadius: '14px', border: 'none', background: '#f1f5f9', fontWeight: '700', cursor: 'pointer', color: '#475569' }}>Cancel</button>
-                                <button 
-                                    onClick={handleSwapRequest}
-                                    style={{ flex: 2, padding: '14px', borderRadius: '14px', border: 'none', background: '#097969', color: 'white', fontWeight: '700', cursor: 'pointer', boxShadow: '0 10px 15px -3px rgba(9, 121, 105, 0.3)' }}
-                                >
-                                    {submitting ? 'Sending...' : 'Send Request'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             <style dangerouslySetInnerHTML={{
                 __html: `
                 @keyframes fadeIn {
@@ -950,10 +796,18 @@ const ExecutiveDashboard = () => {
                     transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
                     position: relative;
                     overflow: hidden;
+                    backface-visibility: hidden;
+                    -webkit-backface-visibility: hidden;
+                    transform: translateZ(0);
+                }
+                
+                .staff-card-hover svg {
+                    transition: transform 0.3s ease;
+                    backface-visibility: hidden;
                 }
 
                 .staff-card-hover:hover { 
-                    transform: translateY(-8px) scale(1.01); 
+                    transform: translateY(-8px) scale(1.01) translateZ(0); 
                     box-shadow: 0 20px 40px -12px rgba(15, 23, 42, 0.12); 
                     border-color: #e2e8f0; 
                 }

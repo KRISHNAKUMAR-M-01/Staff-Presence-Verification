@@ -59,7 +59,7 @@ const SwapRequests = () => {
                     >
                         Pending Actions
                         {pendingSwaps.length > 0 && (
-                            <span style={{ marginLeft: '8px', background: '#ef4444', color: 'white', padding: '2px 6px', borderRadius: '10px', fontSize: '10px', fontWeight: '800' }}>
+                            <span style={{ background: '#ef4444', color: 'white', padding: '2px 6px', borderRadius: '10px', fontSize: '10px', fontWeight: '800' }}>
                                 {pendingSwaps.length}
                             </span>
                         )}
@@ -125,7 +125,7 @@ const SwapRequests = () => {
                                             </div>
                                             <div>
                                                 <div style={{ fontSize: '11px', fontWeight: '800', color: '#94a3b8' }}>AFFECTED CLASSROOM</div>
-                                                <div style={{ fontSize: '13px', color: '#1e293b', fontWeight: '600' }}>{swap.classroom_id?.room_name || 'N/A'}</div>
+                                                <div style={{ fontSize: '13px', color: '#1e293b', fontWeight: '600' }}>{swap.classroom_id?.room_name || 'Deleted Room'}</div>
                                             </div>
                                         </div>
                                         

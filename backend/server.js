@@ -820,10 +820,10 @@ app.get('/api/admin/timetable', authenticateToken, requireAdmin, async (req, res
 
         const formatted = timetable.map(t => ({
             id: t._id,
-            staff_id: t.staff_id._id,
-            classroom_id: t.classroom_id._id,
-            staff_name: t.staff_id.name,
-            room_name: t.classroom_id.room_name,
+            staff_id: t.staff_id?._id || null,
+            classroom_id: t.classroom_id?._id || null,
+            staff_name: t.staff_id?.name || 'Deleted Staff',
+            room_name: t.classroom_id?.room_name || 'Deleted Room',
             day_of_week: t.day_of_week,
             start_time: t.start_time,
             end_time: t.end_time,
@@ -1059,12 +1059,12 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
                 department: s.department,
                 is_hod: s.is_hod,
                 profile_picture: s.profile_picture,
-                expected_location: displayClass
-                    ? `${displayClass.classroom_id?.room_name} (${displayClass.start_time}–${displayClass.end_time})`
-                    : 'No Class Today',
                 actual_location: liveStatus === 'On Leave' ? 'Not on Campus' : (isLive ?
-                    (s.last_seen_room?.room_name || 'Classroom') :
+                    (s.last_seen_room?.room_name || 'Classroom (In Range)') :
                     'Not in Range'),
+                expected_location: displayClass
+                    ? `${displayClass.classroom_id?.room_name || 'Deleted Room'} (${displayClass.start_time}–${displayClass.end_time})`
+                    : 'No Class Today',
                 status: liveStatus,
                 check_in_time: s.last_seen_time || null,
                 last_seen_location: liveStatus === 'On Leave' ? 'Not on Campus' : (s.last_seen_room?.room_name || 'Not in Range'),
@@ -1127,8 +1127,8 @@ app.get('/api/admin/attendance', authenticateToken, (req, res, next) => {
                 staff_id: a.staff_id._id,
                 classroom_id: a.classroom_id?._id,
                 staff_name: a.staff_id.name || 'Unknown Staff',
-                department: a.staff_id.department || 'N/A',
-                room_name: a.classroom_id?.room_name || 'N/A',
+                department: a.staff_id.department || 'Unassigned',
+                room_name: a.classroom_id ? (a.classroom_id.room_name || 'Room Name Missing') : 'Deleted Classroom',
                 check_in_time: a.check_in_time,
                 last_seen_time: a.last_seen_time,
                 status: a.status,
@@ -1182,7 +1182,7 @@ app.get('/api/admin/alerts', authenticateToken, requireAdmin, async (req, res) =
                 classroom_id: al.classroom_id ? al.classroom_id._id : null,
                 staff_name: al.staff_id.name,
                 department: al.staff_id.department,
-                room_name: al.classroom_id ? al.classroom_id.room_name : 'N/A',
+                room_name: al.classroom_id ? (al.classroom_id.room_name || 'Room Name Missing') : 'Deleted Classroom',
                 message: al.message,
                 timestamp: al.timestamp,
                 is_read: !!al.is_read
@@ -1558,6 +1558,21 @@ app.post('/api/staff/soft-beacon', authenticateToken, requireStaff, async (req, 
             return res.status(404).json({ error: 'Classroom not found.' });
         }
 
+        // 2b. OCCUPANCY CHECK: Is someone else already here?
+        const sixtySecondsAgo = new Date(Date.now() - 60000);
+        const occupant = await Staff.findOne({
+            last_seen_room: classroom._id,
+            last_seen_time: { $gte: sixtySecondsAgo },
+            _id: { $ne: staff._id } // Ignore the requester themselves
+        });
+
+        if (occupant) {
+            return res.status(403).json({ 
+                error: `Already someone is there! ${occupant.name} is currently connected to ${classroom.room_name}.`,
+                occupant_name: occupant.name
+            });
+        }
+
         const { todayStr, currentTime, currentDay, startOfToday } = getISTDateInfo();
         const now = new Date(); // Always store as UTC — avoids timezone drift on Render
 
@@ -1659,11 +1674,27 @@ app.post('/api/staff/soft-beacon', authenticateToken, requireStaff, async (req, 
     }
 });
 
-// Get list of classrooms (for staff soft-beacon room selector)
+// Get list of classrooms with real-time occupancy status
 app.get('/api/staff/classrooms', authenticateToken, requireStaffOrExecutive, async (req, res) => {
     try {
         const classrooms = await Classroom.find({}, 'room_name esp32_id room_uuid').lean();
-        res.json(classrooms);
+        
+        // Dynamic occupancy check: a room is "occupied" if any staff (except requester) 
+        // has it as their last_seen_room and was updated in the last 60 seconds.
+        const sixtySecondsAgo = new Date(Date.now() - 60000);
+        const occupiedRooms = await Staff.find({
+            last_seen_time: { $gte: sixtySecondsAgo },
+            last_seen_room: { $ne: null }
+        }).distinct('last_seen_room');
+
+        const occupiedSet = new Set(occupiedRooms.map(id => id.toString()));
+
+        const classroomsWithStatus = classrooms.map(c => ({
+            ...c,
+            is_occupied: occupiedSet.has(c._id.toString())
+        }));
+
+        res.json(classroomsWithStatus);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

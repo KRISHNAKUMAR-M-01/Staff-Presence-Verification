@@ -85,8 +85,8 @@ const DashboardLayout = ({ children, title, navItems, userName, themeClass, bran
                             borderRadius: '8px'
                         }}
                     >
-                        {isAwake ? <Sun size={20} color="#fff" /> : <Moon size={20} />}
-                        <span style={{ fontWeight: '600' }}>{isAwake ? 'Screen Awake: ON' : 'Keep Screen On'}</span>
+                        {isAwake ? <Sun size={20} color="#ffffff" /> : <Moon size={20} color={isSidebarOpen ? "#ffffff" : "#64748b"} />}
+                        <span style={{ fontWeight: '600', color: isAwake ? '#ffffff' : 'inherit' }}>{isAwake ? 'Screen Awake: ON' : 'Keep Screen On'}</span>
                     </button>
 
                     {navItems.map((item, index) => (

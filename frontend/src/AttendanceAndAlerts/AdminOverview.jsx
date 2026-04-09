@@ -340,7 +340,7 @@ const AdminOverview = () => {
                                                 <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.04)' }}>
                                                     <MapPin size={14} color="#16a34a" />
                                                 </div>
-                                                <span style={{ fontSize: '14px', fontWeight: '700', color: '#334155' }}>{item.room_name}</span>
+                                                <span style={{ fontSize: '14px', fontWeight: '700', color: '#334155' }}>{item.room_name || 'Location Not Specified'}</span>
                                             </div>
 
                                             <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
@@ -467,12 +467,16 @@ const AdminOverview = () => {
                                             {detailModal.type === 'tracking' ? (
                                                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
                                                     <div style={{ fontSize: '10px', fontWeight: '800', color: '#097969', background: '#e6fcf9', padding: '2px 6px', borderRadius: '4px' }}>
-                                                        {staff.last_seen_room?.room_name || 'N/A'}
+                                                        {staff.last_seen_room?.room_name || 'Location Unknown'}
                                                     </div>
                                                 </div>
                                             ) : (
                                                 <div style={{ fontSize: '10px', fontWeight: '800', color: '#d97706', background: '#fffbeb', padding: '2px 6px', borderRadius: '4px', flexShrink: 0 }}>
-                                                    On Leave
+                                                    {staff.currentStatus === 'On Leave' 
+                                                        ? 'Not on Campus' 
+                                                        : (['Absent', 'Left', 'Scanning', 'Out of Sync'].includes(staff.currentStatus)
+                                                            ? 'Not in Range' 
+                                                            : `Currently in ${staff.currentLocation || 'Unknown'}`)}
                                                 </div>
                                             )}
                                         </div>
@@ -494,6 +498,13 @@ const AdminOverview = () => {
                     display: grid;
                     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
                     gap: 12px;
+                }
+                .detail-grid-modal div {
+                    backface-visibility: hidden;
+                }
+                .detail-grid-modal svg {
+                    backface-visibility: hidden;
+                    transform: translateZ(0);
                 }
                 .custom-scrollbar::-webkit-scrollbar {
                     width: 6px;
