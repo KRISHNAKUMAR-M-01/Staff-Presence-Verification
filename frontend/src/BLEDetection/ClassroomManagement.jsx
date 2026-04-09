@@ -41,12 +41,12 @@ const ClassroomManagement = () => {
         e.preventDefault();
 
         // --- FRONTEND VALIDATION ---
-        if (!/^[A-Za-z][A-Za-z0-9]*$/.test(roomName)) {
-            setModalConfig({ isOpen: true, type: 'error', title: 'Invalid Room Name', message: 'Room Name must start with a letter and contain no spaces.' });
+        if (!/^[A-Za-z0-9]+$/.test(roomName)) {
+            setModalConfig({ isOpen: true, type: 'error', title: 'Invalid Room Name', message: 'Room Name must be alphanumeric (no spaces or special characters).' });
             return;
         }
-        if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(esp32Id)) {
-            setModalConfig({ isOpen: true, type: 'error', title: 'Invalid Device ID', message: 'Device ID must start with a letter (e.g. ESP_01).' });
+        if (!/^[A-Za-z0-9_]+$/.test(esp32Id)) {
+            setModalConfig({ isOpen: true, type: 'error', title: 'Invalid Device ID', message: 'Device ID must be alphanumeric or underscores (no spaces).' });
             return;
         }
         // --- END VALIDATION ---
@@ -129,8 +129,8 @@ const ClassroomManagement = () => {
                                 value={roomName}
                                 onChange={e => {
                                     const val = e.target.value;
-                                    // Must start with letter, no special chars/spaces
-                                    if (!val || /^[A-Za-z][A-Za-z0-9]*$/.test(val)) {
+                                    // Block special characters and spaces
+                                    if (!val || /^[A-Za-z0-9]*$/.test(val)) {
                                         setRoomName(val);
                                     }
                                 }}
@@ -152,8 +152,8 @@ const ClassroomManagement = () => {
                                 value={esp32Id}
                                 onChange={e => {
                                     const val = e.target.value;
-                                    // Must start with letter, allow underscores
-                                    if (!val || /^[A-Za-z][A-Za-z0-9_]*$/.test(val)) {
+                                    // Block special characters and spaces (allow underscores)
+                                    if (!val || /^[A-Za-z0-9_]*$/.test(val)) {
                                         setEsp32Id(val);
                                     }
                                 }}

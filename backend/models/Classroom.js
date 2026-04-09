@@ -7,10 +7,10 @@ const classroomSchema = new mongoose.Schema({
         trim: true,
         validate: {
             validator: function (v) {
-                // Must start with a letter, then alphanumeric
-                return /^[A-Za-z][A-Za-z0-9]*$/.test(v);
+                // Strict alphanumeric (blocking spaces as requested)
+                return /^[A-Za-z0-9]+$/.test(v);
             },
-            message: 'Room Name must start with a letter and contain no spaces'
+            message: 'Room Name should only contain letters and numbers (no spaces or special characters)'
         }
     },
     esp32_id: {
@@ -21,10 +21,10 @@ const classroomSchema = new mongoose.Schema({
         trim: true,
         validate: {
             validator: function (v) {
-                // Must start with a letter, then alphanumeric/underscores
-                return /^[A-Za-z][A-Za-z0-9_]*$/.test(v);
+                // Alphanumeric and underscores only, no spaces
+                return /^[A-Za-z0-9_]+$/.test(v);
             },
-            message: 'Device ID must start with a letter'
+            message: 'Device ID should only contain letters, numbers, and underscores (no spaces)'
         }
     },
     room_uuid: {
