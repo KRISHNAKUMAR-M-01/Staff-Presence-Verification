@@ -32,19 +32,22 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = async () => {
-        try {
-            await api.post('/auth/logout');
-        } catch (err) {
-            console.error('Logout sync with server failed:', err);
-        }
-
-        // Tell the Service Worker to stop the soft beacon before clearing session
-        if (navigator.serviceWorker?.controller) {
-            navigator.serviceWorker.controller.postMessage({ type: 'BEACON_STOP' });
-        }
+        // 1. Clear Local State IMMEDIATELY (Instant UI response)
         localStorage.clear();
         setToken(null);
         setUser(null);
+
+        // 2. Stop Service Worker Beacon
+        if (navigator.serviceWorker?.controller) {
+            navigator.serviceWorker.controller.postMessage({ type: 'BEACON_STOP' });
+        }
+
+        // 3. Inform Server in background (Don't await it, so user isn't stuck)
+        try {
+            api.post('/auth/logout').catch(err => console.error('Silent Logout Failed:', err));
+        } catch (err) {
+            // Catching potential synchronous errors in background call
+        }
     };
 
     return (
