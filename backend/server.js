@@ -351,13 +351,15 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
+// Logout
 app.post('/api/auth/logout', authenticateToken, async (req, res) => {
     try {
-        // High-speed direct update to free up the session immediately
+        // High-speed direct update to kill the session immediately
         await User.updateOne(
             { _id: req.user._id }, 
             { $set: { currentSessionId: null, lastActivity: null } }
         );
+        console.log(`👋 Session killed: ${req.user.email}`);
         res.json({ message: 'Logged out successfully' });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -565,21 +567,7 @@ app.post('/api/auth/reset-password', async (req, res) => {
     }
 });
 
-// Logout
-app.post('/api/auth/logout', authenticateToken, async (req, res) => {
-    try {
-        const user = await User.findById(req.user._id);
-        if (user) {
-            user.currentSessionId = null;
-            user.lastActivity = null;
-            await user.save();
-            console.log(`👋 User logged out: ${user.email}`);
-        }
-        res.json({ message: 'Logged out successfully' });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
+
 
 // Get current user info
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
