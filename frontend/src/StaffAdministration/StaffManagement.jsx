@@ -291,8 +291,8 @@ const StaffManagement = () => {
                         </p>
                     </div>
                 </div>
-                <div className="search-wrapper" style={{ maxWidth: '300px' }}>
-                    <span className="icon"><Search size={18} /></span>
+                                <div className="search-wrapper" style={{ marginBottom: '20px', maxWidth: '100%' }}>
+                            <span className="icon" style={{ zIndex: 2 }}><Search size={16} /></span>
                     <input
                         type="text"
                         placeholder={selectedDept ? "Search within..." : "Search staff or dept..."}
@@ -436,7 +436,7 @@ const StaffManagement = () => {
                                         <button
                                             type="button"
                                             onClick={() => setShowPassword(!showPassword)}
-                                            style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center' }}
+                                            style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', zIndex: 2 }}
                                         >
                                             {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
                                         </button>

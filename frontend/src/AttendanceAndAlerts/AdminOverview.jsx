@@ -437,7 +437,7 @@ const AdminOverview = () => {
 
                         {/* Search Bar inside Modal */}
                         <div className="search-wrapper" style={{ marginBottom: '20px', maxWidth: '100%' }}>
-                            <span className="icon"><Search size={16} /></span>
+                            <span className="icon" style={{ zIndex: 2 }}><Search size={16} /></span>
                             <input
                                 type="text"
                                 placeholder={`Filter ${detailModal.type === 'tracking' ? 'live' : 'absent'} staff...`}

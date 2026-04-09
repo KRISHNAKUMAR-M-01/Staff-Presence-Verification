@@ -119,7 +119,7 @@ const ClassroomManagement = () => {
                     <div className="form-group" style={{ marginBottom: 0 }}>
                         <label className="form-label required-label-asterisk">Room Name</label>
                         <div style={{ position: 'relative' }}>
-                            <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>
+                            <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', zIndex: 2 }}>
                                 <Building2 size={18} />
                             </span>
                             <input
@@ -142,7 +142,7 @@ const ClassroomManagement = () => {
                     <div className="form-group" style={{ marginBottom: 0 }}>
                         <label className="form-label required-label-asterisk">ESP32 Device ID</label>
                         <div style={{ position: 'relative' }}>
-                            <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>
+                            <span style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', zIndex: 2 }}>
                                 <Cpu size={18} />
                             </span>
                             <input
