@@ -26,9 +26,9 @@ const Login = () => {
         setError('');
         setSuccess('');
 
-        const emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+        const emailRegex = /^[a-zA-Z][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
         if (!emailRegex.test(email.trim())) {
-            setError('Please enter a valid email address');
+            setError('Please enter a valid email address. It must start with a letter (e.g. user@domain.com).');
             return;
         }
 
