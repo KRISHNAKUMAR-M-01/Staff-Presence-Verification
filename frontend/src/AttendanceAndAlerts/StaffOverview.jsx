@@ -103,13 +103,12 @@ const StaffOverview = () => {
 
     const requestSubstitution = async (targetStaffId) => {
         try {
-            // Using a simple logic: the backend finds the latest approved swap-request automatically
             const res = await api.post('/staff/request-substitution', {
                 target_staff_id: targetStaffId,
                 swap_request_id: 'auto' 
             });
             alert('Substitution request sent successfully!');
-        } catch (err) { alert(err.response?.data?.error || 'No approved swap request found. Contact admin first.'); }
+        } catch (err) { alert(err.response?.data?.error || 'No active swap request found for this class.'); }
     };
 
     const statItems = [
@@ -216,7 +215,7 @@ const StaffOverview = () => {
                         </div>
                         Find Free Staff
                     </h3>
-                    <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '16px' }}>If you have an urgent swap approved by Admin, you can request a free staff member to take your class.</p>
+                    <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '16px' }}>If you need coverage, find an available colleague to take your class directly.</p>
                     <button 
                         onClick={findFreeStaff}
                         style={{ width: '100%', padding: '12px', background: '#f1f5f9', border: 'none', borderRadius: '12px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s' }}
@@ -348,7 +347,7 @@ const StaffOverview = () => {
                                 <h3 style={{ fontSize: '22px', fontWeight: '800', margin: 0 }}>Urgent Swap Request</h3>
                                 <button onClick={() => setShowSwapModal(false)} style={{ border: 'none', background: '#f1f5f9', padding: '8px', borderRadius: '10px', cursor: 'pointer' }}><X size={20}/></button>
                             </div>
-                            <p style={{ fontSize: '15px', color: '#64748b', lineHeight: '1.6' }}>Requesting a swap for your class in <strong style={{ color: '#0f172a' }}>{selectedClassForSwap?.room_name}</strong>. Provide a reason for the Admin's approval.</p>
+                            <p style={{ fontSize: '15px', color: '#64748b', lineHeight: '1.6' }}>Requesting a swap for your class in <strong style={{ color: '#0f172a' }}>{selectedClassForSwap?.room_name}</strong>. This request will be sent to available colleagues.</p>
                             
                             <textarea 
                                 placeholder="E.g. I have an urgent meeting with a parent / Medical emergency..." 
@@ -363,7 +362,7 @@ const StaffOverview = () => {
                                 onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
                                 onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                             >
-                                Send Request to Admin
+                                Send Swap Request
                             </button>
                         </div>
                     </div>

@@ -1921,35 +1921,13 @@ app.post('/api/staff/swap-request', authenticateToken, requireStaffOrExecutive, 
         const requester = await Staff.findById(req.user.staff_id);
         const classroom = await Classroom.findById(classroom_id);
         
-        // Notify Admins and Special roles
-        const admins = await User.find({ role: { $in: ['admin', 'principal', 'secretary', 'director'] } });
-        for (const admin of admins) {
-            const notifData = {
-                recipient_id: admin._id,
-                title: 'Urgent Swap Request',
-                message: `Staff ${requester.name} has requested a swap for class in ${classroom?.room_name || 'unknown'}. Reason: ${reason}`,
-                type: 'swap_request',
-                related_data: { swapRequestId: swapReq._id, classroomId: classroom_id.toString() }
-            };
-            await Notification.create(notifData);
-
-            if (admin.pushSubscription) {
-                sendPushNotification(admin.pushSubscription, {
-                    title: notifData.title,
-                    body: notifData.message,
-                    icon: '/logo192.png',
-                    data: { url: '/admin/swap-requests' }
-                }).catch(e => console.error("Admin Swap Push Error:", e));
-            }
-        }
-
-        // If a target staff was specified directly, notify them too
+        // --- PEER-TO-PEER NOTIFICATION (SKIP ADMIN) ---
         if (target_staff_id) {
             const targetUser = await User.findOne({ staff_id: target_staff_id });
             if (targetUser) {
                 await Notification.create({
                     recipient_id: targetUser._id,
-                    title: 'Substitution Request',
+                    title: 'New Swap Request',
                     message: `Staff ${requester.name} has requested you to cover their class in ${classroom?.room_name || 'unknown'}. Reason: ${reason}`,
                     type: 'substitution_request',
                     related_data: { swapRequestId: swapReq._id, classroomId: classroom_id.toString() }
@@ -1965,7 +1943,7 @@ app.post('/api/staff/swap-request', authenticateToken, requireStaffOrExecutive, 
             }
         }
 
-        res.json({ message: 'Swap request submitted to administration portal.', swapReq });
+        res.json({ message: 'Swap request sent directly to staff member.', swapReq });
     } catch (err) {
         console.error('Peer Swap Request Error:', err);
         res.status(500).json({ error: err.message });

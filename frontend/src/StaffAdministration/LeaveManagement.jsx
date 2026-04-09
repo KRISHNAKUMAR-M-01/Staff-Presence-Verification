@@ -511,31 +511,81 @@ const LeaveManagement = () => {
                         {getStaffWithStatus(view === 'approved' ? approvedLeaves : rejectedLeaves).map(staff => (
                             <div
                                 key={staff._id}
-                                className="summary-card"
+                                className="summary-card section-fade"
                                 onClick={() => setSelectedStaff(staff)}
-                                style={{ margin: 0, cursor: 'pointer', padding: '24px', position: 'relative', border: '1px solid #f1f5f9' }}
+                                style={{ 
+                                    margin: 0, 
+                                    cursor: 'pointer', 
+                                    padding: '24px', 
+                                    position: 'relative', 
+                                    border: '1px solid #f1f5f9',
+                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '20px'
+                                }}
+                                onMouseOver={(e) => {
+                                    e.currentTarget.style.transform = 'translateY(-5px)';
+                                    e.currentTarget.style.boxShadow = '0 12px 30px -10px rgba(0,0,0,0.1)';
+                                    e.currentTarget.style.borderColor = view === 'approved' ? 'rgba(9, 121, 105, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+                                }}
+                                onMouseOut={(e) => {
+                                    e.currentTarget.style.transform = 'translateY(0)';
+                                    e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+                                    e.currentTarget.style.borderColor = '#f1f5f9';
+                                }}
                             >
-                                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <Avatar 
                                         name={staff.name} 
                                         picturePath={staff.profile_picture}
-                                        size={52}
-                                        borderRadius="14px"
+                                        size={64}
+                                        borderRadius="50%"
+                                        style={{ border: `3px solid ${view === 'approved' ? '#e6fcf9' : '#fee2e2'}` }}
                                     />
-                                    <div>
-                                        <div style={{ fontWeight: '800', fontSize: '17px', color: '#0f172a' }}>{staff.name}</div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '12px', fontWeight: '500' }}>
-                                            <Building2 size={12} /> {staff.department}
-                                        </div>
+                                    <div style={{
+                                        background: view === 'approved' ? '#e6fcf9' : '#fee2e2',
+                                        color: view === 'approved' ? '#097969' : '#ef4444',
+                                        padding: '6px 14px', 
+                                        borderRadius: '50px', 
+                                        fontSize: '11px', 
+                                        fontWeight: '800',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.5px',
+                                        boxShadow: `0 4px 10px ${view === 'approved' ? 'rgba(9, 121, 105, 0.1)' : 'rgba(239, 68, 68, 0.1)'}`
+                                    }}>
+                                        {staff.count} {staff.count === 1 ? 'Record' : 'Records'}
                                     </div>
                                 </div>
-                                <div style={{
-                                    position: 'absolute', top: '24px', right: '24px',
-                                    background: view === 'approved' ? '#e6fcf9' : '#fee2e2',
+
+                                <div>
+                                    <div style={{ fontWeight: '800', fontSize: '19px', color: '#0f172a', marginBottom: '4px' }}>{staff.name}</div>
+                                    <div style={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: '6px', 
+                                        color: '#64748b', 
+                                        fontSize: '13px', 
+                                        fontWeight: '600' 
+                                    }}>
+                                        <Building2 size={14} style={{ opacity: 0.7 }} /> 
+                                        {staff.department}
+                                    </div>
+                                </div>
+
+                                <div style={{ 
+                                    marginTop: '8px', 
+                                    paddingTop: '16px', 
+                                    borderTop: '1px solid #f8fafc',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
                                     color: view === 'approved' ? '#097969' : '#ef4444',
-                                    padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '800'
+                                    fontSize: '12px',
+                                    fontWeight: '700'
                                 }}>
-                                    {staff.count} {staff.count === 1 ? 'Record' : 'Records'}
+                                    <span>Click to view history</span>
+                                    <ChevronLeft size={16} style={{ transform: 'rotate(180deg)' }} />
                                 </div>
                             </div>
                         ))}
