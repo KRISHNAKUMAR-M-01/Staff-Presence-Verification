@@ -136,13 +136,14 @@ const StaffManagement = () => {
 
         // --- PHONE NUMBER VALIDATION ---
         if (formData.phone_number) {
-            const phoneRegex = /^(?:\+91[\-\s]?)?[6789]\d{9}$/;
-            if (!phoneRegex.test(formData.phone_number.trim())) {
+            // Must be exactly 10 digits (the +91 is handled automatically)
+            const phoneDigits = formData.phone_number.replace('+91 ', '');
+            if (phoneDigits.length !== 10 || !/^\d{10}$/.test(phoneDigits)) {
                 setModalConfig({
                     isOpen: true,
                     type: 'error',
                     title: 'Invalid Phone Number',
-                    message: 'Please enter a valid Indian mobile number (e.g., 9876543210 or +91 9876543210).'
+                    message: 'Please enter exactly 10 digits for the mobile number.'
                 });
                 return;
             }
@@ -388,20 +389,38 @@ const StaffManagement = () => {
                             />
                             <div className="form-group">
                                 <label className="form-label">Phone Number (Indian)</label>
-                                <input
-                                    className="form-input"
-                                    placeholder="e.g. 9876543210"
-                                    value={formData.phone_number}
-                                    onChange={e => {
-                                        const val = e.target.value;
-                                        // Allow only digits, space, plus, and hyphen in real-time typing
-                                        if (/^[\d\s+\-]*$/.test(val)) {
-                                            setFormData({ ...formData, phone_number: val });
-                                        }
-                                    }}
-                                />
+                                <div style={{ display: 'flex', gap: '0' }}>
+                                    <div style={{ 
+                                        padding: '12px 16px', 
+                                        background: '#f8fafc', 
+                                        border: '1.5px solid #cbd5e1', 
+                                        borderRight: 'none',
+                                        borderRadius: '12px 0 0 12px',
+                                        fontSize: '15px',
+                                        fontWeight: '700',
+                                        color: '#64748b',
+                                        display: 'flex',
+                                        alignItems: 'center'
+                                    }}>
+                                        +91
+                                    </div>
+                                    <input
+                                        className="form-input"
+                                        style={{ borderRadius: '0 12px 12px 0', borderLeft: '1.5px solid #cbd5e1' }}
+                                        placeholder="9876543210"
+                                        value={formData.phone_number ? formData.phone_number.replace('+91 ', '') : ''}
+                                        maxLength="10"
+                                        onChange={e => {
+                                            const val = e.target.value;
+                                            // Allow only digits and max 10
+                                            if (/^\d*$/.test(val) && val.length <= 10) {
+                                                setFormData({ ...formData, phone_number: val ? `+91 ${val}` : '' });
+                                            }
+                                        }}
+                                    />
+                                </div>
                                 <p style={{ fontSize: '10px', color: '#94a3b8', marginTop: '4px' }}>
-                                    Formats: 9876543210 or +91 9876543210
+                                    Enter 10-digit mobile number
                                 </p>
                             </div>
 

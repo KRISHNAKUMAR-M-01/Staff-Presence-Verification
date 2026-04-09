@@ -26,7 +26,7 @@ const getCurrentTime = () => {
 exports.sendMeetingRequest = async (req, res) => {
     try {
         const { staffId } = req.body;
-        const requesterRole = req.user.role; 
+        const requesterRole = req.user.role.toLowerCase(); 
         const requesterName = req.user.name;
 
         if (!['principal', 'secretary', 'director'].includes(requesterRole)) {
@@ -199,35 +199,19 @@ exports.getAllStaffStatus = async (req, res) => {
 
         // 1. Bulk Fetch all relevant data in just mapping queries
         // - Fetch only TODAY's attendance for live tracking
-        // - Fetch EVERY staff's latest attendance overall for "Last Seen" data
-        const [allAttendanceToday, allActiveClasses, allApprovedLeaves, allLatestAttendance, allAcceptedSwaps] = await Promise.all([
+        const [allAttendanceToday, allActiveClasses, allApprovedLeaves, allAcceptedSwaps] = await Promise.all([
             Attendance.find({ date: { $gte: startOfToday, $lte: endOfToday } })
                 .populate('classroom_id', 'room_name').lean(),
             Timetable.find({ 
                 day_of_week: currentDay, 
                 start_time: { $lte: currentTime }, 
-                end_time: { $gt: currentTime }  // STRICTLY LESS THAN end_time, so AT 10:30 it's NO LONGER shown
+                end_time: { $gt: currentTime }  // STRICTLY LESS THAN end_time
             }).populate('classroom_id', 'room_name').lean(),
             Leave.find({ 
                 status: 'approved', 
                 start_date: { $lte: endOfToday }, 
                 end_date: { $gte: startOfToday } 
             }).lean(),
-            // Get most recent attendance record for each staff member overall
-            Attendance.aggregate([
-                { $sort: { check_in_time: -1 } },
-                { $group: {
-                    _id: '$staff_id',
-                    latest_record: { $first: '$$ROOT' }
-                }},
-                { $lookup: {
-                    from: 'classrooms',
-                    localField: 'latest_record.classroom_id',
-                    foreignField: '_id',
-                    as: 'room'
-                }},
-                { $unwind: { path: '$room', preserveNullAndEmptyArrays: true } }
-            ]),
             SwapRequest.find({
                 status: 'accepted',
                 date: { $gte: startOfToday, $lte: endOfToday }
@@ -243,11 +227,6 @@ exports.getAllStaffStatus = async (req, res) => {
             if (!existing || new Date(a.last_seen_time || a.check_in_time) > new Date(existing.last_seen_time || existing.check_in_time)) {
                 attendanceTodayMap.set(sid, a);
             }
-        });
-
-        const latestAttendanceMap = new Map();
-        allLatestAttendance.forEach(a => {
-            if (a._id) latestAttendanceMap.set(a._id.toString(), a);
         });
 
         const activeClassMap = new Map();
@@ -270,7 +249,6 @@ exports.getAllStaffStatus = async (req, res) => {
         const staffStatus = staffMembers.map(staff => {
             const sid = staff._id.toString();
             const attendanceToday = attendanceTodayMap.get(sid);
-            const latestHistory = latestAttendanceMap.get(sid);
             const approvedLeave = leaveMap.get(sid);
 
             // DETEMINE ACTIVE CLASS (Considering Swaps)
@@ -311,13 +289,8 @@ exports.getAllStaffStatus = async (req, res) => {
                 liveStatus = 'Absent';
             }
 
-            const latestRec = latestHistory?.latest_record;
-            const lastSeenTime = staff.last_seen_time || (latestRec ? (latestRec.last_seen_time || latestRec.check_in_time) : null);
-            
-            // Populating lastSeenRoom manually since we already have it in the staff object or latestHistory
-            const lastSeenRoomName = (isLive && staff.last_seen_room) ? 
-                (staff.last_seen_room.room_name || 'Classroom') : 
-                (latestHistory?.room?.room_name || 'unknown');
+            const lastSeenTime = staff.last_seen_time || (attendanceToday ? (attendanceToday.last_seen_time || attendanceToday.check_in_time) : null);
+            const lastSeenRoomName = staff.last_seen_room?.room_name || 'unknown';
 
             return {
                 ...staff,

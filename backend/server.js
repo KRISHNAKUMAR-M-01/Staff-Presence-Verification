@@ -187,7 +187,7 @@ async function isStaffPermitted(staffId, classroomId) {
         const onLeave = await Leave.findOne({
             staff_id: scheduledStaffId,
             status: 'approved',
-            start_date: { $lte: startOfToday },
+            start_date: { $lte: endOfToday },
             end_date: { $gte: startOfToday }
         });
 
@@ -1083,7 +1083,8 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
 
 // Attendance Reports (Admin & Executive)
 app.get('/api/admin/attendance', authenticateToken, (req, res, next) => {
-    if (req.user.role === 'admin' || ['principal', 'secretary', 'director'].includes(req.user.role)) {
+    const role = req.user.role.toLowerCase();
+    if (role === 'admin' || ['principal', 'secretary', 'director'].includes(role)) {
         next();
     } else {
         res.status(403).json({ error: 'Access denied' });
@@ -1231,44 +1232,34 @@ app.put('/api/admin/alerts/read-by-dept', authenticateToken, requireAdmin, async
 // Dashboard Stats (Admin only)
 app.get('/api/admin/dashboard-stats', authenticateToken, requireAdmin, async (req, res) => {
     try {
-        const { todayStr } = getISTDateInfo();
-        const todayDate = new Date(todayStr); // Midnight IST stored as UTC
+        const { startOfToday, endOfToday } = getISTDateInfo();
 
-        // --- Calculate live tracking staffs ---
-        // We look at the Staff model's last_seen_time directly.
-        // If they were seen within the last 15 seconds, they are "Live".
         const now = new Date();
-        const signalThreshold = 15 * 1000; // 15 seconds (slightly more lenient than 10s for dashboard)
-        
+        const signalThreshold = 75 * 1000; // 75s — matches the rest of the dashboard
         const liveTrackingCount = await Staff.countDocuments({
             last_seen_time: { $gte: new Date(now.getTime() - signalThreshold) }
-        });
-        // --- End live tracking count ---
-
-        // Calculate absent staff based on approved leaves
-        // Since start_date and end_date might be midnight UTC, we check if today is within range
-        const absentStaff = await Leave.countDocuments({
-            status: 'approved',
-            start_date: { $lte: todayDate },
-            end_date: { $gte: todayDate }
         });
 
         const stats = {
             totalStaff: await Staff.countDocuments(),
             totalClassrooms: await Classroom.countDocuments(),
             presentToday: await Attendance.countDocuments({
-                date: todayDate,
+                date: startOfToday,
                 status: 'Present'
             }),
             lateToday: await Attendance.countDocuments({
-                date: todayDate,
+                date: startOfToday,
                 status: 'Late'
             }),
-            pendingLeaves: await Leave.countDocuments({ status: 'pending' }),
+            pendingLeaves: await Leave.countDocuments({ status: { $in: ['pending', 'approved_by_principal'] } }),
 
             // New fields
             liveTrackingStaff: liveTrackingCount,
-            absentOnLeave: absentStaff
+            absentOnLeave: await Leave.countDocuments({
+                status: 'approved',
+                start_date: { $lte: endOfToday },
+                end_date: { $gte: startOfToday }
+            })
         };
 
         res.json(stats);
@@ -1293,13 +1284,12 @@ app.get('/api/admin/live-tracking-details', authenticateToken, async (req, res) 
 // Get staff on leave today (Admin & Executive)
 app.get('/api/admin/on-leave-today-details', authenticateToken, async (req, res) => {
     try {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const { startOfToday, endOfToday } = getISTDateInfo();
         
         const leaves = await Leave.find({
             status: 'approved',
-            start_date: { $lte: today },
-            end_date: { $gte: today }
+            start_date: { $lte: endOfToday },
+            end_date: { $gte: startOfToday }
         }).populate('staff_id', 'name department profile_picture');
         
         // Remove duplicates if any
@@ -1321,7 +1311,8 @@ app.get('/api/admin/on-leave-today-details', authenticateToken, async (req, res)
 
 // Leave Management (Admin & Executive)
 app.get('/api/admin/leaves', authenticateToken, (req, res, next) => {
-    if (req.user.role === 'admin' || ['principal', 'secretary', 'director'].includes(req.user.role)) {
+    const role = req.user.role.toLowerCase();
+    if (role === 'admin' || ['principal', 'secretary', 'director'].includes(role)) {
         next();
     } else {
         res.status(403).json({ error: 'Access denied' });
@@ -1359,7 +1350,8 @@ app.get('/api/admin/leaves', authenticateToken, (req, res, next) => {
 });
 
 app.put('/api/admin/leaves/:id', authenticateToken, (req, res, next) => {
-    if (req.user.role === 'admin' || ['principal', 'secretary', 'director'].includes(req.user.role)) {
+    const role = req.user.role.toLowerCase();
+    if (role === 'admin' || ['principal', 'secretary', 'director'].includes(role)) {
         next();
     } else {
         res.status(403).json({ error: 'Access denied' });
@@ -1367,7 +1359,7 @@ app.put('/api/admin/leaves/:id', authenticateToken, (req, res, next) => {
 }, async (req, res) => {
     try {
         const { status, admin_notes, principal_notes } = req.body;
-        const userRole = req.user.role;
+        const userRole = req.user.role.toLowerCase();
 
         const leave = await Leave.findById(req.params.id).populate('staff_id', 'name');
         if (!leave) {
@@ -1982,7 +1974,8 @@ app.post('/api/staff/swap-request', authenticateToken, requireStaffOrExecutive, 
 
 // 2. Admin/Executive: Approve Swap Request
 app.put('/api/admin/swap-request/:id/approve', authenticateToken, (req, res, next) => {
-    if (req.user.role === 'admin' || ['principal', 'secretary', 'director'].includes(req.user.role)) {
+    const role = req.user.role.toLowerCase();
+    if (role === 'admin' || ['principal', 'secretary', 'director'].includes(role)) {
         next();
     } else {
         res.status(403).json({ error: 'Access denied' });
@@ -2024,7 +2017,8 @@ app.put('/api/admin/swap-request/:id/approve', authenticateToken, (req, res, nex
 
 // Admin/Executive: Reject Swap Request
 app.put('/api/admin/swap-request/:id/reject', authenticateToken, (req, res, next) => {
-    if (req.user.role === 'admin' || ['principal', 'secretary', 'director'].includes(req.user.role)) {
+    const role = req.user.role.toLowerCase();
+    if (role === 'admin' || ['principal', 'secretary', 'director'].includes(role)) {
         next();
     } else {
         res.status(403).json({ error: 'Access denied' });
@@ -2056,7 +2050,8 @@ app.put('/api/admin/swap-request/:id/reject', authenticateToken, (req, res, next
 
 // Admin/Executive: Get all swap requests
 app.get('/api/admin/swap-requests', authenticateToken, (req, res, next) => {
-    if (req.user.role === 'admin' || ['principal', 'secretary', 'director'].includes(req.user.role)) {
+    const role = req.user.role.toLowerCase();
+    if (role === 'admin' || ['principal', 'secretary', 'director'].includes(role)) {
         next();
     } else {
         res.status(403).json({ error: 'Access denied' });
