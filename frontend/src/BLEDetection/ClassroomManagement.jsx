@@ -41,8 +41,26 @@ const ClassroomManagement = () => {
         e.preventDefault();
 
         // --- FRONTEND VALIDATION ---
-        if (!/^[A-Za-z0-9]+$/.test(roomName)) {
+        const firstCharRegex = /^[A-Za-z_]/;
+        if (roomName.length > 15) {
+            setModalConfig({ isOpen: true, type: 'error', title: 'Invalid Room Name', message: 'Room Name cannot exceed 15 characters.' });
+            return;
+        }
+        if (!firstCharRegex.test(roomName)) {
+            setModalConfig({ isOpen: true, type: 'error', title: 'Invalid Room Name', message: 'Room Name must start with a letter (A-Z).' });
+            return;
+        }
+        if (!/^[A-Za-z0-9_]+$/.test(roomName)) {
             setModalConfig({ isOpen: true, type: 'error', title: 'Invalid Room Name', message: 'Room Name must be alphanumeric (no spaces or special characters).' });
+            return;
+        }
+
+        if (esp32Id.length > 15) {
+            setModalConfig({ isOpen: true, type: 'error', title: 'Invalid Device ID', message: 'Device ID cannot exceed 15 characters.' });
+            return;
+        }
+        if (!firstCharRegex.test(esp32Id)) {
+            setModalConfig({ isOpen: true, type: 'error', title: 'Invalid Device ID', message: 'Device ID must start with a letter (A-Z).' });
             return;
         }
         if (!/^[A-Za-z0-9_]+$/.test(esp32Id)) {
@@ -129,8 +147,8 @@ const ClassroomManagement = () => {
                                 value={roomName}
                                 onChange={e => {
                                     const val = e.target.value;
-                                    // Block special characters and spaces
-                                    if (!val || /^[A-Za-z0-9]*$/.test(val)) {
+                                    // Block special characters, spaces, starting with number, and max 15 chars
+                                    if (val.length <= 15 && (!val || /^[A-Za-z_][A-Za-z0-9_]*$/.test(val))) {
                                         setRoomName(val);
                                     }
                                 }}
@@ -152,8 +170,8 @@ const ClassroomManagement = () => {
                                 value={esp32Id}
                                 onChange={e => {
                                     const val = e.target.value;
-                                    // Block special characters and spaces (allow underscores)
-                                    if (!val || /^[A-Za-z0-9_]*$/.test(val)) {
+                                    // Block spaces, starting with number, and max 15 chars
+                                    if (val.length <= 15 && (!val || /^[A-Za-z_][A-Za-z0-9_]*$/.test(val))) {
                                         setEsp32Id(val);
                                     }
                                 }}

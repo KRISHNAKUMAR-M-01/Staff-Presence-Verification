@@ -166,23 +166,6 @@ const StaffManagement = () => {
                     message: `Successfully updated details for ${formData.name}.`
                 });
             } else {
-                // --- FULL NAME VALIDATION ---
-        if (!/^[A-Za-z\s]+$/.test(formData.name.trim())) {
-            setModalConfig({
-                isOpen: true,
-                type: 'error',
-                title: 'Invalid Name',
-                message: 'User Name should only contain letters and spaces.'
-            });
-            return;
-        }
-
-        const emailRegex = /^[a-zA-Z][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
-                if (!emailRegex.test(formData.email.trim())) {
-                    setModalConfig({ isOpen: true, type: 'error', title: 'Invalid Email', message: 'Please enter a valid email address.' });
-                    return;
-                }
-
                 const res = await api.post('/admin/staff', data);
 
                 if (res.data.id) {
