@@ -308,17 +308,12 @@ app.post('/api/auth/login', async (req, res) => {
 
         // --- STRICT SIMULTANEOUS LOGIN BLOCK ---
         // Prevent login if an active session exists. 
-        const { forceLogout } = req.body;
-
-        if (user.currentSessionId && !forceLogout) {
+        // We include a 12-hour timeout fallback in case the browser was closed without clicking logout.
+        if (user.currentSessionId) {
             const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
             if (user.lastActivity && (Date.now() - new Date(user.lastActivity).getTime() < SESSION_TIMEOUT)) {
                 console.log(`❌ Login blocked: ${email} is already logged in elsewhere.`);
-                return res.status(403).json({ 
-                    error: 'Account already in use.', 
-                    message: 'Your account is currently active on another device.',
-                    allowForce: true 
-                });
+                return res.status(403).json({ error: 'Account is already logged in on another device. Please log out from that device first.' });
             }
         }
         // --- END ---
@@ -331,17 +326,14 @@ app.post('/api/auth/login', async (req, res) => {
         // Generate token with sessionId
         const token = generateToken(user._id, user.role, sessionId);
 
-        // --- LOGIN SECURITY ALERT (BREVO) - BACKGROUND TASK ---
-        setImmediate(() => {
-            const { todayStr, currentTime } = getISTDateInfo();
-            const device = req.headers['user-agent'] || 'Unknown Device';
-            console.log(`[Email] Dispatching login security alert to ${user.email}...`);
-            sendLoginSecurityAlert(user.email, user.name, {
-                dateStr: todayStr,
-                timeStr: currentTime,
-                device: device
-            }).catch(err => console.error('❌ Security Alert Email Error:', err));
-        });
+        // --- LOGIN SECURITY ALERT (BREVO) ---
+        const { todayStr, currentTime } = getISTDateInfo();
+        const device = req.headers['user-agent'] || 'Unknown Device';
+        sendLoginSecurityAlert(user.email, user.name, {
+            dateStr: todayStr,
+            timeStr: currentTime,
+            device: device
+        }).catch(err => console.error('❌ Security Alert Email Error:', err));
         // --- END ---
 
         res.json({
@@ -442,17 +434,14 @@ app.post('/api/auth/google-login', async (req, res) => {
         // Generate token with sessionId
         const authToken = generateToken(user._id, user.role, sessionId);
 
-        // --- LOGIN SECURITY ALERT (BREVO) - BACKGROUND TASK ---
-        setImmediate(() => {
-            const { todayStr, currentTime } = getISTDateInfo();
-            const device = req.headers['user-agent'] || 'Unknown Device';
-            console.log(`[Email] Dispatching Google login security alert to ${user.email}...`);
-            sendLoginSecurityAlert(user.email, user.name, {
-                dateStr: todayStr,
-                timeStr: currentTime,
-                device: device
-            }).catch(err => console.error('❌ Security Alert Email Error (Google):', err));
-        });
+        // --- LOGIN SECURITY ALERT (BREVO) ---
+        const { todayStr, currentTime } = getISTDateInfo();
+        const device = req.headers['user-agent'] || 'Unknown Device';
+        sendLoginSecurityAlert(user.email, user.name, {
+            dateStr: todayStr,
+            timeStr: currentTime,
+            device: device
+        }).catch(err => console.error('❌ Security Alert Email Error (Google):', err));
         // --- END ---
 
         res.json({

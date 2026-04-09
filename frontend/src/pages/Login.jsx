@@ -19,11 +19,10 @@ const Login = () => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
-    const [showForceOption, setShowForceOption] = useState(false);
     const navigate = useNavigate();
 
-    const handleLogin = async (e, force = false) => {
-        if (e) e.preventDefault();
+    const handleLogin = async (e) => {
+        e.preventDefault();
         setError('');
         setSuccess('');
 
@@ -35,27 +34,16 @@ const Login = () => {
 
         setLoading(true);
         try {
-            const response = await api.post('/auth/login', { 
-                email, 
-                password,
-                forceLogout: force 
-            });
+            const response = await api.post('/auth/login', { email, password });
             const { token, user } = response.data;
             login(user, token);
             const role = user.role?.toLowerCase();
             const targetPath = role === 'admin' ? '/admin' : 
-                              ['principal', 'secretary', 'director'].includes(role) ? '/executive' : 
+                               ['principal', 'secretary', 'director'].includes(role) ? '/executive' : 
                                '/staff';
             navigate(targetPath);
         } catch (err) {
-            const errorData = err.response?.data;
-            if (errorData?.allowForce) {
-                setShowForceOption(true);
-                setError(errorData.message || 'Account already in use.');
-            } else {
-                setError(errorData?.error || 'Connection error.');
-                setShowForceOption(false);
-            }
+            setError(err.response?.data?.error || 'Connection error.');
         } finally {
             setLoading(false);
         }
@@ -169,22 +157,9 @@ const Login = () => {
                                 </div>
                                 {error && <div className="error-message">{error}</div>}
                                 {success && <div className="success-message">{success}</div>}
-                                
-                                {showForceOption ? (
-                                    <button 
-                                        type="button" 
-                                        className="login-main-btn force-logout-btn" 
-                                        onClick={() => handleLogin(null, true)} 
-                                        disabled={loading}
-                                        style={{ background: 'linear-gradient(135deg, #ef4444, #b91c1c)', marginTop: '10px' }}
-                                    >
-                                        {loading ? <div className="spinner"></div> : 'Log out from other devices & Sign in'}
-                                    </button>
-                                ) : (
-                                    <button type="submit" className="login-main-btn" disabled={loading}>
-                                        {loading ? <div className="spinner"></div> : 'Sign in'}
-                                    </button>
-                                )}
+                                <button type="submit" className="login-main-btn" disabled={loading}>
+                                    {loading ? <div className="spinner"></div> : 'Sign in'}
+                                </button>
                                 <p className="forgot-pwd-link" onClick={() => {setView('forgotPassword'); setError(''); setSuccess('');}}>
                                     Forgot Password?
                                 </p>
