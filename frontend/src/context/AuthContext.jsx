@@ -18,10 +18,27 @@ export const AuthProvider = ({ children }) => {
                 setUser(JSON.parse(savedUser));
             } catch (err) {
                 console.error('Failed to parse user data:', err);
-                localStorage.clear(); // Clear corrupt data
+                localStorage.clear();
             }
         }
         setLoading(false);
+
+        // --- NEW: TAB CLOSE DETECTION ---
+        // Attempt to notify server on tab close to prevent ghost sessions
+        const handleTabClose = () => {
+            const token = localStorage.getItem('token');
+            if (token) {
+                // use fetch keepalive for logout on close (works better than axios on unload)
+                fetch(`${process.env.REACT_APP_API_URL || ''}/api/auth/logout`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    keepalive: true
+                });
+            }
+        };
+
+        window.addEventListener('beforeunload', handleTabClose);
+        return () => window.removeEventListener('beforeunload', handleTabClose);
     }, []);
 
     const login = (userData, userToken) => {

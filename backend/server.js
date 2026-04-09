@@ -308,9 +308,9 @@ app.post('/api/auth/login', async (req, res) => {
 
         // --- STRICT SIMULTANEOUS LOGIN BLOCK ---
         // Prevent login if an active session exists. 
-        // We include a 12-hour timeout fallback in case the browser was closed without clicking logout.
+        // We allow 15 minutes of inactivity before automatically freeing the session.
         if (user.currentSessionId) {
-            const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+            const SESSION_TIMEOUT = 15 * 60 * 1000; // Reduced to 15 minutes for better experience
             if (user.lastActivity && (Date.now() - new Date(user.lastActivity).getTime() < SESSION_TIMEOUT)) {
                 console.log(`❌ Login blocked: ${email} is already logged in elsewhere.`);
                 return res.status(403).json({ error: 'Account is already logged in on another device. Please log out from that device first.' });
@@ -409,18 +409,17 @@ app.post('/api/auth/google-login', async (req, res) => {
             return res.status(401).json({ error: 'Account is deactivated' });
         }
 
-        // --- PREVENT SIMULTANEOUS LOGIN: BLOCK SECOND PERSON ---
-        const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
-        if (user.currentSessionId && user.lastActivity) {
-            const timeSinceLastActivity = Date.now() - new Date(user.lastActivity).getTime();
-            if (timeSinceLastActivity < SESSION_TIMEOUT) {
+        // --- STRICT SIMULTANEOUS LOGIN BLOCK (GOOGLE) ---
+        if (user.currentSessionId) {
+            const SESSION_TIMEOUT = 15 * 60 * 1000;
+            if (user.lastActivity && (Date.now() - new Date(user.lastActivity).getTime() < SESSION_TIMEOUT)) {
                 console.log(`🚫 Google Login Blocked: Active session exists for ${user.email}`);
                 return res.status(403).json({ 
                     error: 'Account is already logged in on another device. Please log out from that device first.' 
                 });
             }
         }
-        // --- END BLOCK LOGIC ---
+        // --- END ---
 
         // Optional: Update name if missing from local DB
         if (!user.name) {
