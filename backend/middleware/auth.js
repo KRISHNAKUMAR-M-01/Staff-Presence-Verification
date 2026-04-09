@@ -30,8 +30,10 @@ const authenticateToken = async (req, res, next) => {
             return res.status(401).json({ error: 'Invalid or inactive user' });
         }
 
-        // Single-session enforcement: (DISABLED - Users can use multiple devices)
-        // if (decoded.sessionId && user.currentSessionId && decoded.sessionId !== user.currentSessionId) { ... }
+        // Single-session enforcement: Validating session match
+        if (decoded.sessionId && user.currentSessionId && decoded.sessionId !== user.currentSessionId) {
+            return res.status(401).json({ error: 'Session expired. Another device may have logged in.' });
+        }
 
         // Update last activity (Done without blocking the whole request)
         User.updateOne({ _id: user._id }, { $set: { lastActivity: new Date() } }).catch(console.error);

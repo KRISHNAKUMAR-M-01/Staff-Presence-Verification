@@ -306,8 +306,16 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        // --- SIMULTANEOUS LOGIN BLOCK REMOVED ---
-        // (Users can now log in freely from any device)
+        // --- STRICT SIMULTANEOUS LOGIN BLOCK ---
+        // Prevent login if an active session exists. 
+        // We include a 12-hour timeout fallback in case the browser was closed without clicking logout.
+        if (user.currentSessionId) {
+            const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+            if (user.lastActivity && (Date.now() - new Date(user.lastActivity).getTime() < SESSION_TIMEOUT)) {
+                console.log(`❌ Login blocked: ${email} is already logged in elsewhere.`);
+                return res.status(403).json({ error: 'Account is already logged in on another device. Please log out from that device first.' });
+            }
+        }
         // --- END ---
 
         // Generate unique session ID for single-session enforcement
@@ -390,13 +398,13 @@ app.post('/api/auth/google-login', async (req, res) => {
         }
 
         // --- PREVENT SIMULTANEOUS LOGIN: BLOCK SECOND PERSON ---
-        const SESSION_TIMEOUT = 15 * 60 * 1000; // 15 minutes
+        const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
         if (user.currentSessionId && user.lastActivity) {
             const timeSinceLastActivity = Date.now() - new Date(user.lastActivity).getTime();
             if (timeSinceLastActivity < SESSION_TIMEOUT) {
                 console.log(`🚫 Google Login Blocked: Active session exists for ${user.email}`);
                 return res.status(403).json({ 
-                    error: 'This account is already logged in on another device. Please logout from the other device or wait for the session to expire (15 mins of inactivity).' 
+                    error: 'Account is already logged in on another device. Please log out from that device first.' 
                 });
             }
         }
