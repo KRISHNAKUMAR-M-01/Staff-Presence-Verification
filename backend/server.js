@@ -32,7 +32,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Import Services
-const { sendEmail } = require('./utils/emailService');
+const { sendEmail, sendWelcomeCredentialsEmail, sendLoginSecurityAlert } = require('./utils/emailService');
 
 // Connect to MongoDB
 connectDB();
@@ -326,6 +326,16 @@ app.post('/api/auth/login', async (req, res) => {
         // Generate token with sessionId
         const token = generateToken(user._id, user.role, sessionId);
 
+        // --- LOGIN SECURITY ALERT (BREVO) ---
+        const { todayStr, currentTime } = getISTDateInfo();
+        const device = req.headers['user-agent'] || 'Unknown Device';
+        sendLoginSecurityAlert(user.email, user.name, {
+            dateStr: todayStr,
+            timeStr: currentTime,
+            device: device
+        }).catch(err => console.error('❌ Security Alert Email Error:', err));
+        // --- END ---
+
         res.json({
             token,
             user: {
@@ -423,6 +433,16 @@ app.post('/api/auth/google-login', async (req, res) => {
 
         // Generate token with sessionId
         const authToken = generateToken(user._id, user.role, sessionId);
+
+        // --- LOGIN SECURITY ALERT (BREVO) ---
+        const { todayStr, currentTime } = getISTDateInfo();
+        const device = req.headers['user-agent'] || 'Unknown Device';
+        sendLoginSecurityAlert(user.email, user.name, {
+            dateStr: todayStr,
+            timeStr: currentTime,
+            device: device
+        }).catch(err => console.error('❌ Security Alert Email Error (Google):', err));
+        // --- END ---
 
         res.json({
             token: authToken,
@@ -674,6 +694,12 @@ app.post('/api/admin/register-user', authenticateToken, requireAdmin, uploadProf
 
         const user = new User({ email, password, role, staff_id, name, profile_picture });
         await user.save();
+
+        // --- SEND WELCOME EMAIL WITH CREDENTIALS (BREVO) ---
+        // We use the raw password provided in req.body before it was hashed by the model
+        sendWelcomeCredentialsEmail(email, name, role, password)
+            .catch(err => console.error('❌ Welcome Email Error:', err));
+        // --- END ---
 
         res.json({
             message: 'User registered successfully',
