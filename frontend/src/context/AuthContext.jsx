@@ -24,12 +24,11 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
 
         // --- NEW: TAB CLOSE DETECTION ---
-        // Attempt to notify server on tab close to prevent ghost sessions
         const handleTabClose = () => {
             const token = localStorage.getItem('token');
             if (token) {
-                // use fetch keepalive for logout on close (works better than axios on unload)
-                fetch(`${process.env.REACT_APP_API_URL || ''}/api/auth/logout`, {
+                // Use absolute path for Render deployment
+                fetch('https://staff-presence-backend.onrender.com/api/auth/logout', {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` },
                     keepalive: true

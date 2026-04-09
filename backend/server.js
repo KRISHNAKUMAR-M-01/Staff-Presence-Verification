@@ -308,9 +308,9 @@ app.post('/api/auth/login', async (req, res) => {
 
         // --- STRICT SIMULTANEOUS LOGIN BLOCK ---
         // Prevent login if an active session exists. 
-        // We allow 15 minutes of inactivity before automatically freeing the session.
+        // We allow 2 minutes of inactivity fallback (Reduced for testing/speed)
         if (user.currentSessionId) {
-            const SESSION_TIMEOUT = 15 * 60 * 1000; // Reduced to 15 minutes for better experience
+            const SESSION_TIMEOUT = 2 * 60 * 1000; 
             if (user.lastActivity && (Date.now() - new Date(user.lastActivity).getTime() < SESSION_TIMEOUT)) {
                 console.log(`❌ Login blocked: ${email} is already logged in elsewhere.`);
                 return res.status(403).json({ error: 'Account is already logged in on another device. Please log out from that device first.' });
@@ -351,18 +351,21 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
-// Logout
+// Logout (High Speed)
 app.post('/api/auth/logout', authenticateToken, async (req, res) => {
     try {
-        // High-speed direct update to kill the session immediately
+        // Use a direct update to kill the session instantly. 
+        // We set currentSessionId to null so the account is unlocked immediately.
         await User.updateOne(
             { _id: req.user._id }, 
             { $set: { currentSessionId: null, lastActivity: null } }
         );
-        console.log(`👋 Session killed: ${req.user.email}`);
-        res.json({ message: 'Logged out successfully' });
+        
+        console.log(`✅ ACCOUNT UNLOCKED: ${req.user.email} logged out.`);
+        return res.status(200).json({ message: 'Logged out successfully' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('Logout error:', err);
+        return res.status(500).json({ error: 'Logout failed' });
     }
 });
 
