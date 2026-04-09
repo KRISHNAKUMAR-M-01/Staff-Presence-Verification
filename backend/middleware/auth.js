@@ -30,11 +30,8 @@ const authenticateToken = async (req, res, next) => {
             return res.status(401).json({ error: 'Invalid or inactive user' });
         }
 
-        // Single-session enforcement: check if token sessionId matches currentSessionId in DB
-        if (decoded.sessionId && user.currentSessionId && decoded.sessionId !== user.currentSessionId) {
-            console.log(`🚫 Auth: Session mismatch for ${user.email}. Token: ${decoded.sessionId}, DB: ${user.currentSessionId}`);
-            return res.status(401).json({ error: 'You have been logged out because another device logged in with your account.' });
-        }
+        // Single-session enforcement: (DISABLED - Users can use multiple devices)
+        // if (decoded.sessionId && user.currentSessionId && decoded.sessionId !== user.currentSessionId) { ... }
 
         // Update last activity (Done without blocking the whole request)
         User.updateOne({ _id: user._id }, { $set: { lastActivity: new Date() } }).catch(console.error);

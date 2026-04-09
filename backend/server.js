@@ -305,18 +305,9 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        // --- PREVENT SIMULTANEOUS LOGIN: BLOCK SECOND PERSON ---
-        const SESSION_TIMEOUT = 15 * 60 * 1000; // 15 minutes
-        if (user.currentSessionId && user.lastActivity) {
-            const timeSinceLastActivity = Date.now() - new Date(user.lastActivity).getTime();
-            if (timeSinceLastActivity < SESSION_TIMEOUT) {
-                console.log(`🚫 Login Blocked: Active session exists for ${user.email}`);
-                return res.status(403).json({ 
-                    error: 'This account is already logged in on another device. Please logout from the other device or wait for the session to expire (15 mins of inactivity).' 
-                });
-            }
-        }
-        // --- END BLOCK LOGIC ---
+        // --- SIMULTANEOUS LOGIN BLOCK REMOVED ---
+        // (Users can now log in freely from any device)
+        // --- END ---
 
         // Generate unique session ID for single-session enforcement
         const sessionId = Date.now().toString() + Math.random().toString(36).substring(2);
