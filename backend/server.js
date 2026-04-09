@@ -331,14 +331,17 @@ app.post('/api/auth/login', async (req, res) => {
         // Generate token with sessionId
         const token = generateToken(user._id, user.role, sessionId);
 
-        // --- LOGIN SECURITY ALERT (BREVO) ---
-        const { todayStr, currentTime } = getISTDateInfo();
-        const device = req.headers['user-agent'] || 'Unknown Device';
-        sendLoginSecurityAlert(user.email, user.name, {
-            dateStr: todayStr,
-            timeStr: currentTime,
-            device: device
-        }).catch(err => console.error('❌ Security Alert Email Error:', err));
+        // --- LOGIN SECURITY ALERT (BREVO) - BACKGROUND TASK ---
+        setImmediate(() => {
+            const { todayStr, currentTime } = getISTDateInfo();
+            const device = req.headers['user-agent'] || 'Unknown Device';
+            console.log(`[Email] Dispatching login security alert to ${user.email}...`);
+            sendLoginSecurityAlert(user.email, user.name, {
+                dateStr: todayStr,
+                timeStr: currentTime,
+                device: device
+            }).catch(err => console.error('❌ Security Alert Email Error:', err));
+        });
         // --- END ---
 
         res.json({
@@ -439,14 +442,17 @@ app.post('/api/auth/google-login', async (req, res) => {
         // Generate token with sessionId
         const authToken = generateToken(user._id, user.role, sessionId);
 
-        // --- LOGIN SECURITY ALERT (BREVO) ---
-        const { todayStr, currentTime } = getISTDateInfo();
-        const device = req.headers['user-agent'] || 'Unknown Device';
-        sendLoginSecurityAlert(user.email, user.name, {
-            dateStr: todayStr,
-            timeStr: currentTime,
-            device: device
-        }).catch(err => console.error('❌ Security Alert Email Error (Google):', err));
+        // --- LOGIN SECURITY ALERT (BREVO) - BACKGROUND TASK ---
+        setImmediate(() => {
+            const { todayStr, currentTime } = getISTDateInfo();
+            const device = req.headers['user-agent'] || 'Unknown Device';
+            console.log(`[Email] Dispatching Google login security alert to ${user.email}...`);
+            sendLoginSecurityAlert(user.email, user.name, {
+                dateStr: todayStr,
+                timeStr: currentTime,
+                device: device
+            }).catch(err => console.error('❌ Security Alert Email Error (Google):', err));
+        });
         // --- END ---
 
         res.json({
