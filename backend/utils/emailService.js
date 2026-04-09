@@ -15,18 +15,12 @@ const transporterOptions = {
     }
 };
 
-// Gmail optimization: avoid 'service' property on some hosting platforms
-// to ensure it respects the specified port and TLS settings.
-const transporter = nodemailer.createTransport(transporterOptions);
+// If using Gmail, 'service' property is more reliable
+if (transporterOptions.host.includes('gmail.com')) {
+    transporterOptions.service = 'gmail';
+}
 
-// Verify connection on startup
-transporter.verify((error, success) => {
-    if (error) {
-        console.error('❌ [Email Error] Connection Failed:', error);
-    } else {
-        console.log('✅ [Email Success] Server is ready to send messages');
-    }
-});
+const transporter = nodemailer.createTransport(transporterOptions);
 
 // Log configuration status (without secrets)
 console.log(`[Email] Initialized with Service: ${transporterOptions.service || 'Custom'}, Host: ${transporterOptions.host}, User: ${process.env.EMAIL_USER ? 'Present' : 'MISSING'}`);
@@ -34,23 +28,12 @@ console.log(`[Email] Initialized with Service: ${transporterOptions.service || '
 
 /**
  * Send an email
- * Supports both individual arguments or a single object
+ * @param {string} to - Recipient email address
+ * @param {string} subject - Email subject
+ * @param {string} text - Plain text body
+ * @param {string} html - Optional HTML body
  */
-const sendEmail = async (toOrObj, subject, text, html = "") => {
-    let to, finalSubject, finalText, finalHtml;
-
-    if (typeof toOrObj === 'object') {
-        to = toOrObj.email || toOrObj.to;
-        finalSubject = toOrObj.subject;
-        finalText = toOrObj.message || toOrObj.text;
-        finalHtml = toOrObj.html;
-    } else {
-        to = toOrObj;
-        finalSubject = subject;
-        finalText = text;
-        finalHtml = html;
-    }
-
+const sendEmail = async (to, subject, text, html = "") => {
     if (!to) {
         console.log(`[Email] Skip: No recipient email provided.`);
         return;
@@ -60,21 +43,22 @@ const sendEmail = async (toOrObj, subject, text, html = "") => {
         const mailOptions = {
             from: `"${process.env.EMAIL_FROM_NAME || 'Staff Presence System'}" <${process.env.EMAIL_USER}>`,
             to,
-            subject: finalSubject,
-            text: finalText,
-            html: finalHtml || finalText
+            subject,
+            text,
+            html: html || text
         };
 
         const info = await transporter.sendMail(mailOptions);
         console.log(`\n==========================================`);
         console.log(`📧 [EMAIL SENT]`);
         console.log(`To: ${to}`);
-        console.log(`Subject: ${finalSubject}`);
+        console.log(`Subject: ${subject}`);
         console.log(`Message ID: ${info.messageId}`);
         console.log(`==========================================\n`);
         return info;
     } catch (error) {
         console.error(`❌ [Email Error] Failed to send email to ${to}:`, error);
+        // Don't throw error to avoid crashing the server, but log it
     }
 };
 

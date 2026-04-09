@@ -305,13 +305,18 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        // --- PREVENT SIMULTANEOUS LOGIN: STRICT BLOCK ---
-        if (user.currentSessionId) {
-            console.log(`🚫 Login Blocked: Active session exists for ${user.email}`);
-            return res.status(403).json({ 
-                error: 'ALREADY_LOGGED_IN',
-                message: 'This account is already logged in on another device.' 
-            });
+        // --- PREVENT SIMULTANEOUS LOGIN: BLOCK SECOND PERSON ---
+        const { force } = req.body;
+        const SESSION_TIMEOUT = 10 * 60 * 1000; // Reduced to 10 minutes
+        if (!force && user.currentSessionId && user.lastActivity) {
+            const timeSinceLastActivity = Date.now() - new Date(user.lastActivity).getTime();
+            if (timeSinceLastActivity < SESSION_TIMEOUT) {
+                console.log(`🚫 Login Blocked: Active session exists for ${user.email}`);
+                return res.status(403).json({ 
+                    error: 'ALREADY_LOGGED_IN',
+                    message: 'This account is already logged in on another device.' 
+                });
+            }
         }
         // --- END BLOCK LOGIC ---
 
@@ -381,13 +386,18 @@ app.post('/api/auth/google-login', async (req, res) => {
             return res.status(401).json({ error: 'Account is deactivated' });
         }
 
-        // --- PREVENT SIMULTANEOUS LOGIN: STRICT BLOCK ---
-        if (user.currentSessionId) {
-            console.log(`🚫 Google Login Blocked: Active session exists for ${user.email}`);
-            return res.status(403).json({ 
-                error: 'ALREADY_LOGGED_IN',
-                message: 'This account is already logged in on another device.' 
-            });
+        // --- PREVENT SIMULTANEOUS LOGIN: BLOCK SECOND PERSON ---
+        const { force } = req.body;
+        const SESSION_TIMEOUT = 10 * 60 * 1000; // 10 minutes
+        if (!force && user.currentSessionId && user.lastActivity) {
+            const timeSinceLastActivity = Date.now() - new Date(user.lastActivity).getTime();
+            if (timeSinceLastActivity < SESSION_TIMEOUT) {
+                console.log(`🚫 Google Login Blocked: Active session exists for ${user.email}`);
+                return res.status(403).json({ 
+                    error: 'ALREADY_LOGGED_IN',
+                    message: 'This account is already logged in on another device.' 
+                });
+            }
         }
         // --- END BLOCK LOGIC ---
 
@@ -425,88 +435,7 @@ app.post('/api/auth/google-login', async (req, res) => {
 // PASSWORD RESET / OTP FLOW
 // --------------------------------------------
 
-// 1.// Request OTP to kick existing session
-app.post('/api/auth/request-kick-otp', async (req, res) => {
-    try {
-        let { email, password } = req.body;
-        email = email.trim().toLowerCase();
-        
-        const user = await User.findOne({ email });
-        if (!user) return res.status(404).json({ error: 'User not found' });
-
-        // Verify password first (only if not google login which would handle this differently)
-        if (password) {
-            const isMatch = await user.comparePassword(password);
-            if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
-        }
-
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        user.kickSessionOTP = otp;
-        user.kickSessionExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
-        await user.save();
-
-        // Await email for debugging, so we can catch specific provider errors
-        try {
-            await sendEmail({
-                email: user.email,
-                subject: 'Security Alert: New Device Login Attempt',
-                message: `A login attempt was made from a new device while your account is already active. 
-                If this was you, use the following code to authorize this device and log out other sessions:
-                
-                CODE: ${otp}
-                
-                This code expires in 10 minutes.`
-            });
-            res.json({ message: 'Security OTP sent to your email.' });
-        } catch (emailErr) {
-            console.error('Email Send Error:', emailErr);
-            return res.status(500).json({ error: 'Mail delivery failed. Please check your email settings.' });
-        }
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Verify OTP and kick existing session
-app.post('/api/auth/verify-kick-otp', async (req, res) => {
-    try {
-        let { email, otp } = req.body;
-        email = email.trim().toLowerCase();
-
-        const user = await User.findOne({ 
-            email, 
-            kickSessionOTP: otp,
-            kickSessionExpires: { $gt: Date.now() }
-        }).populate('staff_id');
-
-        if (!user) return res.status(401).json({ error: 'Invalid or expired Security OTP' });
-
-        // Clear existing session and OTP
-        const sessionId = Date.now().toString() + Math.random().toString(36).substring(2);
-        user.currentSessionId = sessionId;
-        user.kickSessionOTP = null;
-        user.kickSessionExpires = null;
-        user.lastActivity = new Date();
-        await user.save();
-
-        const token = generateToken(user._id, user.role, sessionId);
-
-        res.json({
-            token,
-            user: {
-                id: user._id,
-                email: user.email,
-                name: user.name,
-                role: user.role,
-                staff_id: user.staff_id
-            }
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// Request Password Reset OTP
+// 1. Request OTP
 app.post('/api/auth/request-otp', async (req, res) => {
     try {
         const { email } = req.body;

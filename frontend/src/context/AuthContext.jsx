@@ -32,29 +32,19 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = async () => {
-        // 1. Capture token before clearing for the backend call
-        const currentToken = localStorage.getItem('token');
+        try {
+            await api.post('/auth/logout');
+        } catch (err) {
+            console.error('Logout sync with server failed:', err);
+        }
 
-        // 2. Clear Local State IMMEDIATELY (Instant UI response)
-        localStorage.clear();
-        setToken(null);
-        setUser(null);
-
-        // 3. Stop Service Worker Beacon
+        // Tell the Service Worker to stop the soft beacon before clearing session
         if (navigator.serviceWorker?.controller) {
             navigator.serviceWorker.controller.postMessage({ type: 'BEACON_STOP' });
         }
-
-        // 4. Inform Server with captured token so it knows which session to end
-        try {
-            if (currentToken) {
-                api.post('/auth/logout', {}, {
-                    headers: { Authorization: `Bearer ${currentToken}` }
-                }).catch(err => console.error('Silent Logout Failed:', err));
-            }
-        } catch (err) {
-            console.error('Logout API call failed:', err);
-        }
+        localStorage.clear();
+        setToken(null);
+        setUser(null);
     };
 
     return (

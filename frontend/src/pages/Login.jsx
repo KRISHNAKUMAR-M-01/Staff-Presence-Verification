@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -8,7 +8,7 @@ import '../styles/Login.css';
 
 const Login = () => {
     const { login } = useAuth();
-    const [view, setView] = useState('login'); // 'login', 'forgotPassword', 'verifyOtp', 'resetPassword', 'verifyKickOtp'
+    const [view, setView] = useState('login'); // 'login', 'forgotPassword', 'verifyOtp', 'resetPassword'
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [otp, setOtp] = useState('');
@@ -19,17 +19,7 @@ const Login = () => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
-    const [resendTimer, setResendTimer] = useState(0);
     const navigate = useNavigate();
-
-    // Resend Timer logic
-    useEffect(() => {
-        let timer;
-        if (resendTimer > 0) {
-            timer = setInterval(() => setResendTimer(prev => prev - 1), 1000);
-        }
-        return () => clearInterval(timer);
-    }, [resendTimer]);
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -54,14 +44,20 @@ const Login = () => {
             navigate(targetPath);
         } catch (err) {
             if (err.response?.data?.error === 'ALREADY_LOGGED_IN') {
-                if (window.confirm('This account is already logged in on another device. For security, you must verify an OTP sent to your email to log out other sessions and continue. Send OTP?')) {
+                if (window.confirm('This account is already logged in on another device. Would you like to log out the other session and sign in here?')) {
+                    // Retry with force flag
                     try {
                         setLoading(true);
-                        await api.post('/auth/request-kick-otp', { email, password });
-                        setView('verifyKickOtp');
-                        setSuccess('Security OTP sent to your email.');
-                    } catch (kickErr) {
-                        setError(kickErr.response?.data?.error || 'Failed to send Security OTP.');
+                        const retryRes = await api.post('/auth/login', { email, password, force: true });
+                        const { token, user } = retryRes.data;
+                        login(user, token);
+                        const role = user.role?.toLowerCase();
+                        const targetPath = role === 'admin' ? '/admin' : 
+                                           ['principal', 'secretary', 'director'].includes(role) ? '/executive' : 
+                                           '/staff';
+                        navigate(targetPath);
+                    } catch (retryErr) {
+                        setError(retryErr.response?.data?.error || 'Login failed.');
                     }
                 }
             } else {
@@ -72,59 +68,7 @@ const Login = () => {
         }
     };
 
-    const handleVerifyKickOtp = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setError('');
-        try {
-            const response = await api.post('/auth/verify-kick-otp', { email, otp });
-            const { token, user } = response.data;
-            login(user, token);
-            const role = user.role?.toLowerCase();
-            const targetPath = role === 'admin' ? '/admin' : 
-                               ['principal', 'secretary', 'director'].includes(role) ? '/executive' : 
-                               '/staff';
-            navigate(targetPath);
-        } catch (err) {
-            setError(err.response?.data?.error || 'Invalid Security OTP.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-
-
-    const handleGoogleKick = async () => {
-        try {
-            setLoading(true);
-            // For Google, we can't send password, so request-kick-otp must handle null password
-            await api.post('/auth/request-kick-otp', { email });
-            setView('verifyKickOtp');
-            setSuccess('Security OTP sent to your email.');
-        } catch (err) {
-            setError(err.response?.data?.error || 'Failed to send Security OTP.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleResendKickOtp = async () => {
-        if (resendTimer > 0) return;
-        setLoading(true);
-        setError('');
-        try {
-            await api.post('/auth/request-kick-otp', { email, password });
-            setSuccess('Security OTP resent successfully.');
-            setResendTimer(30); // 30 sec cooldown
-        } catch (err) {
-            setError(err.response?.data?.error || 'Failed to resend OTP.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Re-bind Google Login to catch session errors
-    const handleGoogleLogin = useGoogleLogin({
+    const googleLogin = useGoogleLogin({
         onSuccess: async (tokenResponse) => {
             setLoading(true);
             setError('');
@@ -138,18 +82,7 @@ const Login = () => {
                                    '/staff';
                 navigate(targetPath);
             } catch (err) {
-                if (err.response?.data?.error === 'ALREADY_LOGGED_IN') {
-                    // We need the email from the error or the previous attempt if stored,
-                    // but for Google logins we usually get it from the userinfo.
-                    // Let's rely on the message and a simpler prompt.
-                    setError('An active session already exists. Please verify your identity via OTP.');
-                    // If we have the email state from a prior attempt or we can get it:
-                    if (email && window.confirm('Active session found. Send security OTP to override?')) {
-                        handleGoogleKick();
-                    }
-                } else {
-                    setError(err.response?.data?.error || 'Google login failed.');
-                }
+                setError(err.response?.data?.error || 'Google login failed.');
             } finally {
                 setLoading(false);
             }
@@ -252,7 +185,7 @@ const Login = () => {
                             </form>
                             <div className="divider"><span>Or continue with</span></div>
                             <div className="social-login">
-                                <button type="button" className="social-btn google-btn" onClick={() => handleGoogleLogin()} disabled={loading}>
+                                <button type="button" className="social-btn google-btn" onClick={() => googleLogin()} disabled={loading}>
                                     <Chrome size={20} /> Sign in with Google
                                 </button>
                             </div>
@@ -292,40 +225,6 @@ const Login = () => {
                                 <p className="back-link" onClick={() => setView('forgotPassword')}>
                                     <ArrowLeft size={16} /> Resend OTP
                                 </p>
-                            </form>
-                        </>
-                    ) : view === 'verifyKickOtp' ? (
-                        <>
-                            <h2>SECURITY VERIFY</h2>
-                            <p className="login-subtitle">An active session exists. Enter the security code sent to your email to override it.</p>
-                            <form onSubmit={handleVerifyKickOtp}>
-                                <div className="input-group">
-                                    <ShieldCheck className="input-icon" size={20} />
-                                    <input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} required placeholder="6-digit Security OTP" maxLength={6} />
-                                </div>
-                                {error && <div className="error-message">{error}</div>}
-                                {success && <div className="success-message">{success}</div>}
-                                <button type="submit" className="login-main-btn" disabled={loading}>
-                                    {loading ? <div className="spinner"></div> : 'Authorize & Sign In'}
-                                </button>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
-                                    <p className="back-link" style={{ margin: 0 }} onClick={() => setView('login')}>
-                                        <ArrowLeft size={16} /> Cancel
-                                    </p>
-                                    <p 
-                                        className="resend-link" 
-                                        style={{ 
-                                            margin: 0, 
-                                            fontSize: '13px', 
-                                            color: resendTimer > 0 ? '#94a3b8' : '#097969', 
-                                            cursor: resendTimer > 0 ? 'default' : 'pointer',
-                                            fontWeight: '600'
-                                        }} 
-                                        onClick={handleResendKickOtp}
-                                    >
-                                        {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend OTP'}
-                                    </p>
-                                </div>
                             </form>
                         </>
                     ) : (
