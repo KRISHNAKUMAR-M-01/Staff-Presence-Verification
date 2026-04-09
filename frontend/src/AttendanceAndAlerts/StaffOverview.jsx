@@ -10,6 +10,11 @@ const StaffOverview = () => {
     const [stats, setStats] = useState({ classesToday: 0, attendanceRate: 0, pendingLeaves: 0, unreadNotifications: 0 });
     const [todaySchedule, setTodaySchedule] = useState([]);
     const [recentAttendance, setRecentAttendance] = useState([]);
+    const [allAttendance, setAllAttendance] = useState([]);
+    
+    // Modal States for Info Display
+    const [showClassesModal, setShowClassesModal] = useState(false);
+    const [showAttendanceModal, setShowAttendanceModal] = useState(false);
     
     // Swap Logic States
     const [showSwapModal, setShowSwapModal] = useState(false);
@@ -67,6 +72,7 @@ const StaffOverview = () => {
 
             setTodaySchedule(todayClasses);
             setRecentAttendance(attendance.data.slice(0, 5));
+            setAllAttendance(attendance.data);
         } catch (err) { console.error(err); }
     };
 
@@ -130,8 +136,8 @@ const StaffOverview = () => {
     };
 
     const statItems = [
-        { label: 'Classes Today', value: stats.classesToday, icon: <Calendar size={24} />, color: '#097969', accent: 'linear-gradient(135deg, #e6fcf5 0%, #c3fae8 100%)' },
-        { label: 'Attendance Rate', value: `${stats.attendanceRate}%`, subLabel: `${stats.leaveDaysCount} sessions excused on leave`, icon: <CheckCircle size={24} />, color: '#0891b2', accent: 'linear-gradient(135deg, #ecfeff 0%, #cffafe 100%)' }
+        { label: 'Classes Today', value: stats.classesToday, icon: <Calendar size={24} />, color: '#097969', accent: 'linear-gradient(135deg, #e6fcf5 0%, #c3fae8 100%)', onClick: () => setShowClassesModal(true) },
+        { label: 'Attendance Rate', value: `${stats.attendanceRate}%`, subLabel: `${stats.leaveDaysCount} sessions excused on leave`, icon: <CheckCircle size={24} />, color: '#0891b2', accent: 'linear-gradient(135deg, #ecfeff 0%, #cffafe 100%)', onClick: () => setShowAttendanceModal(true) }
     ];
 
     return (
@@ -216,13 +222,15 @@ const StaffOverview = () => {
 
             <div className="stats-grid" style={{ marginBottom: '40px' }}>
                 {statItems.map((item, id) => (
-                    <div className="stat-card" key={id} style={{
+                    <div className="stat-card" key={id} onClick={item.onClick} style={{
                         border: '1px solid rgba(226, 232, 240, 0.8)',
                         background: 'white',
                         boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.04)',
                         position: 'relative',
-                        overflow: 'hidden'
-                    }}>
+                        overflow: 'hidden',
+                        cursor: item.onClick ? 'pointer' : 'default',
+                        transition: 'transform 0.2s',
+                    }} onMouseOver={(e) => { if(item.onClick) e.currentTarget.style.transform = 'translateY(-2px) scale(1.01)'; }} onMouseOut={(e) => { if(item.onClick) e.currentTarget.style.transform = 'translateY(0) scale(1)'; }}>
                         <div style={{
                             position: 'absolute',
                             top: 0,
@@ -454,6 +462,77 @@ const StaffOverview = () => {
                 .stat-card { transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); cursor: default; }
                 .stat-card:hover { transform: translateY(-5px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
             `}} />
+            {/* Modal: Classes Today */}
+            {showClassesModal && (
+                <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, animation: 'fadeIn 0.2s ease-out' }}>
+                    <div className="modal-content" style={{ background: '#fff', padding: '30px', borderRadius: '16px', width: '90%', maxWidth: '500px', maxHeight: '80vh', overflowY: 'auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h3 style={{ margin: 0, fontSize: '20px', color: '#1e293b' }}>Your Classes Today</h3>
+                            <button onClick={() => setShowClassesModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}><X size={24} /></button>
+                        </div>
+                        {todaySchedule.length === 0 ? (
+                            <p style={{ color: '#64748b' }}>No classes scheduled for today.</p>
+                        ) : (
+                            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                {todaySchedule.map(cls => (
+                                    <li key={cls._id || cls.id} style={{ display: 'flex', justifyContent: 'space-between', background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                                        <div>
+                                            <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '15px' }}>{cls.subject}</div>
+                                            <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>{cls.classroom_id?.room_name || cls.room_name || 'Assigned Room'}</div>
+                                        </div>
+                                        <div style={{ background: '#e0e7ff', color: '#4338ca', padding: '4px 10px', borderRadius: '8px', fontSize: '13px', fontWeight: '600', height: 'max-content' }}>
+                                            {cls.start_time} - {cls.end_time}
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Modal: Full Attendance Details */}
+            {showAttendanceModal && (
+                <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, animation: 'fadeIn 0.2s ease-out' }}>
+                    <div className="modal-content" style={{ background: '#fff', padding: '30px', borderRadius: '16px', width: '90%', maxWidth: '500px', maxHeight: '80vh', overflowY: 'auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h3 style={{ margin: 0, fontSize: '20px', color: '#1e293b' }}>Attendance History</h3>
+                            <button onClick={() => setShowAttendanceModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}><X size={24} /></button>
+                        </div>
+                        {allAttendance.length === 0 ? (
+                            <p style={{ color: '#64748b' }}>No past attendance records found.</p>
+                        ) : (
+                            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {allAttendance.map(record => {
+                                    const parsedDate = record.date ? new Date(record.date).toLocaleDateString() : 'Unknown Date';
+                                    const isPresent = record.status === 'Present' || record.status === 'Tracking';
+                                    const isLate = record.status === 'Late';
+                                    const isExcused = record.status === 'Excused';
+                                    
+                                    let statusColor = '#ef4444'; // Red for absent
+                                    let statusBg = '#fee2e2';
+                                    
+                                    if (isPresent) { statusColor = '#10b981'; statusBg = '#d1fae5'; }
+                                    else if (isLate) { statusColor = '#f59e0b'; statusBg = '#fef3c7'; }
+                                    else if (isExcused) { statusColor = '#3b82f6'; statusBg = '#dbeafe'; }
+
+                                    return (
+                                        <li key={record._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #f1f5f9' }}>
+                                            <div>
+                                                <div style={{ fontWeight: '600', color: '#334155' }}>{parsedDate}</div>
+                                                <div style={{ fontSize: '12px', color: '#64748b' }}>{record.classroom_id?.room_name || 'System Auto-Log'}</div>
+                                            </div>
+                                            <div style={{ padding: '4px 10px', borderRadius: '20px', background: statusBg, color: statusColor, fontSize: '12px', fontWeight: '700' }}>
+                                                {record.status}
+                                            </div>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
