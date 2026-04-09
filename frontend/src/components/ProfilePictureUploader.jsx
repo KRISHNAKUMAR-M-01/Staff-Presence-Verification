@@ -3,7 +3,7 @@ import { Camera, Upload, Trash2, CheckCircle } from 'lucide-react';
 import api from '../services/api';
 import Avatar from './Avatar';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL?.replace('/api', '') || 'https://staff-presence-backend.onrender.com';
+
 
 /**
  * ProfilePictureUploader — lets staff upload/change their own profile picture.
@@ -63,7 +63,7 @@ const ProfilePictureUploader = ({ staffName, currentPicture, onUpdate, size = 96
         }
     };
 
-    const displaySrc = preview || (picture ? `${API_BASE}${picture}` : null);
+    const displaySrc = preview || picture;
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
@@ -81,15 +81,12 @@ const ProfilePictureUploader = ({ staffName, currentPicture, onUpdate, size = 96
                 onMouseEnter={(e) => e.currentTarget.querySelector('.overlay').style.opacity = '1'}
                 onMouseLeave={(e) => e.currentTarget.querySelector('.overlay').style.opacity = '0'}
             >
-                {displaySrc ? (
-                    <img
-                        src={displaySrc}
-                        alt="Profile"
-                        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', display: 'block', border: '3px solid white', boxShadow: '0 4px 12px rgba(0,0,0,0.12)' }}
-                    />
-                ) : (
-                    <Avatar name={staffName} size={size} style={{ border: '3px solid white', boxShadow: '0 4px 12px rgba(0,0,0,0.12)' }} />
-                )}
+                <Avatar 
+                    name={staffName} 
+                    picturePath={displaySrc} 
+                    size={size} 
+                    style={{ border: '3px solid white', boxShadow: '0 4px 12px rgba(0,0,0,0.12)' }} 
+                />
 
                 {/* Hover Overlay */}
                 <div

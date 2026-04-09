@@ -31,18 +31,35 @@ const Avatar = ({ name = '', picturePath, size = 40, borderRadius = '50%', style
     };
 
     if (picturePath) {
-        const imageUrl = picturePath.startsWith('http') ? picturePath : `${API_BASE}${picturePath}`;
+        const isAbsolute = picturePath.startsWith('http') || picturePath.startsWith('blob:') || picturePath.startsWith('data:');
+        const imageUrl = isAbsolute ? picturePath : `${API_BASE}${picturePath}`;
         return (
-            <img
-                src={imageUrl}
-                alt={`${name} profile`}
-                style={baseStyle}
-                onError={(e) => {
-                    // Fallback to initial badge if image fails to load
-                    e.currentTarget.style.display = 'none';
-                    e.currentTarget.nextSibling.style.display = 'flex';
-                }}
-            />
+            <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+                <img
+                    src={imageUrl}
+                    alt={`${name} profile`}
+                    style={{ ...baseStyle, position: 'absolute', top: 0, left: 0, zIndex: 1 }}
+                    onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                    }}
+                />
+                <div style={{
+                    ...baseStyle,
+                    background: `linear-gradient(135deg, ${bgColor}, ${bgColor}cc)`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                    fontWeight: '800',
+                    fontSize: size * 0.4,
+                    boxShadow: `0 4px 10px ${bgColor}40`,
+                    userSelect: 'none',
+                    minWidth: size,
+                    minHeight: size
+                }}>
+                    {initial}
+                </div>
+            </div>
         );
     }
 

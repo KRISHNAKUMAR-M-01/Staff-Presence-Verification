@@ -148,6 +148,7 @@ const StaffManagement = () => {
             }
         }
         // --- END VALIDATION ---
+        const data = new FormData();
         Object.keys(formData).forEach(key => {
             if (key !== 'password' || formData[key]) {
                 data.append(key, formData[key]);
