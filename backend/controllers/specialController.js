@@ -72,7 +72,28 @@ exports.sendMeetingRequest = async (req, res) => {
                 });
             }
 
-            const allStaff = await Staff.find({}, '_id name');
+            // Get IST date info for leave check
+            const now = new Date();
+            const istOptions = { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' };
+            const formatter = new Intl.DateTimeFormat('en-US', istOptions);
+            const parts = formatter.formatToParts(now);
+            const getPart = (type) => parts.find(p => p.type === type).value;
+            const todayStr = `${getPart('year')}-${getPart('month')}-${getPart('day')}`;
+            const startOfToday = new Date(`${todayStr}T00:00:00.000+05:30`);
+            const endOfToday = new Date(`${todayStr}T23:59:59.999+05:30`);
+
+            // 1. Get staff on leave today
+            const onLeaveStaff = await Leave.find({
+                status: 'approved',
+                start_date: { $lte: endOfToday },
+                end_date: { $gte: startOfToday }
+            }).distinct('staff_id');
+
+            const allStaff = await Staff.find({
+                department: targetStaff.department, // Only same department
+                _id: { $ne: staffId }
+            }, '_id name');
+
             const busyStaffTimetables = await Timetable.find({
                 day_of_week: currentDay,
                 start_time: { $lte: currentTime },
@@ -81,7 +102,7 @@ exports.sendMeetingRequest = async (req, res) => {
 
             const availableStaff = allStaff.filter(s =>
                 !busyStaffTimetables.some(bs => bs.toString() === s._id.toString()) &&
-                s._id.toString() !== staffId
+                !onLeaveStaff.some(ls => ls.toString() === s._id.toString())
             );
 
             if (availableStaff.length > 0) {

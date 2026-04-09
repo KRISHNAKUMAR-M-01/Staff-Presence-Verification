@@ -67,8 +67,9 @@ const getISTDateInfo = (date = new Date()) => {
     // START OF DAY in IST, represented as a UTC Date object
     // This is the moment 00:00:00 happened in India.
     const startOfToday = new Date(`${todayStr}T00:00:00.000+05:30`);
+    const endOfToday = new Date(`${todayStr}T23:59:59.999+05:30`);
 
-    return { todayStr, currentTime, currentDay, startOfToday, istDate: date };
+    return { todayStr, currentTime, currentDay, startOfToday, endOfToday, istDate: date };
 };
 
 // ── CORS ─────────────────────────────────────────────────────────────────────
@@ -145,7 +146,7 @@ setInterval(() => {
 
 // ---- PERMISSION HELPER: CHECK IF STAFF IS ALLOWED TO ATTEND ----
 async function isStaffPermitted(staffId, classroomId) {
-    const { currentDay, currentTime, startOfToday } = getISTDateInfo();
+    const { currentDay, currentTime, startOfToday, endOfToday } = getISTDateInfo();
 
     // 1. Direct match in timetable
     const directSlot = await Timetable.findOne({
@@ -969,7 +970,7 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
     try {
-        const { todayStr, currentDay, currentTime, startOfToday } = getISTDateInfo();
+        const { todayStr, currentDay, currentTime, startOfToday, endOfToday } = getISTDateInfo();
         const todayDate = new Date(todayStr);
 
         // 1. Get today's attendance records
@@ -997,7 +998,7 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
         // 4. Check for approved leaves today
         const activeLeaves = await Leave.find({
             status: 'approved',
-            start_date: { $lte: startOfToday },
+            start_date: { $lte: endOfToday },
             end_date: { $gte: startOfToday }
         }).lean();
 
@@ -1029,10 +1030,9 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
             const nowMs = Date.now();
             const lastSeenMs = s.last_seen_time ? new Date(s.last_seen_time).getTime() : 0;
             const diffMs = nowMs - lastSeenMs;
-            const signalThreshold = 10000; // 10s — resilient to cloud latency
+            const signalThreshold = 75000; // 75s — matches Special Controller for stability
 
             // Staff is LIVE if last_seen_time is within the threshold window
-            // Note: allow small negative diff (-10s) to handle clock skew between client/server
             const isLive = s.last_seen_time && diffMs < signalThreshold && diffMs > -10000;
 
             // Debug log for troubleshooting (prints only when recently seen)
@@ -1062,12 +1062,12 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
                 expected_location: displayClass
                     ? `${displayClass.classroom_id?.room_name} (${displayClass.start_time}–${displayClass.end_time})`
                     : 'No Class Today',
-                actual_location: isLive ?
+                actual_location: liveStatus === 'On Leave' ? 'Not on Campus' : (isLive ?
                     (s.last_seen_room?.room_name || 'Classroom') :
-                    'Not in Range',
+                    'Not in Range'),
                 status: liveStatus,
                 check_in_time: s.last_seen_time || null,
-                last_seen_location: s.last_seen_room?.room_name || 'Not in Range',
+                last_seen_location: liveStatus === 'On Leave' ? 'Not on Campus' : (s.last_seen_room?.room_name || 'Not in Range'),
                 is_correct_location: schedule ?
                     (isLive && s.last_seen_room?._id?.toString() === schedule.classroom_id?._id?.toString()) :
                     true
@@ -2080,10 +2080,11 @@ app.get('/api/staff/find-free-staff', authenticateToken, requireStaffOrExecutive
         if (!req.user.staff_id) {
             return res.status(403).json({ error: 'Your account is not linked to a Staff profile. Contact Admin.' });
         }
-        const now = new Date();
-        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const currentDay = days[now.getDay()];
-        const currentTime = now.toTimeString().split(' ')[0].substring(0, 5);
+        // Find the requester to get their department
+        const requester = await Staff.findById(req.user.staff_id);
+        if (!requester) return res.status(404).json({ error: 'Requester staff profile not found.' });
+
+        const { endOfToday, startOfToday, currentDay, currentTime } = getISTDateInfo();
 
         const busyStaffTimetables = await Timetable.find({
             day_of_week: currentDay,
@@ -2091,8 +2092,19 @@ app.get('/api/staff/find-free-staff', authenticateToken, requireStaffOrExecutive
             end_time: { $gte: currentTime }
         }).distinct('staff_id');
 
+        // 1. Get staff on leave today
+        const onLeaveStaff = await Leave.find({
+            status: 'approved',
+            start_date: { $lte: endOfToday },
+            end_date: { $gte: startOfToday }
+        }).distinct('staff_id');
+
+        // 2. Combine busy staff and on-leave staff IDs to exclude them
+        const excludedIds = [...new Set([...busyStaffTimetables.map(id => id.toString()), ...onLeaveStaff.map(id => id.toString()), req.user.staff_id.toString()])];
+
         const freeStaff = await Staff.find({
-            _id: { $nin: busyStaffTimetables, $ne: req.user.staff_id }
+            _id: { $nin: excludedIds },
+            department: requester.department // Only same department
         });
 
         res.json(freeStaff);
@@ -2387,7 +2399,7 @@ app.get('/api/classrooms', async (req, res) => {
 // Real-time Dashboard Stats
 app.get(['/api/admin/dashboard-stats', '/api/dashboard-stats'], authenticateToken, async (req, res) => {
     try {
-        const { todayStr, startOfToday } = getISTDateInfo();
+        const { todayStr, startOfToday, endOfToday } = getISTDateInfo();
         const todayDate = new Date(todayStr);
 
         const stats = {
@@ -2402,11 +2414,11 @@ app.get(['/api/admin/dashboard-stats', '/api/dashboard-stats'], authenticateToke
                 status: 'Late'
             }),
             liveTrackingStaff: await Staff.countDocuments({
-                last_seen_time: { $gte: new Date(Date.now() - 10000) } // 10s — matches staff-locations threshold
+                last_seen_time: { $gte: new Date(Date.now() - 75000) } // 75s — matches staff-locations threshold
             }),
             absentOnLeave: await Leave.countDocuments({
                 status: 'approved',
-                start_date: { $lte: startOfToday },
+                start_date: { $lte: endOfToday },
                 end_date: { $gte: startOfToday }
             }),
             pendingLeaves: await Leave.countDocuments({
