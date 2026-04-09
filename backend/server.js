@@ -306,11 +306,11 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
-        // --- STRICT SIMULTANEOUS LOGIN BLOCK ---
+        // --- STRICT SIMULTANEOUS LOGIN BLOCK (PERMANENT LOCK) ---
         // Prevent login if an active session exists. 
-        // We allow 2 minutes of inactivity fallback (Reduced for testing/speed)
+        // Lock lasts for 12 hours unless explicitly cleared by Logout.
         if (user.currentSessionId) {
-            const SESSION_TIMEOUT = 2 * 60 * 1000; 
+            const SESSION_TIMEOUT = 12 * 60 * 60 * 1000; // 12 Hours
             if (user.lastActivity && (Date.now() - new Date(user.lastActivity).getTime() < SESSION_TIMEOUT)) {
                 console.log(`❌ Login blocked: ${email} is already logged in elsewhere.`);
                 return res.status(403).json({ error: 'Account is already logged in on another device. Please log out from that device first.' });
