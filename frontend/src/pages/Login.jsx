@@ -8,7 +8,7 @@ import '../styles/Login.css';
 
 const Login = () => {
     const { login } = useAuth();
-    const [view, setView] = useState('login'); // 'login', 'forgotPassword', 'verifyOtp', 'resetPassword'
+    const [view, setView] = useState('login'); // 'login', 'forgotPassword', 'verifyOtp', 'resetPassword', 'verifyKickOtp'
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [otp, setOtp] = useState('');
@@ -43,13 +43,63 @@ const Login = () => {
                                '/staff';
             navigate(targetPath);
         } catch (err) {
-            setError(err.response?.data?.error || 'Connection error.');
+            if (err.response?.data?.error === 'ALREADY_LOGGED_IN') {
+                if (window.confirm('This account is already logged in on another device. For security, you must verify an OTP sent to your email to log out other sessions and continue. Send OTP?')) {
+                    try {
+                        setLoading(true);
+                        await api.post('/auth/request-kick-otp', { email, password });
+                        setView('verifyKickOtp');
+                        setSuccess('Security OTP sent to your email.');
+                    } catch (kickErr) {
+                        setError(kickErr.response?.data?.error || 'Failed to send Security OTP.');
+                    }
+                }
+            } else {
+                setError(err.response?.data?.error || 'Connection error.');
+            }
         } finally {
             setLoading(false);
         }
     };
 
-    const googleLogin = useGoogleLogin({
+    const handleVerifyKickOtp = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        setError('');
+        try {
+            const response = await api.post('/auth/verify-kick-otp', { email, otp });
+            const { token, user } = response.data;
+            login(user, token);
+            const role = user.role?.toLowerCase();
+            const targetPath = role === 'admin' ? '/admin' : 
+                               ['principal', 'secretary', 'director'].includes(role) ? '/executive' : 
+                               '/staff';
+            navigate(targetPath);
+        } catch (err) {
+            setError(err.response?.data?.error || 'Invalid Security OTP.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+
+
+    const handleGoogleKick = async () => {
+        try {
+            setLoading(true);
+            // For Google, we can't send password, so request-kick-otp must handle null password
+            await api.post('/auth/request-kick-otp', { email });
+            setView('verifyKickOtp');
+            setSuccess('Security OTP sent to your email.');
+        } catch (err) {
+            setError(err.response?.data?.error || 'Failed to send Security OTP.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Re-bind Google Login to catch session errors
+    const handleGoogleLogin = useGoogleLogin({
         onSuccess: async (tokenResponse) => {
             setLoading(true);
             setError('');
@@ -63,7 +113,18 @@ const Login = () => {
                                    '/staff';
                 navigate(targetPath);
             } catch (err) {
-                setError(err.response?.data?.error || 'Google login failed.');
+                if (err.response?.data?.error === 'ALREADY_LOGGED_IN') {
+                    // We need the email from the error or the previous attempt if stored,
+                    // but for Google logins we usually get it from the userinfo.
+                    // Let's rely on the message and a simpler prompt.
+                    setError('An active session already exists. Please verify your identity via OTP.');
+                    // If we have the email state from a prior attempt or we can get it:
+                    if (email && window.confirm('Active session found. Send security OTP to override?')) {
+                        handleGoogleKick();
+                    }
+                } else {
+                    setError(err.response?.data?.error || 'Google login failed.');
+                }
             } finally {
                 setLoading(false);
             }
@@ -166,7 +227,7 @@ const Login = () => {
                             </form>
                             <div className="divider"><span>Or continue with</span></div>
                             <div className="social-login">
-                                <button type="button" className="social-btn google-btn" onClick={() => googleLogin()} disabled={loading}>
+                                <button type="button" className="social-btn google-btn" onClick={() => handleGoogleLogin()} disabled={loading}>
                                     <Chrome size={20} /> Sign in with Google
                                 </button>
                             </div>
@@ -208,6 +269,25 @@ const Login = () => {
                                 </p>
                             </form>
                         </>
+                    ) : view === 'verifyKickOtp' ? (
+                        <>
+                            <h2>SECURITY VERIFY</h2>
+                            <p className="login-subtitle">An active session exists. Enter the security code sent to your email to override it.</p>
+                            <form onSubmit={handleVerifyKickOtp}>
+                                <div className="input-group">
+                                    <ShieldCheck className="input-icon" size={20} />
+                                    <input type="text" value={otp} onChange={(e) => setOtp(e.target.value)} required placeholder="6-digit Security OTP" maxLength={6} />
+                                </div>
+                                {error && <div className="error-message">{error}</div>}
+                                {success && <div className="success-message">{success}</div>}
+                                <button type="submit" className="login-main-btn" disabled={loading}>
+                                    {loading ? <div className="spinner"></div> : 'Authorize & Sign In'}
+                                </button>
+                                <p className="back-link" onClick={() => setView('login')}>
+                                    <ArrowLeft size={16} /> Cancel
+                                </p>
+                            </form>
+                        </>
                     ) : (
                         <>
                             <h2>NEW PASSWORD</h2>
@@ -235,7 +315,7 @@ const Login = () => {
                             </form>
                         </>
                     )}
-                    <p className="login-terms">By registering you with our <a href="#">Terms and Conditions</a></p>
+                    <p className="login-terms">By signing in, you agree to our <a href="#">Terms and Conditions</a></p>
                 </div>
             </div>
         </div>

@@ -57,6 +57,14 @@ const userSchema = new mongoose.Schema({
     lastActivity: {
         type: Date,
         default: null
+    },
+    kickSessionOTP: {
+        type: String,
+        default: null
+    },
+    kickSessionExpires: {
+        type: Date,
+        default: null
     }
 }, {
     timestamps: true
