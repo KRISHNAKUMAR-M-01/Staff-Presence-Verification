@@ -2127,6 +2127,22 @@ app.post('/api/staff/request-substitution', authenticateToken, requireStaffOrExe
     }
 });
 
+// 4. Staff/Executive: Get pending swaps sent to me
+app.get('/api/staff/pending-swaps', authenticateToken, requireStaffOrExecutive, async (req, res) => {
+    try {
+        if (!req.user.staff_id) return res.status(403).json({ error: 'Not linked to staff profile.' });
+        const swaps = await SwapRequest.find({
+            substitute_staff_id: req.user.staff_id,
+            status: 'pending'
+        }).populate('requesting_staff_id', 'name department profile_picture')
+          .populate('classroom_id', 'room_name')
+          .sort({ createdAt: -1 });
+        res.json(swaps);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // 5. Staff/Executive: Accept Substitution Request
 app.post('/api/staff/accept-substitution', authenticateToken, requireStaffOrExecutive, async (req, res) => {
     try {

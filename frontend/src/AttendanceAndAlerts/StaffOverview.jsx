@@ -18,6 +18,8 @@ const StaffOverview = () => {
     const [freeStaff, setFreeStaff] = useState([]);
     const [loadingFree, setLoadingFree] = useState(false);
     const [showFreeStaffPanel, setShowFreeStaffPanel] = useState(false);
+    const [pendingSwaps, setPendingSwaps] = useState([]);
+    const [answeringSwap, setAnsweringSwap] = useState(null);
 
     // Profile picture state
     const [profilePicture, setProfilePicture] = useState(user.staff_id?.profile_picture || null);
@@ -59,6 +61,9 @@ const StaffOverview = () => {
                 pendingLeaves: leaves.data.filter(l => l.status === 'pending').length,
                 unreadNotifications: notifs.data.count
             });
+
+            const pendingRes = await api.get('/staff/pending-swaps');
+            setPendingSwaps(pendingRes.data);
 
             setTodaySchedule(todayClasses);
             setRecentAttendance(attendance.data.slice(0, 5));
@@ -111,6 +116,19 @@ const StaffOverview = () => {
         } catch (err) { alert(err.response?.data?.error || 'No active swap request found for this class.'); }
     };
 
+    const handleAcceptSwap = async (id) => {
+        setAnsweringSwap(id);
+        try {
+            await api.post('/staff/accept-substitution', { swap_request_id: id });
+            alert('Swap accepted! You can now check into this classroom.');
+            fetchData();
+        } catch (err) {
+            alert(err.response?.data?.error || 'Failed to accept swap');
+        } finally {
+            setAnsweringSwap(null);
+        }
+    };
+
     const statItems = [
         { label: 'Classes Today', value: stats.classesToday, icon: <Calendar size={24} />, color: '#097969', accent: 'linear-gradient(135deg, #e6fcf5 0%, #c3fae8 100%)' },
         { label: 'Attendance Rate', value: `${stats.attendanceRate}%`, subLabel: `${stats.leaveDaysCount} sessions excused on leave`, icon: <CheckCircle size={24} />, color: '#0891b2', accent: 'linear-gradient(135deg, #ecfeff 0%, #cffafe 100%)' }
@@ -139,6 +157,62 @@ const StaffOverview = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Pending Requests Section (DIRECT PEER-TO-PEER) */}
+            {pendingSwaps.length > 0 && (
+                <div style={{ marginBottom: '32px', animation: 'fadeIn 0.5s ease-out' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                        <div style={{ width: '8px', height: '24px', background: '#f59e0b', borderRadius: '4px' }}></div>
+                        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#1e293b' }}>INCOMING SWAP REQUESTS ({pendingSwaps.length})</h3>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '20px' }}>
+                        {pendingSwaps.map((req) => (
+                            <div key={req._id} className="summary-card" style={{ 
+                                padding: '24px', 
+                                border: '1px solid #fde68a', 
+                                background: '#fffbeb',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '16px'
+                            }}>
+                                <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                                    <Avatar name={req.requesting_staff_id?.name} picturePath={req.requesting_staff_id?.profile_picture} size={48} />
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: '800', fontSize: '16px', color: '#92400e' }}>{req.requesting_staff_id?.name}</div>
+                                        <div style={{ fontSize: '12px', color: '#b45309', fontWeight: '600' }}>Needs cover for {req.classroom_id?.room_name}</div>
+                                    </div>
+                                </div>
+                                <div style={{ background: 'white', padding: '12px 16px', borderRadius: '12px', fontSize: '13px', color: '#78350f', fontStyle: 'italic', border: '1px solid #fef3c7' }}>
+                                    "{req.reason}"
+                                </div>
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <button 
+                                        disabled={answeringSwap === req._id}
+                                        onClick={() => handleAcceptSwap(req._id)}
+                                        style={{ 
+                                            flex: 1, 
+                                            padding: '12px', 
+                                            background: '#d97706', 
+                                            color: 'white', 
+                                            border: 'none', 
+                                            borderRadius: '12px', 
+                                            fontWeight: '700', 
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            opacity: answeringSwap === req._id ? 0.7 : 1
+                                        }}
+                                    >
+                                        {answeringSwap === req._id ? <Loader2 className="animate-spin" size={18} /> : 'Accept Swap'}
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
 
             <div className="stats-grid" style={{ marginBottom: '40px' }}>
                 {statItems.map((item, id) => (
