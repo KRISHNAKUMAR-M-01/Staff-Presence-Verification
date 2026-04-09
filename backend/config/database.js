@@ -5,7 +5,11 @@ const connectDB = async () => {
         const mongoURI = process.env.MONGODB_URI;
         if (!mongoURI) throw new Error('MONGODB_URI not defined in environment');
 
-        await mongoose.connect(mongoURI);
+        await mongoose.connect(mongoURI, {
+            serverSelectionTimeoutMS: 30000, // Wait up to 30 seconds for server selection
+            socketTimeoutMS: 45000,          // Close sockets after 45 seconds of inactivity
+            family: 4                        // Resolve IPv4 addresses only
+        });
 
         console.log('✅ Connected to MongoDB successfully');
     } catch (error) {
