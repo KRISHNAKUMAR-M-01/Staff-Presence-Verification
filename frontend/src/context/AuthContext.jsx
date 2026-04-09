@@ -31,22 +31,25 @@ export const AuthProvider = ({ children }) => {
         setUser(userData);
     };
 
-    const logout = async () => {
-        // 1. Sync with server to release single-session lock
-        try {
-            await api.post('/auth/logout');
-        } catch (err) {
-            console.error('Background logout sync failed:', err);
-        }
+    const logout = () => {
+        // Capture the token before it gets wiped out
+        const currentToken = token || localStorage.getItem('token');
 
-        // 2. Clear local session IMMEDIATELY for UI feedback
+        // 1. Clear local session IMMEDIATELY for instant UI feedback
         localStorage.clear();
         setToken(null);
         setUser(null);
 
-        // 3. Stop the beacon in the background
+        // 2. Stop the beacon in the background
         if (navigator.serviceWorker?.controller) {
             navigator.serviceWorker.controller.postMessage({ type: 'BEACON_STOP' });
+        }
+
+        // 3. Sync with server in the background (don't wait for it)
+        if (currentToken) {
+            api.post('/auth/logout', {}, {
+                headers: { Authorization: `Bearer ${currentToken}` }
+            }).catch(err => console.error('Background logout sync failed:', err));
         }
     };
 
