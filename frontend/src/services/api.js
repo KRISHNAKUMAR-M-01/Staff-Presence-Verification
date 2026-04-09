@@ -29,9 +29,11 @@ api.interceptors.request.use(
 api.interceptors.response.use(
     (response) => response,
     (error) => {
+        // Handle token expiration/invalidation
         if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-            localStorage.clear();
+            // Prevent redirect loops on the login page itself
             if (window.location.pathname !== '/login') {
+                localStorage.clear();
                 window.location.href = '/login';
             }
         }
