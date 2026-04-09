@@ -26,6 +26,10 @@ const ExecutiveDashboard = () => {
     const [pendingLeavesCount, setPendingLeavesCount] = useState(0);
     const [approvedLeavesCount, setApprovedLeavesCount] = useState(0);
     const [rejectedLeavesCount, setRejectedLeavesCount] = useState(0);
+    
+    // Modal Stat States
+    const [showTrackingModal, setShowTrackingModal] = useState(false);
+    const [showLeaveModal, setShowLeaveModal] = useState(false);
 
     useEffect(() => {
         fetchStaffStatus();
@@ -510,18 +514,20 @@ const ExecutiveDashboard = () => {
                         justifyContent: 'flex-start'
                     }}>
                         {[
-                            { label: 'Tracking ID Signal Found', value: statsStaff.filter(s => s.currentStatus === 'Present' || s.currentStatus === 'Tracking').length, icon: <Activity size={24} />, color: '#097969', accent: '#e6fcf9' },
-                            { label: 'Absent on Leave', value: statsStaff.filter(s => s.currentStatus === 'On Leave').length, icon: <Plane size={24} />, color: '#d97706', accent: '#fffbeb' }
+                            { label: 'Tracking ID Signal Found', value: statsStaff.filter(s => s.currentStatus === 'Present' || s.currentStatus === 'Tracking').length, icon: <Activity size={24} />, color: '#097969', accent: '#e6fcf9', onClick: () => setShowTrackingModal(true) },
+                            { label: 'Absent on Leave', value: statsStaff.filter(s => s.currentStatus === 'On Leave').length, icon: <Plane size={24} />, color: '#d97706', accent: '#fffbeb', onClick: () => setShowLeaveModal(true) }
                         ].map((card, i) => (
-                            <div key={i} className="stat-card" style={{
+                            <div key={i} className="stat-card" onClick={card.onClick} style={{
                                 borderLeft: `6px solid ${card.color}`,
                                 position: 'relative',
                                 display: 'flex',
                                 flexDirection: 'column',
                                 alignItems: 'center',
                                 textAlign: 'center',
-                                padding: '40px 32px'
-                            }}>
+                                padding: '40px 32px',
+                                cursor: 'pointer',
+                                transition: 'transform 0.2s',
+                            }} onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px) scale(1.01)'; }} onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; }}>
                                 <div className="stat-badge" style={{
                                     position: 'absolute',
                                     top: '24px',
@@ -869,6 +875,60 @@ const ExecutiveDashboard = () => {
                 @keyframes spin { to { transform: rotate(360deg); } }
                 .loader-small { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
             `}} />
+
+            {/* Modal: Live Tracked Staff */}
+            {showTrackingModal && (
+                <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, animation: 'fadeIn 0.2s ease-out' }}>
+                    <div className="modal-content" style={{ background: '#fff', padding: '30px', borderRadius: '16px', width: '90%', maxWidth: '550px', maxHeight: '80vh', overflowY: 'auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h3 style={{ margin: 0, fontSize: '20px', color: '#097969' }}>Live Tracked Staff ({statsStaff.filter(s => s.currentStatus === 'Present' || s.currentStatus === 'Tracking').length})</h3>
+                            <button onClick={() => setShowTrackingModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}><X size={24} /></button>
+                        </div>
+                        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {statsStaff.filter(s => s.currentStatus === 'Present' || s.currentStatus === 'Tracking').map(staff => (
+                                <li key={staff.staff_id} onClick={() => { setShowTrackingModal(false); setSelectedStaff(staff); }} style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: '16px', padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', cursor: 'pointer' }}>
+                                    <Avatar name={staff.name} picturePath={staff.profile_picture} size={40} />
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: '700', color: '#0f172a', fontSize: '15px' }}>{staff.name}</div>
+                                        <div style={{ fontSize: '13px', color: '#64748b' }}>{staff.department}</div>
+                                    </div>
+                                    <div style={{ fontSize: '12px', fontWeight: '800', background: '#d1fae5', color: '#10b981', padding: '6px 12px', borderRadius: '20px' }}>
+                                        {staff.currentStatus}
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                        {statsStaff.filter(s => s.currentStatus === 'Present' || s.currentStatus === 'Tracking').length === 0 && <p style={{ color: '#64748b' }}>No staff members are currently actively tracked.</p>}
+                    </div>
+                </div>
+            )}
+
+            {/* Modal: Absent on Leave Staff */}
+            {showLeaveModal && (
+                <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, animation: 'fadeIn 0.2s ease-out' }}>
+                    <div className="modal-content" style={{ background: '#fff', padding: '30px', borderRadius: '16px', width: '90%', maxWidth: '550px', maxHeight: '80vh', overflowY: 'auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <h3 style={{ margin: 0, fontSize: '20px', color: '#d97706' }}>Absent on Leave ({statsStaff.filter(s => s.currentStatus === 'On Leave').length})</h3>
+                            <button onClick={() => setShowLeaveModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}><X size={24} /></button>
+                        </div>
+                        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {statsStaff.filter(s => s.currentStatus === 'On Leave').map(staff => (
+                                <li key={staff.staff_id} onClick={() => { setShowLeaveModal(false); setView('leaves'); }} style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: '16px', padding: '16px', background: '#fffbeb', borderRadius: '12px', border: '1px solid #fde68a', cursor: 'pointer' }}>
+                                    <Avatar name={staff.name} picturePath={staff.profile_picture} size={40} />
+                                    <div style={{ flex: 1 }}>
+                                        <div style={{ fontWeight: '700', color: '#92400e', fontSize: '15px' }}>{staff.name}</div>
+                                        <div style={{ fontSize: '13px', color: '#b45309' }}>{staff.department}</div>
+                                    </div>
+                                    <div style={{ fontSize: '12px', fontWeight: '800', background: '#fef3c7', color: '#d97706', padding: '6px 12px', borderRadius: '20px' }}>
+                                        ON LEAVE
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                        {statsStaff.filter(s => s.currentStatus === 'On Leave').length === 0 && <p style={{ color: '#64748b' }}>No staff members are on leave.</p>}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
