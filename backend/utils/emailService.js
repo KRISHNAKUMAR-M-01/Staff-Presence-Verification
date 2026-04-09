@@ -15,12 +15,18 @@ const transporterOptions = {
     }
 };
 
-// If using Gmail, 'service' property is more reliable
-if (transporterOptions.host.includes('gmail.com')) {
-    transporterOptions.service = 'gmail';
-}
-
+// Gmail optimization: avoid 'service' property on some hosting platforms
+// to ensure it respects the specified port and TLS settings.
 const transporter = nodemailer.createTransport(transporterOptions);
+
+// Verify connection on startup
+transporter.verify((error, success) => {
+    if (error) {
+        console.error('❌ [Email Error] Connection Failed:', error);
+    } else {
+        console.log('✅ [Email Success] Server is ready to send messages');
+    }
+});
 
 // Log configuration status (without secrets)
 console.log(`[Email] Initialized with Service: ${transporterOptions.service || 'Custom'}, Host: ${transporterOptions.host}, User: ${process.env.EMAIL_USER ? 'Present' : 'MISSING'}`);

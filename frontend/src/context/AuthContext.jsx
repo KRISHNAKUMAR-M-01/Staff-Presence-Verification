@@ -32,21 +32,28 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = async () => {
-        // 1. Clear Local State IMMEDIATELY (Instant UI response)
+        // 1. Capture token before clearing for the backend call
+        const currentToken = localStorage.getItem('token');
+
+        // 2. Clear Local State IMMEDIATELY (Instant UI response)
         localStorage.clear();
         setToken(null);
         setUser(null);
 
-        // 2. Stop Service Worker Beacon
+        // 3. Stop Service Worker Beacon
         if (navigator.serviceWorker?.controller) {
             navigator.serviceWorker.controller.postMessage({ type: 'BEACON_STOP' });
         }
 
-        // 3. Inform Server in background (Don't await it, so user isn't stuck)
+        // 4. Inform Server with captured token so it knows which session to end
         try {
-            api.post('/auth/logout').catch(err => console.error('Silent Logout Failed:', err));
+            if (currentToken) {
+                api.post('/auth/logout', {}, {
+                    headers: { Authorization: `Bearer ${currentToken}` }
+                }).catch(err => console.error('Silent Logout Failed:', err));
+            }
         } catch (err) {
-            // Catching potential synchronous errors in background call
+            console.error('Logout API call failed:', err);
         }
     };
 
