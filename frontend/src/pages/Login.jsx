@@ -146,7 +146,7 @@ const Login = () => {
                             <form onSubmit={handleLogin}>
                                 <div className="input-group">
                                     <Mail className="input-icon" size={20} />
-                                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="Yourname@gmail.com" />
+                                    <input type="email" value={email} onChange={(e) => { const val = e.target.value; if (/^[0-9]/.test(val)) return; setEmail(val); }} pattern="^[a-zA-Z][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$" title="Email must start with a letter (e.g. user@domain.com)" required placeholder="Yourname@gmail.com" />
                                 </div>
                                 <div className="input-group">
                                     <Lock className="input-icon" size={20} />
@@ -178,7 +178,7 @@ const Login = () => {
                             <form onSubmit={handleRequestOtp}>
                                 <div className="input-group">
                                     <Mail className="input-icon" size={20} />
-                                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="Yourname@gmail.com" />
+                                    <input type="email" value={email} onChange={(e) => { const val = e.target.value; if (/^[0-9]/.test(val)) return; setEmail(val); }} pattern="^[a-zA-Z][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$" title="Email must start with a letter (e.g. user@domain.com)" required placeholder="Yourname@gmail.com" />
                                 </div>
                                 {error && <div className="error-message">{error}</div>}
                                 <button type="submit" className="login-main-btn" disabled={loading}>

@@ -297,7 +297,7 @@ const UserManagement = () => {
                                 pattern="^[a-zA-Z][a-zA-Z0-9._%+\-]*@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$"
                                 title="Enter a valid email address (e.g. user@domain.com)"
                                 value={formData.email}
-                                onChange={e => setFormData({ ...formData, email: e.target.value })}
+                                onChange={e => { const val = e.target.value; if (/^[0-9]/.test(val)) return; setFormData({ ...formData, email: val }); }}
                                 style={{ fontSize: '14px' }}
                                 required
                             />
