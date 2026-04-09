@@ -19,7 +19,17 @@ const Login = () => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
+    const [resendTimer, setResendTimer] = useState(0);
     const navigate = useNavigate();
+
+    // Resend Timer logic
+    useEffect(() => {
+        let timer;
+        if (resendTimer > 0) {
+            timer = setInterval(() => setResendTimer(prev => prev - 1), 1000);
+        }
+        return () => clearInterval(timer);
+    }, [resendTimer]);
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -93,6 +103,21 @@ const Login = () => {
             setSuccess('Security OTP sent to your email.');
         } catch (err) {
             setError(err.response?.data?.error || 'Failed to send Security OTP.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleResendKickOtp = async () => {
+        if (resendTimer > 0) return;
+        setLoading(true);
+        setError('');
+        try {
+            await api.post('/auth/request-kick-otp', { email, password });
+            setSuccess('Security OTP resent successfully.');
+            setResendTimer(30); // 30 sec cooldown
+        } catch (err) {
+            setError(err.response?.data?.error || 'Failed to resend OTP.');
         } finally {
             setLoading(false);
         }
@@ -283,9 +308,24 @@ const Login = () => {
                                 <button type="submit" className="login-main-btn" disabled={loading}>
                                     {loading ? <div className="spinner"></div> : 'Authorize & Sign In'}
                                 </button>
-                                <p className="back-link" onClick={() => setView('login')}>
-                                    <ArrowLeft size={16} /> Cancel
-                                </p>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
+                                    <p className="back-link" style={{ margin: 0 }} onClick={() => setView('login')}>
+                                        <ArrowLeft size={16} /> Cancel
+                                    </p>
+                                    <p 
+                                        className="resend-link" 
+                                        style={{ 
+                                            margin: 0, 
+                                            fontSize: '13px', 
+                                            color: resendTimer > 0 ? '#94a3b8' : '#097969', 
+                                            cursor: resendTimer > 0 ? 'default' : 'pointer',
+                                            fontWeight: '600'
+                                        }} 
+                                        onClick={handleResendKickOtp}
+                                    >
+                                        {resendTimer > 0 ? `Resend in ${resendTimer}s` : 'Resend OTP'}
+                                    </p>
+                                </div>
                             </form>
                         </>
                     ) : (

@@ -445,7 +445,8 @@ app.post('/api/auth/request-kick-otp', async (req, res) => {
         user.kickSessionExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
         await user.save();
 
-        await sendEmail({
+        // Speed Optimization: Send email in background, don't await it
+        sendEmail({
             email: user.email,
             subject: 'Security Alert: New Device Login Attempt',
             message: `A login attempt was made from a new device while your account is already active. 
@@ -454,7 +455,7 @@ app.post('/api/auth/request-kick-otp', async (req, res) => {
             CODE: ${otp}
             
             This code expires in 10 minutes.`
-        });
+        }).catch(err => console.error('Background Email Error:', err));
 
         res.json({ message: 'Security OTP sent to your email.' });
     } catch (err) {
