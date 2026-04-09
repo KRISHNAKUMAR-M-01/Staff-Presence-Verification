@@ -341,6 +341,19 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
+app.post('/api/auth/logout', authenticateToken, async (req, res) => {
+    try {
+        // High-speed direct update to free up the session immediately
+        await User.updateOne(
+            { _id: req.user._id }, 
+            { $set: { currentSessionId: null, lastActivity: null } }
+        );
+        res.json({ message: 'Logged out successfully' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.post('/api/auth/google-login', async (req, res) => {
     try {
         const { token, access_token } = req.body;
