@@ -11,6 +11,8 @@ const fs = require('fs');
 const connectDB = require('./config/database');
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const jwt = require('jsonwebtoken');
+const axios = require('axios');
 
 // Import Models
 const Staff = require('./models/Staff');
@@ -362,7 +364,6 @@ app.post('/api/auth/logout', async (req, res) => {
         }
 
         // Decode the token WITHOUT strict validation — we just need the userId
-        const jwt = require('jsonwebtoken');
         const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
         let decoded;
         try {
@@ -406,7 +407,6 @@ app.post('/api/auth/google-login', async (req, res) => {
             name = payload.name;
         } else if (access_token) {
             // Validate Access Token via Google userinfo endpoint
-            const axios = require('axios');
             const googleResponse = await axios.get(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${access_token}`);
             email = googleResponse.data.email;
             name = googleResponse.data.name;
