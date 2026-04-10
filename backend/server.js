@@ -1058,7 +1058,7 @@ app.get('/api/admin/staff-locations', authenticateToken, requireAdmin, async (re
             const nowMs = Date.now();
             const lastSeenMs = s.last_seen_time ? new Date(s.last_seen_time).getTime() : 0;
             const diffMs = nowMs - lastSeenMs;
-            const signalThreshold = 75000; // 75s — matches Special Controller for stability
+            const signalThreshold = 30000; // 30s (Reduced for faster responsiveness)
 
             // Staff is LIVE if last_seen_time is within the threshold window
             const isLive = s.last_seen_time && diffMs < signalThreshold && diffMs > -10000;
@@ -1263,7 +1263,7 @@ app.get('/api/admin/dashboard-stats', authenticateToken, requireAdmin, async (re
         const { startOfToday, endOfToday } = getISTDateInfo();
 
         const now = new Date();
-        const signalThreshold = 75 * 1000; // 75s — matches the rest of the dashboard
+        const signalThreshold = 30 * 1000; // 30s
         const liveTrackingCount = await Staff.countDocuments({
             last_seen_time: { $gte: new Date(now.getTime() - signalThreshold) }
         });
@@ -2342,7 +2342,7 @@ app.post('/api/ble-data', async (req, res) => {
         const { todayStr, currentDay, currentTime, startOfToday, endOfToday } = getISTDateInfo();
         const activeLeave = await Leave.findOne({
             staff_id: staff._id,
-            status: 'approved',
+            status: { $in: ['approved', 'approved_by_principal'] },
             start_date: { $lte: endOfToday },
             end_date: { $gte: startOfToday }
         });
