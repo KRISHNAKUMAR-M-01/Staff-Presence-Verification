@@ -312,10 +312,10 @@ app.post('/api/auth/login', async (req, res) => {
         // Prevent login if an active session exists. 
         // Lock lasts for 2 minutes unless explicitly cleared by Logout.
         if (user.currentSessionId) {
-            const SESSION_TIMEOUT = 60 * 1000; // 60 Seconds (1 Minute)
+            const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 Minutes
             if (user.lastActivity && (Date.now() - new Date(user.lastActivity).getTime() < SESSION_TIMEOUT)) {
                 console.log(`❌ Login blocked: ${email} is already logged in elsewhere.`);
-                return res.status(403).json({ error: 'Account is already logged in on another device. Please log out from that device first or wait 60 seconds.' });
+                return res.status(403).json({ error: 'Account is already logged in on another device. Please log out from that device first or wait 30 minutes.' });
             }
         }
         // --- END ---
@@ -417,11 +417,11 @@ app.post('/api/auth/google-login', async (req, res) => {
 
         // --- STRICT SIMULTANEOUS LOGIN BLOCK (GOOGLE) ---
         if (user.currentSessionId) {
-            const SESSION_TIMEOUT = 60 * 1000; // 60 Seconds
+            const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 Minutes
             if (user.lastActivity && (Date.now() - new Date(user.lastActivity).getTime() < SESSION_TIMEOUT)) {
                 console.log(`🚫 Google Login Blocked: Active session exists for ${user.email}`);
                 return res.status(403).json({ 
-                    error: 'Account is already logged in on another device. Please log out from that device first or wait 60 seconds.' 
+                    error: 'Account is already logged in on another device. Please log out from that device first or wait 30 minutes.' 
                 });
             }
         }
