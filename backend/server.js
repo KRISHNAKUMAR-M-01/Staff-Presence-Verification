@@ -24,7 +24,6 @@ const Notification = require('./models/Notification');
 const SwapRequest = require('./models/SwapRequest');
 
 // Import Middleware
-const jwt = require('jsonwebtoken');
 const { generateToken, authenticateToken, requireAdmin, requireStaff, requireExecutive, requireStaffOrExecutive } = require('./middleware/auth');
 const { OAuth2Client } = require('google-auth-library');
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -352,33 +351,38 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
-// Logout — No auth middleware so it ALWAYS succeeds, even on session mismatch
+// Logout — No auth middleware, so it ALWAYS works even if session is already mismatched
 app.post('/api/auth/logout', async (req, res) => {
     try {
         const authHeader = req.headers['authorization'];
         const token = authHeader && authHeader.split(' ')[1];
 
         if (!token) {
-            return res.status(200).json({ message: 'No session to clear.' });
+            return res.status(400).json({ error: 'No token provided' });
         }
 
+        // Decode the token WITHOUT strict validation — we just need the userId
+        const jwt = require('jsonwebtoken');
         const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-        let userId;
+        let decoded;
         try {
-            const decoded = jwt.verify(token, JWT_SECRET);
-            userId = decoded.userId;
+            decoded = jwt.verify(token, JWT_SECRET);
         } catch (e) {
-            // Token is expired or invalid — still return success
-            return res.status(200).json({ message: 'Token invalid, no session to clear.' });
+            // Even if token is expired/invalid, try to force-clear using the payload
+            decoded = jwt.decode(token);
         }
 
-        // Unconditionally clear the session from DB
+        if (!decoded || !decoded.userId) {
+            return res.status(400).json({ error: 'Invalid token payload' });
+        }
+
+        // Force-clear the session ID — this ALWAYS runs
         await User.updateOne(
-            { _id: userId },
+            { _id: decoded.userId },
             { $set: { currentSessionId: null, lastActivity: null } }
         );
 
-        console.log(`✅ SESSION KILLED for userId: ${userId}`);
+        console.log(`✅ SESSION CLEARED for userId: ${decoded.userId}`);
         return res.status(200).json({ message: 'Logged out successfully' });
     } catch (err) {
         console.error('Logout error:', err);
