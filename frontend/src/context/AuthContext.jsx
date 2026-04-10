@@ -27,12 +27,15 @@ export const AuthProvider = ({ children }) => {
         const handleTabClose = () => {
             const token = localStorage.getItem('token');
             if (token) {
-                // Use absolute path for Render deployment
-                fetch('https://staff-presence-backend.onrender.com/api/auth/logout', {
+                // Match the exact base URL logic used in services/api.js
+                const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://staff-presence-backend.onrender.com';
+                const logoutUrl = `${baseUrl}/api/auth/logout`;
+                
+                fetch(logoutUrl, {
                     method: 'POST',
                     headers: { 'Authorization': `Bearer ${token}` },
                     keepalive: true
-                });
+                }).catch(() => {}); // Silently fail on tab close
             }
         };
 

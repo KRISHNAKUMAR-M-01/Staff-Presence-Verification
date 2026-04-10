@@ -308,12 +308,12 @@ app.post('/api/auth/login', async (req, res) => {
 
         // --- STRICT SIMULTANEOUS LOGIN BLOCK (PERMANENT LOCK) ---
         // Prevent login if an active session exists. 
-        // Lock lasts for 12 hours unless explicitly cleared by Logout.
+        // Lock lasts for 2 minutes unless explicitly cleared by Logout.
         if (user.currentSessionId) {
-            const SESSION_TIMEOUT = 12 * 60 * 60 * 1000; // 12 Hours
+            const SESSION_TIMEOUT = 2 * 60 * 1000; // 2 Minutes (Reduced from 12h for better UX)
             if (user.lastActivity && (Date.now() - new Date(user.lastActivity).getTime() < SESSION_TIMEOUT)) {
                 console.log(`❌ Login blocked: ${email} is already logged in elsewhere.`);
-                return res.status(403).json({ error: 'Account is already logged in on another device. Please log out from that device first.' });
+                return res.status(403).json({ error: 'Account is already logged in on another device. Please log out from that device first or wait 2 minutes.' });
             }
         }
         // --- END ---
@@ -321,6 +321,7 @@ app.post('/api/auth/login', async (req, res) => {
         // Generate unique session ID for single-session enforcement
         const sessionId = Date.now().toString() + Math.random().toString(36).substring(2);
         user.currentSessionId = sessionId;
+        user.lastActivity = new Date();
         await user.save();
 
         // Generate token with sessionId
@@ -414,11 +415,11 @@ app.post('/api/auth/google-login', async (req, res) => {
 
         // --- STRICT SIMULTANEOUS LOGIN BLOCK (GOOGLE) ---
         if (user.currentSessionId) {
-            const SESSION_TIMEOUT = 15 * 60 * 1000;
+            const SESSION_TIMEOUT = 2 * 60 * 1000; // 2 Minutes
             if (user.lastActivity && (Date.now() - new Date(user.lastActivity).getTime() < SESSION_TIMEOUT)) {
                 console.log(`🚫 Google Login Blocked: Active session exists for ${user.email}`);
                 return res.status(403).json({ 
-                    error: 'Account is already logged in on another device. Please log out from that device first.' 
+                    error: 'Account is already logged in on another device. Please log out from that device first or wait 2 minutes.' 
                 });
             }
         }
@@ -433,6 +434,7 @@ app.post('/api/auth/google-login', async (req, res) => {
         // Generate unique session ID for single-session enforcement
         const sessionId = Date.now().toString() + Math.random().toString(36).substring(2);
         user.currentSessionId = sessionId;
+        user.lastActivity = new Date();
         await user.save();
 
         // Generate token with sessionId
