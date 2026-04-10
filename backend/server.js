@@ -1983,6 +1983,8 @@ app.post('/api/staff/swap-request', authenticateToken, requireStaffOrExecutive, 
         // --- PEER-TO-PEER NOTIFICATION (SKIP ADMIN) ---
         if (target_staff_id) {
             const targetUser = await User.findOne({ staff_id: target_staff_id });
+            if (!targetUser) return res.status(404).json({ error: 'Selected colleague does not have a system account to receive notifications.' });
+            
             if (targetUser) {
                 await Notification.create({
                     recipient_id: targetUser._id,
@@ -2146,8 +2148,11 @@ app.get('/api/staff/find-free-staff', authenticateToken, requireStaffOrExecutive
         // 2. Combine busy staff and on-leave staff IDs to exclude them
         const excludedIds = [...new Set([...busyStaffTimetables.map(id => id.toString()), ...onLeaveStaff.map(id => id.toString()), req.user.staff_id.toString()])];
 
+        // Only include staff members who have a system account (User profile)
+        const staffWithAccounts = await User.find({ staff_id: { $ne: null } }).distinct('staff_id');
+
         const freeStaff = await Staff.find({
-            _id: { $nin: excludedIds },
+            _id: { $nin: excludedIds, $in: staffWithAccounts },
             department: requester.department // Only same department
         });
 

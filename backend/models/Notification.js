@@ -29,7 +29,9 @@ const notificationSchema = new mongoose.Schema({
             'substitution_alert',
             'upcoming_class',
             'upcoming_class_dept',
-            'absence_warning'
+            'absence_warning',
+            'swap_request',
+            'substitution_request'
         ],
         required: true
     },
