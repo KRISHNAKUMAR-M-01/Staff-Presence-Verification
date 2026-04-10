@@ -113,7 +113,7 @@ const UserManagement = () => {
             bgColor: '#e0f2fe'
         },
         director: {
-            label: 'Director of Academy',
+            label: 'Director of Academics',
             description: 'Executive access to view staff status and coordinate meetings with automatic class coverage',
             color: '#7c3aed',
             bgColor: '#f5f3ff'
