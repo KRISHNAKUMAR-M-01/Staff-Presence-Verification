@@ -76,6 +76,8 @@ const getISTDateInfo = (date = new Date()) => {
 const allowedOrigins = [
     'https://staff-presence-backend.onrender.com',
     'https://staff-presence-verification.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:3000',
     process.env.FRONTEND_URL, 
 ].filter(Boolean);
 
@@ -310,10 +312,10 @@ app.post('/api/auth/login', async (req, res) => {
         // Prevent login if an active session exists. 
         // Lock lasts for 2 minutes unless explicitly cleared by Logout.
         if (user.currentSessionId) {
-            const SESSION_TIMEOUT = 2 * 60 * 1000; // 2 Minutes (Reduced from 12h for better UX)
+            const SESSION_TIMEOUT = 60 * 1000; // 60 Seconds (1 Minute)
             if (user.lastActivity && (Date.now() - new Date(user.lastActivity).getTime() < SESSION_TIMEOUT)) {
                 console.log(`❌ Login blocked: ${email} is already logged in elsewhere.`);
-                return res.status(403).json({ error: 'Account is already logged in on another device. Please log out from that device first or wait 2 minutes.' });
+                return res.status(403).json({ error: 'Account is already logged in on another device. Please log out from that device first or wait 60 seconds.' });
             }
         }
         // --- END ---
@@ -415,11 +417,11 @@ app.post('/api/auth/google-login', async (req, res) => {
 
         // --- STRICT SIMULTANEOUS LOGIN BLOCK (GOOGLE) ---
         if (user.currentSessionId) {
-            const SESSION_TIMEOUT = 2 * 60 * 1000; // 2 Minutes
+            const SESSION_TIMEOUT = 60 * 1000; // 60 Seconds
             if (user.lastActivity && (Date.now() - new Date(user.lastActivity).getTime() < SESSION_TIMEOUT)) {
                 console.log(`🚫 Google Login Blocked: Active session exists for ${user.email}`);
                 return res.status(403).json({ 
-                    error: 'Account is already logged in on another device. Please log out from that device first or wait 2 minutes.' 
+                    error: 'Account is already logged in on another device. Please log out from that device first or wait 60 seconds.' 
                 });
             }
         }
@@ -1961,7 +1963,7 @@ app.get('/api/staff/notifications/unread-count', authenticateToken, async (req, 
 app.post('/api/staff/swap-request', authenticateToken, requireStaffOrExecutive, async (req, res) => {
     try {
         if (!req.user.staff_id) {
-            return res.status(403).json({ error: 'Your account is not linked to a Staff profile. Contact Admin.' });
+            return res.status(400).json({ error: 'Your account is not linked to a Staff profile. Contact Admin.' });
         }
         const { target_staff_id, classroom_id, reason } = req.body;
         
@@ -1998,6 +2000,18 @@ app.post('/api/staff/swap-request', authenticateToken, requireStaffOrExecutive, 
                     }).catch(e => console.error("Peer Push Error:", e));
                 }
             }
+        }
+
+        // --- ADMIN NOTIFICATION (FOR VISIBILITY) ---
+        const admins = await User.find({ role: 'admin' });
+        for (const admin of admins) {
+            await Notification.create({
+                recipient_id: admin._id,
+                title: 'New Swap Request Activity',
+                message: `Staff ${requester.name} has requested a swap for ${classroom?.room_name || 'unknown'}. Reason: ${reason}`,
+                type: 'swap_request',
+                related_data: { swapRequestId: swapReq._id }
+            });
         }
 
         res.json({ message: 'Swap request sent directly to staff member.', swapReq });
@@ -2108,7 +2122,7 @@ app.get('/api/admin/swap-requests', authenticateToken, (req, res, next) => {
 app.get('/api/staff/find-free-staff', authenticateToken, requireStaffOrExecutive, async (req, res) => {
     try {
         if (!req.user.staff_id) {
-            return res.status(403).json({ error: 'Your account is not linked to a Staff profile. Contact Admin.' });
+            return res.status(400).json({ error: 'Your account is not linked to a Staff profile. Contact Admin.' });
         }
         // Find the requester to get their department
         const requester = await Staff.findById(req.user.staff_id);
@@ -2147,7 +2161,7 @@ app.get('/api/staff/find-free-staff', authenticateToken, requireStaffOrExecutive
 app.post('/api/staff/request-substitution', authenticateToken, requireStaffOrExecutive, async (req, res) => {
     try {
         if (!req.user.staff_id) {
-            return res.status(403).json({ error: 'Your account is not linked to a Staff profile. Contact Admin.' });
+            return res.status(400).json({ error: 'Your account is not linked to a Staff profile. Contact Admin.' });
         }
         const { target_staff_id, swap_request_id } = req.body;
         let swapReq;
@@ -2156,14 +2170,14 @@ app.post('/api/staff/request-substitution', authenticateToken, requireStaffOrExe
             // Find the most recent approved swap request for this staff
             swapReq = await SwapRequest.findOne({
                 requesting_staff_id: req.user.staff_id,
-                status: 'approved'
+                status: { $in: ['approved', 'accepted'] }
             }).sort({ date: -1 });
         } else {
             swapReq = await SwapRequest.findById(swap_request_id);
         }
 
-        if (!swapReq || swapReq.status !== 'approved') {
-            return res.status(403).json({ error: 'Substitution can only be requested after Admin approval.' });
+        if (!swapReq || !['approved', 'accepted', 'completed'].includes(swapReq.status)) {
+            return res.status(400).json({ error: 'Substitution can only be requested after Admin approval or Peer acceptance.' });
         }
 
         const requester = await Staff.findById(req.user.staff_id);
@@ -2204,7 +2218,7 @@ app.get('/api/staff/pending-swaps', authenticateToken, requireStaffOrExecutive, 
 app.post('/api/staff/accept-substitution', authenticateToken, requireStaffOrExecutive, async (req, res) => {
     try {
         if (!req.user.staff_id) {
-            return res.status(403).json({ error: 'Your account is not linked to a Staff profile. Contact Admin.' });
+            return res.status(400).json({ error: 'Your account is not linked to a Staff profile. Contact Admin.' });
         }
         const { swap_request_id } = req.body;
         const swapReq = await SwapRequest.findById(swap_request_id);
@@ -2231,8 +2245,20 @@ app.post('/api/staff/accept-substitution', authenticateToken, requireStaffOrExec
                     title: 'Substitution Accepted',
                     body: `Staff ${substitute.name} has accepted to cover your class.`,
                     data: { url: '/staff' }
-                }).catch(e => console.error("Peer Accepted Push Error:", e));
+                }).catch(e => console.error("Peer Notification Error:", e));
             }
+        }
+
+        // --- ADMIN NOTIFICATION (ALWAYS VISIBLE TO ADMIN) ---
+        const admins = await User.find({ role: 'admin' });
+        for (const admin of admins) {
+            await Notification.create({
+                recipient_id: admin._id,
+                title: 'New Swap Request (Log)',
+                message: `Staff ${swapReq.requesting_staff_id.name} has requested a swap for ${swapReq.classroom_id?.room_name || 'unknown'}.`,
+                type: 'swap_request',
+                related_data: { swapRequestId: swapReq._id }
+            });
         }
 
         res.json({ message: 'You have accepted the substitution. You are now authorized to check in for this classroom.', swapReq });

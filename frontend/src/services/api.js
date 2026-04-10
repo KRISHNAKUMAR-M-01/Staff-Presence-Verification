@@ -33,6 +33,17 @@ api.interceptors.response.use(
         if (error.response && (error.response.status === 401 || error.response.status === 403)) {
             // Prevent redirect loops on the login page itself
             if (window.location.pathname !== '/login') {
+                const token = localStorage.getItem('token');
+                if (token) {
+                    // Fire-and-forget server logout to release the session lock
+                    const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'https://staff-presence-backend.onrender.com') + '/api';
+                    fetch(`${baseUrl}/auth/logout`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` },
+                        keepalive: true
+                    }).catch(() => {});
+                }
+                
                 localStorage.clear();
                 window.location.href = '/login';
             }

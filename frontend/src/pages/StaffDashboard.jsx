@@ -82,7 +82,7 @@ const StaffDashboard = () => {
         if (!swapReason) return alert('Please provide a reason for the substitution.');
         setSubmitting(true);
         try {
-            const res = await api.post('/api/staff/request-substitution', {
+            const res = await api.post('/api/staff/swap-request', {
                 target_staff_id: targetStaffId,
                 classroom_id: selectedRoomId,
                 reason: swapReason
