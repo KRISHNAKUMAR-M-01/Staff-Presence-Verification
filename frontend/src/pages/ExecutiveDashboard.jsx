@@ -206,7 +206,7 @@ const ExecutiveDashboard = () => {
         switch (role) {
             case 'principal': return 'Principal';
             case 'secretary': return 'Secretary';
-            case 'director': return 'Director of Academy';
+            case 'director': return 'Director of Academics';
             default: return role;
         }
     };
