@@ -143,7 +143,8 @@ const LeaveManagement = () => {
                                 view === 'approved' ? 'Approved History' :
                                     view === 'rejected' ? 'Rejected History' :
                                         view === 'schedule' ? 'Coverage & Planning' :
-                                            isExecutive ? 'Review Queue' : 'Review Queue'}
+                                            view === 'waiting' ? 'In-Progress Requests' :
+                                                isExecutive ? 'Review Queue' : 'Review Queue'}
                         </h2>
                     </div>
                 </div>
@@ -202,7 +203,10 @@ const LeaveManagement = () => {
                     {waitingForOthers.length > 0 && (
                         <div
                             className="stat-card"
-                            style={{ borderLeft: '4px solid #94a3b8', background: '#f8fafc' }}
+                            onClick={() => setView('waiting')}
+                            style={{ borderLeft: '4px solid #64748b', background: '#f8fafc', cursor: 'pointer', transition: 'all 0.3s' }}
+                            onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-4px)'}
+                            onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                         >
                             <div className="stat-card-top">
                                 <div className="stat-icon-wrapper" style={{ color: '#64748b', backgroundColor: '#f1f5f9' }}>
@@ -247,6 +251,84 @@ const LeaveManagement = () => {
                 {loading && (
                     <div className="loader-container">
                         <div className="premium-loader"></div>
+                    </div>
+                )}
+
+                {/* VIEW 1b: WAITING ON OTHER PARTY */}
+                {view === 'waiting' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <div style={{ padding: '16px 20px', background: '#f8fafc', borderRadius: '16px', border: '1px solid #e2e8f0', marginBottom: '8px' }}>
+                            <p style={{ margin: 0, fontSize: '13px', color: '#64748b', fontWeight: '600' }}>
+                                {isExecutive
+                                    ? 'These requests have been forwarded to Admin for final approval. No action required from you.'
+                                    : 'These requests are awaiting Executive (Principal/Secretary/Director) recommendation before they reach you.'}
+                            </p>
+                        </div>
+                        {waitingForOthers.length > 0 ? (
+                            <div className="responsive-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '24px' }}>
+                                {waitingForOthers.map((l, i) => (
+                                    <div key={i} className="summary-card section-fade" style={{
+                                        padding: '24px', border: '1px solid #e2e8f0', opacity: 0.85
+                                    }}>
+                                        {/* Status Stepper */}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', borderRadius: '50px', background: '#f1f5f9', fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                                <Clock size={14} /> {isExecutive ? 'Forwarded to Admin' : 'Pending Executive Review'}
+                                            </div>
+                                            <div style={{ display: 'flex', gap: '4px' }}>
+                                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isAdmin ? '#097969' : '#e2e8f0' }}></div>
+                                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isAdmin ? '#e2e8f0' : '#097969' }}></div>
+                                            </div>
+                                        </div>
+
+                                        {/* Staff Info */}
+                                        <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginBottom: '20px' }}>
+                                            <Avatar name={l.staff_id?.name} picturePath={l.staff_id?.profile_picture} size={52} borderRadius="16px" />
+                                            <div>
+                                                <div style={{ fontWeight: '800', fontSize: '17px', color: '#0f172a' }}>{l.staff_id?.name}</div>
+                                                <div style={{ fontSize: '13px', color: '#64748b', fontWeight: '500' }}>{l.staff_id?.department}</div>
+                                            </div>
+                                        </div>
+
+                                        {/* Details */}
+                                        <div style={{ background: '#f8fafc', borderRadius: '16px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <div>
+                                                    <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>Leave Type</div>
+                                                    <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>{l.leave_type || 'Personal Leave'}</div>
+                                                </div>
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '2px' }}>Duration</div>
+                                                    <div style={{ fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>
+                                                        {Math.max(1, Math.round((new Date(l.end_date) - new Date(l.start_date)) / (1000 * 60 * 60 * 24)) + 1)} Days
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#334155', fontWeight: '600', fontSize: '13px' }}>
+                                                <Calendar size={15} />
+                                                {new Date(l.start_date).toLocaleDateString()} – {new Date(l.end_date).toLocaleDateString()}
+                                            </div>
+                                            <div>
+                                                <div style={{ fontSize: '10px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Reason</div>
+                                                <div style={{ fontSize: '13px', color: '#475569', lineHeight: '1.6', fontStyle: 'italic', padding: '10px', background: 'white', borderRadius: '10px', border: '1px solid #edf2f7' }}>
+                                                    "{l.reason}"
+                                                </div>
+                                            </div>
+                                            {l.principal_notes && (
+                                                <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '12px' }}>
+                                                    <div style={{ fontSize: '10px', fontWeight: '800', color: '#097969', textTransform: 'uppercase', marginBottom: '4px' }}>Executive Remarks</div>
+                                                    <div style={{ fontSize: '13px', color: '#065f46', fontWeight: '500' }}>{l.principal_notes}</div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="summary-card" style={{ padding: '80px 40px', textAlign: 'center' }}>
+                                <p style={{ color: '#94a3b8', fontWeight: '600' }}>No pending requests waiting on the other party.</p>
+                            </div>
+                        )}
                     </div>
                 )}
 
