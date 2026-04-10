@@ -50,25 +50,30 @@ export const AuthProvider = ({ children }) => {
         setUser(userData);
     };
 
-    const logout = () => {
-        // Capture the token before it gets wiped out
+    const logout = async () => {
+        // Capture the token BEFORE clearing anything
         const currentToken = token || localStorage.getItem('token');
 
-        // 1. Clear local session IMMEDIATELY for instant UI feedback
+        // 1. Tell the server to clear currentSessionId FIRST (so account is immediately unlocked)
+        if (currentToken) {
+            try {
+                await api.post('/auth/logout', {}, {
+                    headers: { Authorization: `Bearer ${currentToken}` }
+                });
+            } catch (err) {
+                // Even if server call fails, we still clear the local session
+                console.error('Server logout failed:', err);
+            }
+        }
+
+        // 2. NOW clear local session (after server has confirmed unlock)
         localStorage.clear();
         setToken(null);
         setUser(null);
 
-        // 2. Stop the beacon in the background
+        // 3. Stop the BLE beacon in the background
         if (navigator.serviceWorker?.controller) {
             navigator.serviceWorker.controller.postMessage({ type: 'BEACON_STOP' });
-        }
-
-        // 3. Sync with server in the background (don't wait for it)
-        if (currentToken) {
-            api.post('/auth/logout', {}, {
-                headers: { Authorization: `Bearer ${currentToken}` }
-            }).catch(err => console.error('Background logout sync failed:', err));
         }
     };
 
