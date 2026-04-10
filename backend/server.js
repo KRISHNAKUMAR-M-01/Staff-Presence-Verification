@@ -2337,7 +2337,25 @@ app.post('/api/ble-data', async (req, res) => {
             return res.status(404).json({ error: 'Classroom not found for this ESP32 ID' });
         }
 
-        // ── STEP 5: ALWAYS Update Live Location ──────────────────────────────
+        // ── STEP 5: Check Leave Status ─────────────────────────────────────────
+        // We skip location updates and attendance if the staff member is on leave today.
+        const { todayStr, currentDay, currentTime, startOfToday, endOfToday } = getISTDateInfo();
+        const activeLeave = await Leave.findOne({
+            staff_id: staff._id,
+            status: 'approved',
+            start_date: { $lte: endOfToday },
+            end_date: { $gte: startOfToday }
+        });
+
+        if (activeLeave) {
+            console.log(`[BLE] 🚫 Ignored: ${staff.name} is on leave today (${activeLeave.leave_type})`);
+            return res.json({ 
+                status: 'ignored', 
+                message: `${staff.name} is currently on leave. Location not updated.` 
+            });
+        }
+
+        // ── STEP 6: ALWAYS Update Live Location ──────────────────────────────
         // This runs regardless of class schedule — so the dashboard always shows
         // where a staff member is, even outside class hours.
         await Staff.findByIdAndUpdate(staff._id, {
@@ -2349,9 +2367,8 @@ app.post('/api/ble-data', async (req, res) => {
         staffCache.delete(cleanUuid);
         console.log(`[BLE] 📍 ${staff.name} → ${classroom.room_name} | RSSI: ${avgRssi} dBm`);
 
-        // ── STEP 6: Check Timetable Permission for Attendance ────────────────
+        // ── STEP 7: Check Timetable Permission for Attendance ────────────────
         // Attendance is only marked when there is a scheduled class right now.
-        const { todayStr, currentDay, currentTime, startOfToday } = getISTDateInfo();
         const permission = await isStaffPermitted(staff._id, classroom._id);
 
         if (!permission.permitted) {
@@ -2368,7 +2385,7 @@ app.post('/api/ble-data', async (req, res) => {
 
         const slot = permission.slot;
 
-        // ── STEP 7: Attendance Tracking ──────────────────────────────────────
+        // ── STEP 8: Attendance Tracking ──────────────────────────────────────
         let attendance = await Attendance.findOne({
             staff_id: staff._id,
             classroom_id: classroom._id,
