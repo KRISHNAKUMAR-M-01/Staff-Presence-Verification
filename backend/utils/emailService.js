@@ -4,12 +4,15 @@ const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 
 const SENDER = {
-    name: process.env.EMAIL_FROM_NAME || 'Staff Presence Verification System',
-    email: process.env.EMAIL_USER || 'kriskanna17@gmail.com'
+    name: process.env.BREVO_SENDER_NAME || 'Staff Presence System',
+    email: process.env.BREVO_SENDER_EMAIL || 'kriskanna17@gmail.com'
 };
 
-// Log initialization
-console.log(`[Email] Brevo initialized | Sender: ${SENDER.email} | API Key: ${BREVO_API_KEY ? 'Present ✅' : 'MISSING ❌'}`);
+// Log initialization status for debugging on Render
+console.log(`\n--- 📧 EMAIL SERVICE STATUS ---`);
+console.log(`Sender: ${SENDER.name} <${SENDER.email}>`);
+console.log(`Brevo API Key: ${process.env.BREVO_API_KEY ? 'Found ✅' : 'MISSING ❌'}`);
+console.log(`--------------------------------\n`);
 
 /**
  * Core send function via Brevo API
