@@ -377,13 +377,16 @@ app.post('/api/auth/logout', async (req, res) => {
             return res.status(400).json({ error: 'Invalid token payload' });
         }
 
-        // Force-clear the session ID — this ALWAYS runs
-        await User.updateOne(
-            { _id: decoded.userId },
+        // Force-clear the session ID using a fresh ObjectId to ensure DB match
+        const mongoose = require('mongoose');
+        const targetId = new mongoose.Types.ObjectId(decoded.userId);
+
+        const result = await User.updateOne(
+            { _id: targetId },
             { $set: { currentSessionId: null, lastActivity: null } }
         );
 
-        console.log(`✅ SESSION CLEARED for userId: ${decoded.userId}`);
+        console.log(`✅ SESSION KILLED for user ${decoded.userId} | Modified: ${result.modifiedCount}`);
         return res.status(200).json({ message: 'Logged out successfully' });
     } catch (err) {
         console.error('Logout error:', err);

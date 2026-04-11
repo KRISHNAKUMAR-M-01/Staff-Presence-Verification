@@ -35,8 +35,7 @@ api.interceptors.response.use(
             if (window.location.pathname !== '/login') {
                 const token = localStorage.getItem('token');
                 if (token) {
-                    // Fire-and-forget server logout to release the session lock
-                    const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'https://staff-presence-backend.onrender.com') + '/api';
+                    // Force-clear the session in MongoDB BEFORE clearing local memory
                     fetch(`${baseUrl}/auth/logout`, {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${token}` },
