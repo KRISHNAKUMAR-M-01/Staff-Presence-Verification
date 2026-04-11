@@ -1880,6 +1880,16 @@ app.post('/api/staff/leave', authenticateToken, requireStaff, async (req, res) =
             return res.status(400).json({ error: 'Your user account is not linked to a staff record. Please contact an administrator.' });
         }
 
+        // --- PREVENT PAST DATE LEAVE ---
+        const { startOfToday } = getISTDateInfo();
+        const requestStartDate = new Date(start_date);
+        requestStartDate.setHours(0, 0, 0, 0);
+
+        if (requestStartDate < startOfToday) {
+            return res.status(400).json({ error: 'You cannot apply for leave on a past date. Please select today or a future date.' });
+        }
+        // --- END ---
+
         const leave = new Leave({
             staff_id: req.user.staff_id,
             start_date,

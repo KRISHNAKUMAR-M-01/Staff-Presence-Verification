@@ -25,6 +25,23 @@ const MyLeaves = () => {
             if (isSingleDay) {
                 data.end_date = data.start_date;
             }
+
+            // --- DATE VALIDATION ---
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const selectedDate = new Date(data.start_date);
+            selectedDate.setHours(0, 0, 0, 0);
+
+            if (selectedDate < today) {
+                return setModalConfig({
+                    isOpen: true,
+                    type: 'error',
+                    title: 'Invalid Date',
+                    message: `You cannot apply for leave on a past date (${selectedDate.toLocaleDateString()}). Please select a date starting from today onwards.`
+                });
+            }
+            // --- END ---
+
             await api.post('/staff/leave', data);
             setModalConfig({
                 isOpen: true,
