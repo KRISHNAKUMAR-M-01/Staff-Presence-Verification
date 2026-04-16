@@ -1626,10 +1626,11 @@ app.post('/api/staff/soft-beacon', authenticateToken, requireStaff, async (req, 
         }
 
         // 2b. OCCUPANCY CHECK: Is someone else already here?
-        const sixtySecondsAgo = new Date(Date.now() - 60000);
+        const OCCUPANCY_TIMEOUT_MS = 20000; // 20s (faster vacancy detection)
+        const twentySecondsAgo = new Date(Date.now() - OCCUPANCY_TIMEOUT_MS);
         const occupant = await Staff.findOne({
             last_seen_room: classroom._id,
-            last_seen_time: { $gte: sixtySecondsAgo },
+            last_seen_time: { $gte: twentySecondsAgo },
             _id: { $ne: staff._id } // Ignore the requester themselves
         });
 
@@ -1741,16 +1742,37 @@ app.post('/api/staff/soft-beacon', authenticateToken, requireStaff, async (req, 
     }
 });
 
+// Terminate live presence session — makes the room available IMMEDIATELY
+app.post('/api/staff/soft-beacon/stop', authenticateToken, requireStaff, async (req, res) => {
+    try {
+        const staff = await Staff.findById(req.user.staff_id);
+        if (!staff) return res.status(404).json({ error: 'Staff record not found.' });
+
+        // Clear live location markers
+        await Staff.findByIdAndUpdate(staff._id, {
+            $set: { 
+                last_seen_room: null,
+                last_seen_time: new Date(0) // Back-date so occupancy check sees it as long ago
+            }
+        });
+
+        console.log(`[Soft Beacon] 🛑 Session terminated for ${staff.name}`);
+        res.json({ message: 'Live presence terminated. Room is now vacant.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Get list of classrooms with real-time occupancy status
 app.get('/api/staff/classrooms', authenticateToken, requireStaffOrExecutive, async (req, res) => {
     try {
         const classrooms = await Classroom.find({}, 'room_name esp32_id room_uuid').lean();
         
         // Dynamic occupancy check: a room is "occupied" if any staff (except requester) 
-        // has it as their last_seen_room and was updated in the last 60 seconds.
-        const sixtySecondsAgo = new Date(Date.now() - 60000);
+        // has it as their last_seen_room and was updated in the last 20 seconds.
+        const twentySecondsAgo = new Date(Date.now() - 20000);
         const occupiedRooms = await Staff.find({
-            last_seen_time: { $gte: sixtySecondsAgo },
+            last_seen_time: { $gte: twentySecondsAgo },
             last_seen_room: { $ne: null }
         }).distinct('last_seen_room');
 

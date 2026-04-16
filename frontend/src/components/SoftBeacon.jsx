@@ -145,6 +145,15 @@ const MobileVerify = () => {
             clearInterval(heartbeatRef.current);
             heartbeatRef.current = null;
         }
+
+        // Inform the backend to clear the room status IMMEDIATELY
+        try {
+            await api.post('/staff/soft-beacon/stop');
+            console.log('✅ Room cleared on server.');
+        } catch (err) {
+            console.error('Failed to clear room status:', err);
+        }
+
         if (gattServerRef.current && gattServerRef.current.connected) {
             await gattServerRef.current.disconnect();
         }

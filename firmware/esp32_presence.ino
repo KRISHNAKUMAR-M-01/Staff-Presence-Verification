@@ -52,6 +52,11 @@ int        lastMobileRssi  = -50;
 esp_bd_addr_t current_remote_bda = {0};
 std::map<std::string, std::vector<int>> tagAccumulator;
 
+// ── Added for Connectivity Stability ──────────────────────────────────────────
+unsigned long lastConnectionTime = 0;
+const unsigned long CONNECTION_TIMEOUT = 45000; // 45s safety timeout for pairing
+bool shouldRestartAdvertising = false;
+
 // ── WiFi Helper ────────────────────────────────────────────────────────────────
 void ensureWiFi() {
     if (WiFi.status() == WL_CONNECTED) return;
@@ -130,6 +135,8 @@ class MobileMailbox : public BLECharacteristicCallbacks {
             esp_ble_gap_read_rssi(current_remote_bda);
             delay(100); // Brief wait for GAP callback
 
+            lastConnectionTime = millis(); // Refresh activity timer on data write
+
             // FIX: Only report if phone is within the room range
             if (lastMobileRssi < RSSI_THRESHOLD) {
                 Serial.printf("📱 [Mobile] Blocked: Signal too weak (%d dBm)\n", lastMobileRssi);
@@ -149,15 +156,15 @@ class ServerCallbacks : public BLEServerCallbacks {
         memcpy(current_remote_bda, param->connect.remote_bda, 6);
         mobileConnected = true;
         lastMobileRssi  = -50; // reset
+        lastConnectionTime = millis(); // Mark connection start
         Serial.println("📱 Mobile phone connected.");
         esp_ble_gap_read_rssi(current_remote_bda);
     }
 
     void onDisconnect(BLEServer* pSrv) override {
         mobileConnected = false;
-        Serial.println("📱 Mobile phone disconnected. Restarting advertising…");
-        delay(200);
-        pSrv->getAdvertising()->start();
+        shouldRestartAdvertising = true;
+        Serial.println("📱 Mobile phone disconnected. Queueing safe restart...");
     }
 };
 
@@ -260,9 +267,17 @@ void loop() {
     BLEScanResults* results = pBLEScan->start(SCAN_TIME, false);
     pBLEScan->clearResults();
 
-    // FIX: Restart advertising after scan finishes, so others can pair/connect
+    // RECOVERY: Restart advertising after scan finishes if no one is connected.
     if (!mobileConnected) {
-        BLEDevice::getAdvertising()->start();
+        if (shouldRestartAdvertising) {
+            delay(100); // Tiny pause for stack stability
+            BLEDevice::getAdvertising()->start();
+            shouldRestartAdvertising = false;
+            Serial.println("📱 [BLE] Advertising RESTARTED successfully.");
+        } else {
+            // Keep it alive
+            BLEDevice::getAdvertising()->start();
+        }
     }
 
     // Report any iBeacon tags found in this window
