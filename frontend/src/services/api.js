@@ -36,7 +36,7 @@ api.interceptors.response.use(
                 const token = localStorage.getItem('token');
                 if (token) {
                     // Force-clear the session in MongoDB BEFORE clearing local memory
-                    fetch(`${baseUrl}/auth/logout`, {
+                    fetch(`${API_URL}/auth/logout`, {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${token}` },
                         keepalive: true

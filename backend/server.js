@@ -321,9 +321,13 @@ app.post('/api/auth/login', async (req, res) => {
 
         // Generate unique session ID for single-session enforcement
         const sessionId = Date.now().toString() + Math.random().toString(36).substring(2);
-        user.currentSessionId = sessionId;
-        user.lastActivity = new Date();
-        await user.save();
+        
+        await User.findByIdAndUpdate(user._id, {
+            $set: {
+                currentSessionId: sessionId,
+                lastActivity: new Date()
+            }
+        });
 
         // Generate token with sessionId
         const token = generateToken(user._id, user.role, sessionId);
@@ -363,31 +367,43 @@ app.post('/api/auth/logout', async (req, res) => {
             return res.status(400).json({ error: 'No token provided' });
         }
 
-        // Decode the token WITHOUT strict validation — we just need the userId
+        // Decode the token — we need the userId to clear the session
         const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
         let decoded;
         try {
             decoded = jwt.verify(token, JWT_SECRET);
         } catch (e) {
-            // Even if token is expired/invalid, try to force-clear using the payload
             decoded = jwt.decode(token);
         }
 
         if (!decoded || !decoded.userId) {
+            console.error('❌ Logout Failed: Token has no userId');
             return res.status(400).json({ error: 'Invalid token payload' });
         }
 
-        // Force-clear the session ID using a fresh ObjectId to ensure DB match
-        const mongoose = require('mongoose');
-        const targetId = new mongoose.Types.ObjectId(decoded.userId);
-
-        const result = await User.updateOne(
-            { _id: targetId },
-            { $set: { currentSessionId: null, lastActivity: null } }
+        // Atomic update to clear ALL session and security markers
+        const updatedUser = await User.findByIdAndUpdate(
+            decoded.userId,
+            { 
+                $set: { 
+                    currentSessionId: null, 
+                    lastActivity: null,
+                    kickSessionOTP: null,
+                    kickSessionExpires: null,
+                    resetPasswordOTP: null,
+                    resetPasswordExpires: null
+                } 
+            },
+            { new: true }
         );
 
-        console.log(`✅ SESSION KILLED for user ${decoded.userId} | Modified: ${result.modifiedCount}`);
-        return res.status(200).json({ message: 'Logged out successfully' });
+        if (updatedUser) {
+            console.log(`✅ SESSION KILLED for user: ${updatedUser.email} (${decoded.userId})`);
+            return res.status(200).json({ message: 'Logged out successfully' });
+        } else {
+            console.error(`⚠️ Logout: User ${decoded.userId} not found in database.`);
+            return res.status(404).json({ error: 'User not found during logout' });
+        }
     } catch (err) {
         console.error('Logout error:', err);
         return res.status(500).json({ error: 'Logout failed' });
@@ -454,9 +470,13 @@ app.post('/api/auth/google-login', async (req, res) => {
 
         // Generate unique session ID for single-session enforcement
         const sessionId = Date.now().toString() + Math.random().toString(36).substring(2);
-        user.currentSessionId = sessionId;
-        user.lastActivity = new Date();
-        await user.save();
+        
+        await User.findByIdAndUpdate(user._id, {
+            $set: {
+                currentSessionId: sessionId,
+                lastActivity: new Date()
+            }
+        });
 
         // Generate token with sessionId
         const authToken = generateToken(user._id, user.role, sessionId);

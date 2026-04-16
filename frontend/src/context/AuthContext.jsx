@@ -54,20 +54,25 @@ export const AuthProvider = ({ children }) => {
         // Capture the token BEFORE clearing anything
         const currentToken = token || localStorage.getItem('token');
 
-        // 1. Tell the server to clear currentSessionId FIRST (so account is immediately unlocked)
+        // 1. Tell the server to clear session markers FIRST
         if (currentToken) {
             try {
+                // Use a direct axios call if needed, but api.post is already configured
                 await api.post('/auth/logout', {}, {
                     headers: { Authorization: `Bearer ${currentToken}` }
                 });
+                console.log('✅ Server-side logout successful');
             } catch (err) {
-                // Even if server call fails, we still clear the local session
-                console.error('Server logout failed:', err);
+                console.error('❌ Server logout failed:', err.response?.data || err.message);
             }
+        } else {
+            console.warn('⚠️ No token found during logout attempt');
         }
 
-        // 2. NOW clear local session (after server has confirmed unlock)
-        localStorage.clear();
+        // 2. NOW clear local session
+        console.log('🧹 Clearing local session state...');
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
         setToken(null);
         setUser(null);
 

@@ -8,8 +8,11 @@ This document contains clear descriptions and **Mermaid.js code** for the four m
 **Purpose**: Shows the interactions between the main users (Actors) and the system.
 **Actors**: Admin, Staff, ESP32 Receiver (Hardware Actor).
 
+### Academic Explanation for Report:
+Figure 6.1 presents the Use Case Diagram showing the interactions between the Administrator, Staff, and hardware ESP32 nodes. The Administrator manages staff profiles and timetables, while the Staff Member broadcasts BLE identity signals. The ESP32 node acts as an automated gateway that scans proximate tags to trigger context-aware attendance logging or substitution alerts based on schedule matching.
+
 ### Description to tell the AI:
-*"Create a Use Case diagram where the Admin can Add Staff, Assign Timetables, and View Reports. The Staff carries a BLE Tag. The ESP32 Receiver actively Scans the Tags and Forwards the Data constraint to the Backend System which Checks the Timetable and Marks Attendance."*
+*"Create a Use Case diagram where the Admin can Add Staff, Assign Timetables, and View Reports. The Staff carries a BLE Tag. The ESP32 Receiver actively Scans the Tags and Forwards the Data constraint to the Backend System which Checks the Timetable and Marks Attendance. **Crucially, specify the arrow types:** use solid arrows (`-->`) for standard actor-to-use-case associations, and dotted arrows (`.->`) for includes/extends dependencies (e.g., between the BLE signal and detection)."*
 
 ### Mermaid Code:
 ```mermaid
@@ -48,8 +51,11 @@ usecaseDiagram
 ## 2. Class Diagram
 **Purpose**: Represents the structure of the system through classes, their attributes, and relationships.
 
+### Academic Explanation for Report:
+Figure 6.2 illustrates the system structure and static relationships between the core entity classes. The diagram defines the associations between the `Admin`, `Staff`, `Classroom`, `Timetable`, and `Attendance` modules. Each `Staff` member is linked to multiple `Attendance` and `Timetable` records, while the `Classroom` class maps physical hardware IDs to scheduled academic sessions.
+
 ### Description to tell the AI:
-*"Draw a Class Diagram for a Node.js/MongoDB backend. The main classes are Admin, Staff, Classroom, Timetable, and Attendance. Staff has a 1-to-Many relationship with Timetable and Attendance. Admin manages Staff and Timetables."*
+*"Draw a Class Diagram for a Node.js/MongoDB backend. The main classes are Admin, Staff, Classroom, Timetable, and Attendance. Staff has a 1-to-Many relationship with Timetable and Attendance. Admin manages Staff and Timetables. **For the connections:** use solid association lines (`--`) without arrows to connect the classes, including cardinality labels like '1' and '*' at the ends of the lines."*
 
 ### Mermaid Code:
 ```mermaid
@@ -108,8 +114,11 @@ classDiagram
 ## 3. Sequence Diagram
 **Purpose**: Shows the step-by-step time sequence of how a staff member walks into a room and gets marked present.
 
+### Academic Explanation for Report:
+Figure 6.3 details the sequence of events during a proximity-based BLE handshake. The process begins with the Staff Tag broadcasting a UUID, which is captured and filtered by the ESP32 node. The backend then performs a real-time database query to verify authorization; if the schedule matches, the presence is logged, and the status is pushed to the administrative dashboard.
+
 ### Description to tell the AI:
-*"Generate a Sequence Diagram. Staff enters the room with a Tag. ESP32 detects the tag and sends HTTP POST to the Backend. Backend queries MongoDB for the Timetable. If scheduled, Backend writes Attendance. Dashboard fetches the update via API."*
+*"Generate a Sequence Diagram. Staff enters the room with a Tag. ESP32 detects the tag and sends HTTP POST to the Backend. Backend queries MongoDB for the Timetable. If scheduled, Backend writes Attendance. Dashboard fetches the update via API. **For the arrows:** use solid arrows with filled heads (`->>`) for synchronous requests/actions, and use dotted arrows with filled heads (`-->>`) for asynchronous responses or returning data."*
 
 ### Mermaid Code:
 ```mermaid
@@ -145,8 +154,11 @@ sequenceDiagram
 ## 4. Activity Diagram
 **Purpose**: Shows the flow of execution from the system's start to the end.
 
+### Academic Explanation for Report:
+Figure 6.4 depicts the end-to-end logic flow for attendance verification. The activity starts with hardware scanning and RSSI threshold validation to ensure room-level precision. The system then branches into either marking "Present" for authorized staff or triggering "Substitution Alerts" for scheduled absences, ensuring continuous organizational accountability.
+
 ### Description to tell the AI:
-*"Create an Activity flow chart. Start. ESP32 Scans BLE. Is RSSI stronger than threshold? If No, Ignore. If Yes, send to Server. Server checks Timetable. Does Schedule Match? If Yes, Mark Present. If No: Is Teacher Absent? If Yes, send Substitution Alert. End."*
+*"Create an Activity flow chart. Start. ESP32 Scans BLE. Is RSSI stronger than threshold? If No, Ignore. If Yes, send to Server. Server checks Timetable. Does Schedule Match? If Yes, Mark Present. If No: Is Teacher Absent? If Yes, send Substitution Alert. End. **For the arrows:** use standard solid directional arrows (`-->`) for the main flow of execution, and use directional arrows with text properties (e.g., `-- Yes -->` or `-- No -->`) for decision branches."*
 
 ### Mermaid Code:
 ```mermaid

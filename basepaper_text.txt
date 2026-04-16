@@ -1,0 +1,400 @@
+International Multidisciplinary Research Journal Reviews (IMRJR)  
+A Peer-reviewed journal 
+Volume 2, Issue 8, August 2025 
+DOI 10.17148/IMRJR.2025.020807 
+Copyright to IMRJR                                                            imrjr.com                                                                  Page | 44 
+International 
+Multidisciplinary 
+Research Journal 
+Reviews (IMRJR) 
+ 
+Smart Attendance System with  
+Facial Recognition and GPS Verification 
+ 
+Bramesh S M1, Arun P2, Deekshith H R3 
+Associate Professor, Department of Information Science & Engineering, P.E.S. College of Engineering, Mandya, India1 
+Student, Department of Information Science & Engineering, P.E.S. College of Engineering, Mandya, India2 
+Student, Department of Information Science & Engineering, P.E.S. College of Engineering, Mandya, India3 
+ 
+Abstract: Nowadays student attendance tracking is very important for improving academic outcomes, promoting student 
+engagement, and enhancing overall school and or college operations. However, most of the existing systems are using 
+single-authentication  mechanism  for  example  Biometric  or  GPS  for  attendance  tracking.  This  paper  presents  a  dual-
+authentication  mechanism  by integrating  facial  recognition and  geo-location  verification to  address  the  limitations  of 
+traditional and or single-factor attendance mechanisms. The proposed system uses computer vision techniques to detect 
+and recognise  faces in real time  and also uses GPS -based  distance estimates from pre-defined classroom locations to 
+verify  the  students'  physical  presence  in  real  time.  Also,  the  proposed  system  has  been  investigated  in  real  time  by 
+considering one classroom of 10 students in a college campus and four sessions per day where each session is of one 
+hour. Finally, the proposed mechanism is a reliable and flexible solution for current educational setti  ngs because of its 
+modular  construction,  which  enables  future  scalability,  including  interaction  with  institutional  systems  and  extra 
+biometric features.  
+ 
+Keywords: Biometric, RFID Tags, IoT, Smart card, Attendance management system, Geo-location, Face Recognition. 
+ 
+I.           INTRODUCTION  
+ 
+Attendance  tracking  is  crucial  in  academic  institutions  for  promoting  student  success,  ensuring  accountability,  and 
+supporting data -driven decision -making. It fosters a disciplined learning environment, helps to identify at   -risk students 
+for early interven tion, and also aids compliance with regulatory standards. However, the traditional attendance tracking 
+mechanisms  like  paper-based  sign-in  sheets  and  roll  calls,  were  time-consuming  and  also  prone  to  errors  like  proxy 
+attendance and manual recording errors . 
+ 
+On the other hand, with the rise of automation, academic institutions are moving towards systems that increase efficiency 
+and accuracy by minimizing manual errors, saving faculty time, and offering real  -time monitoring and analytics. Hence, 
+there is need for the development of more dependable and effective attendance tracking systems. This paper has addressed 
+this  by  proposing  a  smart  attendance  system,  which  integrates  Global  Positioning  System  (GPS)  for  student  location 
+verification and facial recognition  for student recognition.  
+ 
+The rest of the paper is organized as follows:  
+Section II presents the existing literature, section III discusses the methodology used to develop the proposed system, 
+and section  IV concludes the paper.  
+ 
+II.         LITERATURE
+ 
+REVIEW 
+ 
+To ensure  comprehensive  and high-quality research, IEEE Xplore, Google Scholar, and Research Gate databases has 
+been utilized. The keywords used for searching the research articles for our study include “Attendance Management”, 
+“Automated Student Attendance”, “Automated Student Attendance Systems”.  Also, research articles published from the 
+year 2014 to 2024 has been investigated to provide a comprehensive foundation for understanding the current state of 
+automated student attendance systems and to identif y the essential areas for future research.   
+The below sections discuss the automated student attendance systems in the literature by classifying it into four categories 
+based on the technologies used to build them.  
+A.           Biometric based Attendance Management Systems 
+Several facial recognition-based attendance management systems has been developed using technologies like OpenCV, 
+TensorFlow,  and  Local  Binary  Pattern  Histogram  (LBPH),  leveraging  platforms  such  as  NVIDIA  Jetson  Nano  and 
+Python in the literature. Some of the recently developed systems are discussed below: 
+Nguyen-Tat et. al (2024) [1]: This study introduces an attendance management system based on facial recognition using 
+the Haar Cascade algorithm combined with OpenCV2 and running on an NVIDIA Jetson Nano. The system captures and 
+----------------Page (0) Break----------------
+International Multidisciplinary Research Journal Reviews (IMRJR)  
+A Peer-reviewed journal 
+Volume 2, Issue 8, August 2025 
+DOI 10.17148/IMRJR.2025.020807 
+Copyright to IMRJR                                                            imrjr.com                                                                  Page | 45 
+International 
+Multidisciplinary 
+Research Journal 
+Reviews (IMRJR) 
+ 
+processes  facial  images  via  a  Raspberry  Pi  Camera  and  matches  them  with  pre-registered  images  in  a  database  for 
+attendance  tracking.  This  setup  is  optimized  for  accuracy  and  efficiency  in  resource-constrained  environments.  The 
+system achieved 85% accuracy  under normal conditions, with accuracy improving to 93% when larger datasets were 
+used. It efficiently handled attendance tracking in real-time, generating reports and allowing monitoring. However, the 
+system faced challenges with low-light conditions and mask detection, where accuracy dropped to 56%. It also required 
+significant Central Processing Unit (CPU) and Random Accesses Memory (RAM) resources on the Jetson Nano, and 
+training times were long, especially with larger datasets, which could affect scalability in larger organizations. 
+ 
+Yose et. al (2024) [2]: Proposed the system, which uses face recognition with masked face detection and real-time video 
+processing on Jetson Nano. Key technologies include TensorFlow, OpenCV, and PyQt5 for the Graphical User Interface 
+(GUI). The Jetson Nano is employed as the processing module, and experiments are conducted using a 1080p camera, 
+with  face  recognition  algorithms  classifying  masked  and  non-masked  faces.  Data  is  processed  by  detecting  faces, 
+extracting  features,  and  matching  them  with  a  stored  database.  The  system  performs  well  under  limited  hardware 
+resources, with an average frame capture rate of 3 -4 frames per second when a face is detected. Execution time varies 
+between 15 to 22 seconds on Jetson Nano, depending on the number of images in t   he database. The system is highly 
+compatible  and  can  be  implemented  in  various  environments  with  minimal  physical  interaction,  making  it  ideal  for 
+attendance tracking. The system’s frame capture rate decreases significantly with face detection due to limited hardware 
+resources, affecting performance. The Jetson Nano’s limitations in handling large databases lead to slower execution 
+times compared to more powerful systems. 
+ 
+B.           IoT based  Attendance Management Systems 
+In this section, some of the attendance management systems developed in the literature using technologies like IoT, Quick 
+Response (QR) code authentication, and facial recognition has been discussed.   
+Nazren et. al (2024) [3]: This study develops a school attendance management system that uses facemask recognition, 
+QR code authentication, and temperature detection, all integrated through a Raspberry Pi. The system captures student 
+data  when  they  enter  the  school,  ensuring  that  they  are  wearing  a  facemask,  scans  their  temperature,  and  logs  their 
+attendance via a QR code. The data is stored in Google Sheets for real  -time monitoring through an Android smartphone 
+application.  Also,  the  system  successfully  tracks  student  attendance  while  enforcing  COVID-19  safety  protocols.  It 
+detects mask usage and temperature and logs attendance automatically, with the data being stored in both Google Sheets 
+(online database) and LibreOffice Calc (offline backup). The attend  ance system provides accurate real -time monitoring 
+for teachers, viewable on a smartphone. Some limitations include the dependency on internet connectivity for real    -time 
+data storage in Google Sheets, and potential errors in facemask detection due to varyi   ng lighting conditions or improper 
+mask usage. Additionally, the system’s reliance on QR codes may introduce logistical issues if students forget or misplace 
+their codes.  
+ 
+D. Narendar Singh et. al [4]: This study presents an IoT-based automated attendance system combining facial recognition 
+for students and RFID technology for faculty. It employs Raspberry Pi for face detection, Amazon Web Services (AWS) 
+for cloud processing, and RFID for faculty authentication. Attendance data i  s stored in a cloud database, accessible via a 
+web application, with notifications sent to parents and administrators for absences. Also, the system provides automated 
+and  accurate  attendance  tracking  with  real-time  updates.  Attendance  data  is  accessible  via  a  web  application,  and 
+notifications are sent to parents and administrators in case of absences. The implementation involves significant hardware 
+costs, and the system’s facial recognition relies heavily on high-quality image capture, which may be impac ted. 
+ 
+C.           Smart ID Card based  Attendance Management Systems 
+Several  researchers  have  utilized  geofencing  and  mobile  app  interfaces  to  automate  attendance  tracking  by  verifying 
+employee presence within a defined location, ensuring accuracy and reducing manual errors. Some of these systems is 
+discussed below:  
+Nazara  et.  al  (2024)  [5]:  This  paper  focuses  on  employee  attendance  system  using  Location-Based  Services  (LBS) 
+combined with Global Positioning System (GPS) and the Rapid Application Development (RAD) method. Employees 
+can mark attendance via their smartph  ones based on their location within a specified radius. The system captures real    -
+time data, which is stored in a company database for accurate tracking. The RAD approach is used to iteratively prototype 
+and  develop  the  system,  ensuring  user  feedback  and  ra pid  improvements.  The  system  successfully  improved  the 
+efficiency of employee attendance management by reducing manual errors and streamlining the process. Employees were 
+able to mark their attendance remotely within the predetermined location, and the dat    a was accurately recorded in real -
+time. This also provided managers with immediate access to attendance records and enabled them to track employees on 
+external service. The system depends on GPS accuracy and internet connectivity for optimal functionality,     which could 
+pose  challenges  in  areas  with  poor  signal  or  connectivity.  Additionally,  it  requires  employees  to  always  have  their 
+smartphones with them and fully charged, potentially causing issues in case of device failure or battery depletion.    
+ 
+----------------Page (1) Break----------------
+International Multidisciplinary Research Journal Reviews (IMRJR)  
+A Peer-reviewed journal 
+Volume 2, Issue 8, August 2025 
+DOI 10.17148/IMRJR.2025.020807 
+Copyright to IMRJR                                                            imrjr.com                                                                  Page | 46 
+International 
+Multidisciplinary 
+Research Journal 
+Reviews (IMRJR) 
+ 
+Aisyah et al. (2022) [6]: This paper focuses on developing a GPS-based attendance system that tracks employees’ real-
+time  locations.  The  system  ensures  that  employees  can  mark  their  attendance  only  when  they  are  within  a  defined 
+geofenced radius around the workplace. It utilizes GPS technology to verify employee location and a mobile app interface 
+for  employees  to  log  in.  The  data  collected,  such  as  employee  ID,  timestamp,  and  location,  is  stored  in  a  centralized 
+database, allowing real-time monitoring and attendance management. The system effectively ensures that employees are 
+physically  present  at  the  designated  workplace  when  marking  attendance.  By  automating  the  attendance  process,  it 
+reduces  manual  errors  and  improves  discipline  among  employees.  The  system  also  provides  real-time  data,  enabling 
+management to access attendance records instantly, and it reduces the administrative workload by removing the need for 
+manual attendance tracking. The system faces limitations such as GPS accuracy issues, especial  ly in areas with weak 
+signal or poor coverage. This could lead to false negatives, where employees are incorrectly marked as absent if their 
+location is not detected accurately. Additionally, the reliance on smartphones for marking attendance means employees 
+must  have  fully  functional  devices  with  adequate  battery  life  and  GPS  functionality,  which  could  cause  occasional 
+disruptions. 
+ 
+D.           RFID based Attendance Management Systems 
+This section discusses, some of the attendance management systems developed in the literature by combining RFID tags, 
+readers, and cloud-based or web-enabled. 
+Srinidhi MB et. al  (2015) [7]: This paper focuses on developing a web -enabled attendance system that integrates RFID 
+technology with biometric fingerprint scanning. Attendance is recorded when RFID tags and fingerprints are validated 
+against  a  secure  database.  The  system  features  Short  Message  Service  (SMS)  and  email  notifications  to  parents  and 
+provides  detailed  performance  analytics.  Despite  its  efficiency,  the  implementation  involves  high  costs  and  system 
+complexity. Combining biometric fingerprint scanning and RFID technology, the system features a four-tier architecture 
+for  secure  attendance  tracking.  Attendance  is  marked  when  users  scan  their  RFID  tags and  fingerprints  at designated 
+readers.  The  system  includes  SMS  and  email  notifications  for  parents  and  generates  attendance  graphs  to  monitor 
+performance.  The  system  automates  attendance  tracking,  reduces  manual  errors,  and  provides  real-time  monitoring 
+through  a  web-enabled platform.  It  enhances  communication  between  institutions  and  parents  while  offering  detailed 
+performance reports. Implementation involves high costs due  to hardware requirements. The  integration of RFID and 
+biometric systems adds complexity, requiring advanced maintenance and setup. 
+ 
+Rizwan Qureshi (2020) [8]: This paper introduces an RFID -based attendance system implemented at King Abdul -Aziz 
+University. Using RFID tags and readers, the system automates attendance tracking, reducing administrative workload. 
+It  features  mobile  and  web interfaces  for  real-time  monitoring  and  sends  SMS  alerts  to  parents.  While  efficient,  the 
+system’s setup requires significant initial costs and hardware reliability. The system uses RFID technology to automate 
+attendance tracking. Each student is issued an RFID tag, and attendance is logged automatically when they interact with 
+RFID readers placed across the campus. The system includes web and mobile interfaces for monitoring and generating 
+attendance  reports.  SMS  alerts  are  sent  to  parents  in  case  of  absences.  The  system  streamlines  attendance  tracking, 
+reducing administrative workload while enhancing efficiency. It’s mobile and web interfaces provide real-time  data 
+access for teachers and parents. The system’s initial setup is costly, requiring the installation of RFID readers and issuing 
+RFID tags. It is also dependent on reliable hardware and consistent RFID reader availability. 
+ 
+TABLE I   COMPARISON OF ATTENDANCE MANAGEMENT SYSTEMS 
+ 
+Sl. 
+No. 
+Attendance 
+Management 
+System 
+Technologies Used            Benefits                      Challenges              Research Gaps 
+1      Biometric based 
+Haar Cascade, 
+OpenCV, 
+TensorFlow, LBPH 
+High accuracy (85-
+93%), Compatibility, 
+real-time data 
+Poor lighting, 
+occlusions, costly 
+hardware, mask 
+detection 
+Robust mask 
+detection, scalability, 
+algorithm 
+improvement 
+2      IoT based 
+Facial Recognition, 
+Raspberry Pi, 
+Sensors, 
+Cloud 
+Real-Time 
+Monitoring, Parental 
+Alerts 
+Internet Dependency, 
+costly hardwar, 
+Lighting Dependence 
+Robustness, 
+Scalability, Privacy, 
+Cost 
+3 
+Smart ID card 
+based 
+GPS, LBS, 
+Geofencing, Android 
+/ Mobile App 
+Mobility, Real-Time 
+Monitoring 
+GPS / Internet 
+Dependence, Weak 
+signal limitations 
+Device Independence, 
+Battery Optimization, 
+Accuracy 
+4      RFID based 
+Facial Recognition, 
+RFID, Cloud, 
+Android App 
+Real-Time 
+Monitoring, Parental 
+Alerts 
+Lighting issues, 
+Hardware issues, 
+Costly Setup 
+Robustness, 
+Scalability, Privacy, 
+Cost 
+ 
+----------------Page (2) Break----------------
+International Multidisciplinary Research Journal Reviews (IMRJR)  
+A Peer-reviewed journal 
+Volume 2, Issue 8, August 2025 
+DOI 10.17148/IMRJR.2025.020807 
+Copyright to IMRJR                                                            imrjr.com                                                                  Page | 47 
+International 
+Multidisciplinary 
+Research Journal 
+Reviews (IMRJR) 
+ 
+Table I summarizes all four types of attendance management systems discussed above based on technologies, benefits, 
+challenges,  and  research  gaps.  From  Table  I,  it  can  be  observed  that  some  researchers  have  developed  attendance 
+management systems using hybrid approaches, for example, they have used face recognition (Biometric based) with IoT, 
+face recognition with RFID. However, this paper focused on developing a smart attendance system using face recognition 
+and GPS of students. 
+ 
+III.        METHODOLOGY
+ 
+USED 
+ 
+This section describes the components and methodology used to develop the proposed system.   
+ 
+TABLE III   COMPONENTS USED 
+ 
+Sl. No.                            Component Name                                         Photo 
+1          Raspberry Pi 5 Camera Module 3 Wide 
+ 
+2           NEO-6M V2 
+ 
+3           Raspberry Pi Pico 
+ 
+4           Raspberry Pi 5 Model 4GB   
+ 
+ 
+Table II summarizes the key hardware components used to build the proposed system. 
+ 
+ 
+ 
+Fig. 1  Hardware setup of the proposed system 
+ 
+Fig. 1 shows the hardware setup of the proposed system where all the components listed in Table II are connected and 
+ready for use. The Raspberry Pi 5 is connected to the Raspberry Pi Camera Module 3 Wide using a cable, which allows 
+the system to capture facia l images. The Raspberry Pi Pico is placed on a breadboard and is connected to the NEO   -6M 
+V2 GPS module for location tracking. All the modules are powered and linked through proper wiring, ensuring smooth 
+communication  between  components.  This  setup  enables  both  facial  recognition  and  geo-location-based  attendance 
+verification. 
+----------------Page (3) Break----------------
+International Multidisciplinary Research Journal Reviews (IMRJR)  
+A Peer-reviewed journal 
+Volume 2, Issue 8, August 2025 
+DOI 10.17148/IMRJR.2025.020807 
+Copyright to IMRJR                                                            imrjr.com                                                                  Page | 48 
+International 
+Multidisciplinary 
+Research Journal 
+Reviews (IMRJR) 
+ 
+ 
+Fig. 2  Flowchart of the proposed system 
+ 
+As shown in the Fig. 2, the proposed system marks the student attendance based on the face and location information of 
+a student in a straightforward and sequential manner. Firstly the system will be initialised and then retrieve the student's 
+current GPS position. Once the system determines that the student is inside the permitted location range (for example, on 
+a  college  campus  or a  class), then it  takes  a  picture  of the student's face. The  taken image  is then compared with the 
+current facial data contained in the database.  If the face matches, the system s tamps the attendance as present  for that 
+particular student for that particular class. Also, the system attempts up to three times if it fails to match the photo. Finally, 
+the system records the attendance as absent if none of the attempts are successful or if the location is not confirmed at 
+the beginning stage itself. 
+ 
+----------------Page (4) Break----------------
+International Multidisciplinary Research Journal Reviews (IMRJR)  
+A Peer-reviewed journal 
+Volume 2, Issue 8, August 2025 
+DOI 10.17148/IMRJR.2025.020807 
+Copyright to IMRJR                                                            imrjr.com                                                                  Page | 49 
+International 
+Multidisciplinary 
+Research Journal 
+Reviews (IMRJR) 
+ 
+ 
+Fig. 3  Attendance Window 
+ 
+The proposed system creates a report for record  -keeping after the attendance has been registered as present or absent. 
+Additionally, a successful test of the proposed system was conducted by considering four sessions per day attendance 
+pattern. 
+ 
+IV.
+      
+CONCLUSION 
+ 
+This research has demonstrated the effectiveness of the proposed system in addressing traditional attendance tracking 
+challenges  through  a  dual-authentication  approach  (combining  facial  recognition  and  GPS  verification).  The  facial 
+recognition component su ccessfully identifies students by processing images captured through a camera interface and 
+comparing them against pre -trained face encodings. Our approach of capturing multiple images per person with varying 
+expressions and angles proved crucial for impro   ving recognition accuracy. The system efficiently processes real    -time 
+video frames, allowing for effective face detection and matching. GPS verification serves as an effective second layer of 
+authentication, calculating the distance between the student and  the designated location. This approach directly addresses 
+the proxy attendance problem, as physical presence verification makes it nearly impossible to falsify attendance. Future 
+research should concentrate on adding more security features for the locatio   n verification part.  In summary, compared 
+to conventional approaches, our proposed system offers educational institutions a more dependable, effective, and secure 
+solution, marking a substantial advancement in attendance management technology.   
+ 
+REFERENCES 
+ 
+[1].  Nguyen-Tat, B. T., Bui, M. Q., & Ngo, V. M. (2024). Automating attendance management in human resources: A 
+design  science  approach  using  computer  vision  and  facial  recognition.  International  Journal  of  Information 
+Management Data Insights, 4(2), 100253.  
+[2].  Yose, E., Victor, V., & Surantha, N. (2024). Portable smart attendance system on Jetson Nano. Bulletin of Electrical 
+Engineering and Informatics, 13(2), 1050 -1059. 
+[3].  Nazren, A. R. A., Shafie, M. S., Abdullah, W. A. N. W., Jais, M. I., Ismail, I., Nasrudin, M. W., & Isa, C. M. N. C. 
+(2024, February). A school attendance management system by using facemask recognition based on the internet of 
+things (IoT) approach. In AI P Conference Proceedings (Vol. 2898, No. 1). AIP Publishing.  
+[4].  Singh, D. N., Sri, M. K., & Mounika, K. (2019). IOT based automated attendance with face  recognition system. 
+International Journal of Innovative Technology and Exploring Engineering, 8(6S4), 450  -456. 
+[5].  Nazara, E. M., & Nasien, D. (2024). Employee Attendance System Using Rapid Application Development Method 
+Based on Location Based Service. Journal of Applied Business and Technology, 5(2), 96 104.   
+[6].  Uddin, M. S., Allayear, S. M., Das, N. C., & Talukder, F. A. (2014). A location based time and attendance system. 
+International journal of computer theory and engineering, 6(1), 36.  
+----------------Page (5) Break----------------
+International Multidisciplinary Research Journal Reviews (IMRJR)  
+A Peer-reviewed journal 
+Volume 2, Issue 8, August 2025 
+DOI 10.17148/IMRJR.2025.020807 
+Copyright to IMRJR                                                            imrjr.com                                                                  Page | 50 
+International 
+Multidisciplinary 
+Research Journal 
+Reviews (IMRJR) 
+ 
+[7].  Srinidhi, M. B., & Roy, R. (2015, January). A web enabled secured system for attendance monitoring and real time 
+location  tracking  using  Biometric  and  Radio  Frequency  Identification  (RFID)  technology.  In  2015  international 
+conference on computer communication and informatics (ICCCI) (pp. 1-5). IEEE. 
+[8].  Qureshi,  M.  (2020).  The  proposed  implementation  of  RFID  based  attendance  system.  International  Journal  of 
+Software Engineering & Applications (IJSEA), 11(3). 
+[9].  Madane, R., Pawar, S., Sangrampatle, S., Rode, A., & Pawar, Y. (2024). Attendance management system using face 
+recognition. Industrial Management Advances, 2(1). 
+[10].      Reddy, K. M., & Chandrakanth, Y. (2024). Smart Attendance System. 
+[11].      Nagothu, S. K., & Anitha, G. (2016). GPS aided autonomous monitoring and attendance system. Procedia   
+       Computer Science, 87, 99 104. 
+[12].      Nguyen, H. K., & Chew, M. T. (2017, February). RFID-based attendance management system. In 2017 2nd  
+       Workshop on Recent Trends in Telecommunications Research (RTTR) (pp. 1-6). IEEE. 
+[13].      https://core-electronics.com.au/guides/raspberry-pi/face-recognition-with-raspberry-pi-and-opencv/  
+[14].      https://core-electronics.com.au/guides/raspberry-pi-pico/how-to-add-gps-to-a-raspberry-pi-pico/  
+[15].      https://sih.gov.in/sih2024PS   (Problem statement 1707). 
+----------------Page (6) Break----------------
